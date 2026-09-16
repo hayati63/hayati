@@ -1,0 +1,362 @@
+//@version=5
+// =====================================================================================
+// LVN Clarity Cascade — AUTOMATED v1
+// =====================================================================================
+// Automates the manual workflow of the "LVN Cascade — یک اسکریپت برای همه‌ی مراحل" tool:
+// instead of copying the LVN low/high by hand from Daily -> 4H -> 1H -> 15m -> 5m -> 1m,
+// this single script (attached to a 1-minute chart) runs the whole chain itself, once
+// per newly closed top-stage candle, so you can backtest many instances at once.
+//
+// The algorithm at every stage is UNCHANGED from your manual script:
+//   - Midpoint binning (each M1 candle's volume goes into the bucket its (H+L)/2 falls
+//     in) — not the proportional-overlap distribution used in your other indicators.
+//   - Row count searched from minBuckets up to maxBuckets; the row count with the
+//     highest "clarity" (how far the thinnest bucket sits below the average of the
+//     others, as a %) wins; search stops early once clarity crosses gapThreshold.
+//   - Moving down a stage requires the FIRST (chronologically) lower-TF candle whose
+//     own range (body or full range, per coverageMode) fully CONTAINS the current
+//     zone — a containment rule, not a best-overlap rule.
+//   - No directional bias is assumed anywhere in the cascade. Direction is decided
+//     ONLY at the very end, by how price reaches the final zone: from above -> BUY,
+//     from below -> SELL (mean-reversion / reaction logic, exactly like your manual
+//     script's fromAbove/fromBelow check using the previous candle's close).
+//
+// Attach to a 1-MINUTE chart.
+// =====================================================================================
+
+indicator("LVN Clarity Cascade — Automated v1", shorttitle = "LVN-Clarity-Auto-v1", overlay = true,
+     max_boxes_count = 500, max_labels_count = 500)
+
+// ============================= INPUTS =============================
+grpTF = "Cascade"
+topChoice = input.string("Daily", "Start the cascade at this timeframe", options = ["Daily", "4 Hour", "1 Hour", "15 Minute", "5 Minute"], group = grpTF)
+
+grpVP = "Volume profile (clarity search)"
+minBucketsInput   = input.int(3, "حداقل تعداد ردیف", minval = 2, maxval = 10, group = grpVP)
+maxBucketsInput   = input.int(8, "حداکثر تعداد ردیف", minval = 3, maxval = 15, group = grpVP)
+gapThresholdInput = input.float(40.0, "حداقل درصد وضوح دره", minval = 10.0, maxval = 90.0, group = grpVP)
+
+grpCov = "Stage transition"
+coverageMode = input.string("کل کندل (شامل سایه)", "نوع تشخیص پوشش", options = ["Body دقیق", "کل کندل (شامل سایه)"], group = grpCov)
+
+grpHist = "History buffers"
+M1_HISTORY_CAP = input.int(50000, "Max M1 bars kept in memory", minval = 2000, maxval = 100000, group = grpHist)
+TF_HISTORY_CAP = input.int(3000, "Max bars kept per stage buffer", minval = 200, maxval = 20000, group = grpHist)
+
+grpVis = "Visualisation"
+showLabels = input.bool(true, "Show detail labels", group = grpVis)
+showDebugInfo = input.bool(true, "Show clarity %/row-count on each stage label", group = grpVis)
+
+topIdx = topChoice == "Daily" ? 2 : topChoice == "4 Hour" ? 3 : topChoice == "1 Hour" ? 4 : topChoice == "15 Minute" ? 5 : 6
+
+// ============================= WARNING IF NOT ON M1 =============================
+if barstate.islast and timeframe.period != "1"
+    label.new(bar_index, high, "⚠ این اسکریپت را روی تایم‌فریم 1 دقیقه بچسبانید",
+         style = label.style_label_down, color = color.new(color.red, 0), textcolor = color.white, size = size.large)
+
+// ============================= ROLLING M1 HISTORY =============================
+var m1Time  = array.new_int(0)
+var m1TClo  = array.new_int(0)
+var m1Open  = array.new_float(0)
+var m1High  = array.new_float(0)
+var m1Low   = array.new_float(0)
+var m1Close = array.new_float(0)
+var m1Vol   = array.new_float(0)
+
+if barstate.isconfirmed
+    array.push(m1Time, int(time))
+    array.push(m1TClo, int(time) + 60000)
+    array.push(m1Open, open)
+    array.push(m1High, high)
+    array.push(m1Low, low)
+    array.push(m1Close, close)
+    array.push(m1Vol, volume)
+    if array.size(m1Time) > M1_HISTORY_CAP
+        array.shift(m1Time), array.shift(m1TClo), array.shift(m1Open), array.shift(m1High), array.shift(m1Low), array.shift(m1Close), array.shift(m1Vol)
+
+// ============================= RUNG TYPE + HELPERS =============================
+type Rung
+    array<int> t
+    array<int> tc
+    array<float> o
+    array<float> h
+    array<float> l
+    array<float> c
+    array<float> v
+    string label
+
+f_slice(arr, startIdx, cnt) =>
+    out = array.new_float(0)
+    for i = startIdx to startIdx + cnt - 1
+        array.push(out, array.get(arr, i))
+    out
+
+f_m1Range(fromT, toT) =>
+    n = array.size(m1Time)
+    startIdx = -1
+    endIdx = -1
+    for i = 0 to n - 1
+        t = array.get(m1Time, i)
+        if t >= fromT and t < toT
+            if startIdx == -1
+                startIdx := i
+            endIdx := i
+    [startIdx, endIdx]
+
+// ----- the exact clarity/midpoint-binning algorithm from the manual script -----
+f_valleyClarity(hiArr, loArr, volArr, minB, maxB, gapThresh) =>
+    n = array.size(hiArr)
+    float barHigh = n > 0 ? array.max(hiArr) : na
+    float barLow  = n > 0 ? array.min(loArr) : na
+    float bestClarity = -1.0
+    int   bestBuckets = na
+    int   bestMinIdx  = na
+    float bestStep    = na
+    bool  found = false
+    if n > 0 and not na(barHigh) and barHigh > barLow
+        for bCount = minB to maxB
+            if not found
+                step = (barHigh - barLow) / bCount
+                if step > 0
+                    bins = array.new_float(bCount, 0.0)
+                    for i = 0 to n - 1
+                        h = array.get(hiArr, i)
+                        l = array.get(loArr, i)
+                        v = array.get(volArr, i)
+                        mid = (h + l) / 2.0
+                        idx = int(math.min(bCount - 1, math.max(0, math.floor((mid - barLow) / step))))
+                        array.set(bins, idx, array.get(bins, idx) + v)
+                    minVol = array.min(bins)
+                    minIdx = array.indexof(bins, minVol)
+                    totalVol = array.sum(bins)
+                    avgOtherVol = bCount > 1 ? (totalVol - minVol) / (bCount - 1) : minVol
+                    clarity = avgOtherVol > 0 ? (1.0 - minVol / avgOtherVol) * 100.0 : 0.0
+                    if clarity > bestClarity
+                        bestClarity := clarity
+                        bestBuckets := bCount
+                        bestMinIdx  := minIdx
+                        bestStep    := step
+                    if clarity >= gapThresh
+                        found := true
+    float lvnLow = na
+    float lvnHigh = na
+    if not na(bestBuckets)
+        lvnLow := barLow + bestMinIdx * bestStep
+        lvnHigh := lvnLow + bestStep
+    [lvnLow, lvnHigh, bestBuckets, bestClarity, found]
+
+f_containCheck(o, c, h, l, zTop, zBot, mode) =>
+    coverHigh = mode == "Body دقیق" ? math.max(o, c) : h
+    coverLow  = mode == "Body دقیق" ? math.min(o, c) : l
+    coverHigh >= zTop and coverLow <= zBot
+
+// first (chronologically) candle inside [fromT,toT] whose range fully contains [zTop,zBot]
+f_findFirstContaining(tArr, tcArr, oArr, hArr, lArr, cArr, fromT, toT, zTop, zBot, mode) =>
+    n = array.size(tArr)
+    foundIdx = -1
+    for i = 0 to n - 1
+        if foundIdx == -1
+            t  = array.get(tArr, i)
+            tc = array.get(tcArr, i)
+            if t >= fromT and tc <= toT
+                o = array.get(oArr, i)
+                c = array.get(cArr, i)
+                h = array.get(hArr, i)
+                l = array.get(lArr, i)
+                if f_containCheck(o, c, h, l, zTop, zBot, mode)
+                    foundIdx := i
+    foundIdx
+
+// vivid pastel/neon palette: red, orange, green, turquoise, purple
+var color CLR_RED    = color.rgb(255, 92, 122)
+var color CLR_ORANGE = color.rgb(255, 159, 67)
+var color CLR_GREEN  = color.rgb(46, 213, 115)
+var color CLR_TEAL   = color.rgb(0, 216, 214)
+var color CLR_PURPLE = color.rgb(162, 121, 255)
+var color CLR_WARN   = color.rgb(255, 214, 92)   // unclear-valley warning (was: yellow)
+
+var color[] palette = array.from(CLR_RED, CLR_ORANGE, CLR_GREEN, CLR_TEAL, CLR_PURPLE)
+f_stageColor(i) => array.get(palette, math.min(i, array.size(palette) - 1))
+var color GRAYC = color.rgb(120, 120, 120)
+
+// ============================= 7 FIXED-TF BUFFERS (Monthly..5m) =============================
+[oM, hM, lM, cM, tM, tcM, vM] = request.security(syminfo.tickerid, "M", [open, high, low, close, time, time_close, volume], lookahead = barmerge.lookahead_off)
+var Rung rungM = Rung.new(array.new_int(0), array.new_int(0), array.new_float(0), array.new_float(0), array.new_float(0), array.new_float(0), array.new_float(0), "Monthly")
+var int pTm = na, var int pTCm = na
+var float pOm = na, var float pHm = na, var float pLm = na, var float pCm = na, var float pVm = na
+if not na(pTm) and tM != pTm
+    array.push(rungM.t, pTm), array.push(rungM.tc, pTCm), array.push(rungM.o, pOm), array.push(rungM.h, pHm), array.push(rungM.l, pLm), array.push(rungM.c, pCm), array.push(rungM.v, pVm)
+    if array.size(rungM.t) > TF_HISTORY_CAP
+        array.shift(rungM.t), array.shift(rungM.tc), array.shift(rungM.o), array.shift(rungM.h), array.shift(rungM.l), array.shift(rungM.c), array.shift(rungM.v)
+pTm := tM, pTCm := tcM, pOm := oM, pHm := hM, pLm := lM, pCm := cM, pVm := vM
+
+[oW, hW, lW, cW, tW, tcW, vW] = request.security(syminfo.tickerid, "W", [open, high, low, close, time, time_close, volume], lookahead = barmerge.lookahead_off)
+var Rung rungW = Rung.new(array.new_int(0), array.new_int(0), array.new_float(0), array.new_float(0), array.new_float(0), array.new_float(0), array.new_float(0), "Weekly")
+var int pTw = na, var int pTCw = na
+var float pOw = na, var float pHw = na, var float pLw = na, var float pCw = na, var float pVw = na
+if not na(pTw) and tW != pTw
+    array.push(rungW.t, pTw), array.push(rungW.tc, pTCw), array.push(rungW.o, pOw), array.push(rungW.h, pHw), array.push(rungW.l, pLw), array.push(rungW.c, pCw), array.push(rungW.v, pVw)
+    if array.size(rungW.t) > TF_HISTORY_CAP
+        array.shift(rungW.t), array.shift(rungW.tc), array.shift(rungW.o), array.shift(rungW.h), array.shift(rungW.l), array.shift(rungW.c), array.shift(rungW.v)
+pTw := tW, pTCw := tcW, pOw := oW, pHw := hW, pLw := lW, pCw := cW, pVw := vW
+
+[oD, hD, lD, cD, tD, tcD, vD] = request.security(syminfo.tickerid, "D", [open, high, low, close, time, time_close, volume], lookahead = barmerge.lookahead_off)
+var Rung rungD = Rung.new(array.new_int(0), array.new_int(0), array.new_float(0), array.new_float(0), array.new_float(0), array.new_float(0), array.new_float(0), "Daily")
+var int pTd = na, var int pTCd = na
+var float pOd = na, var float pHd = na, var float pLd = na, var float pCd = na, var float pVd = na
+if not na(pTd) and tD != pTd
+    array.push(rungD.t, pTd), array.push(rungD.tc, pTCd), array.push(rungD.o, pOd), array.push(rungD.h, pHd), array.push(rungD.l, pLd), array.push(rungD.c, pCd), array.push(rungD.v, pVd)
+    if array.size(rungD.t) > TF_HISTORY_CAP
+        array.shift(rungD.t), array.shift(rungD.tc), array.shift(rungD.o), array.shift(rungD.h), array.shift(rungD.l), array.shift(rungD.c), array.shift(rungD.v)
+pTd := tD, pTCd := tcD, pOd := oD, pHd := hD, pLd := lD, pCd := cD, pVd := vD
+
+[oH4, hH4, lH4, cH4, tH4, tcH4, vH4] = request.security(syminfo.tickerid, "240", [open, high, low, close, time, time_close, volume], lookahead = barmerge.lookahead_off)
+var Rung rungH4 = Rung.new(array.new_int(0), array.new_int(0), array.new_float(0), array.new_float(0), array.new_float(0), array.new_float(0), array.new_float(0), "4H")
+var int pTh4 = na, var int pTCh4 = na
+var float pOh4 = na, var float pHh4 = na, var float pLh4 = na, var float pCh4 = na, var float pVh4 = na
+if not na(pTh4) and tH4 != pTh4
+    array.push(rungH4.t, pTh4), array.push(rungH4.tc, pTCh4), array.push(rungH4.o, pOh4), array.push(rungH4.h, pHh4), array.push(rungH4.l, pLh4), array.push(rungH4.c, pCh4), array.push(rungH4.v, pVh4)
+    if array.size(rungH4.t) > TF_HISTORY_CAP
+        array.shift(rungH4.t), array.shift(rungH4.tc), array.shift(rungH4.o), array.shift(rungH4.h), array.shift(rungH4.l), array.shift(rungH4.c), array.shift(rungH4.v)
+pTh4 := tH4, pTCh4 := tcH4, pOh4 := oH4, pHh4 := hH4, pLh4 := lH4, pCh4 := cH4, pVh4 := vH4
+
+[oH1, hH1, lH1, cH1, tH1, tcH1, vH1] = request.security(syminfo.tickerid, "60", [open, high, low, close, time, time_close, volume], lookahead = barmerge.lookahead_off)
+var Rung rungH1 = Rung.new(array.new_int(0), array.new_int(0), array.new_float(0), array.new_float(0), array.new_float(0), array.new_float(0), array.new_float(0), "1H")
+var int pTh1 = na, var int pTCh1 = na
+var float pOh1 = na, var float pHh1 = na, var float pLh1 = na, var float pCh1 = na, var float pVh1 = na
+if not na(pTh1) and tH1 != pTh1
+    array.push(rungH1.t, pTh1), array.push(rungH1.tc, pTCh1), array.push(rungH1.o, pOh1), array.push(rungH1.h, pHh1), array.push(rungH1.l, pLh1), array.push(rungH1.c, pCh1), array.push(rungH1.v, pVh1)
+    if array.size(rungH1.t) > TF_HISTORY_CAP
+        array.shift(rungH1.t), array.shift(rungH1.tc), array.shift(rungH1.o), array.shift(rungH1.h), array.shift(rungH1.l), array.shift(rungH1.c), array.shift(rungH1.v)
+pTh1 := tH1, pTCh1 := tcH1, pOh1 := oH1, pHh1 := hH1, pLh1 := lH1, pCh1 := cH1, pVh1 := vH1
+
+[oM15, hM15, lM15, cM15, tM15, tcM15, vM15] = request.security(syminfo.tickerid, "15", [open, high, low, close, time, time_close, volume], lookahead = barmerge.lookahead_off)
+var Rung rungM15 = Rung.new(array.new_int(0), array.new_int(0), array.new_float(0), array.new_float(0), array.new_float(0), array.new_float(0), array.new_float(0), "15m")
+var int pTm15 = na, var int pTCm15 = na
+var float pOm15 = na, var float pHm15 = na, var float pLm15 = na, var float pCm15 = na, var float pVm15 = na
+if not na(pTm15) and tM15 != pTm15
+    array.push(rungM15.t, pTm15), array.push(rungM15.tc, pTCm15), array.push(rungM15.o, pOm15), array.push(rungM15.h, pHm15), array.push(rungM15.l, pLm15), array.push(rungM15.c, pCm15), array.push(rungM15.v, pVm15)
+    if array.size(rungM15.t) > TF_HISTORY_CAP
+        array.shift(rungM15.t), array.shift(rungM15.tc), array.shift(rungM15.o), array.shift(rungM15.h), array.shift(rungM15.l), array.shift(rungM15.c), array.shift(rungM15.v)
+pTm15 := tM15, pTCm15 := tcM15, pOm15 := oM15, pHm15 := hM15, pLm15 := lM15, pCm15 := cM15, pVm15 := vM15
+
+[oM5, hM5, lM5, cM5, tM5, tcM5, vM5] = request.security(syminfo.tickerid, "5", [open, high, low, close, time, time_close, volume], lookahead = barmerge.lookahead_off)
+var Rung rungM5 = Rung.new(array.new_int(0), array.new_int(0), array.new_float(0), array.new_float(0), array.new_float(0), array.new_float(0), array.new_float(0), "5m")
+var int pTm5 = na, var int pTCm5 = na
+var float pOm5 = na, var float pHm5 = na, var float pLm5 = na, var float pCm5 = na, var float pVm5 = na
+if not na(pTm5) and tM5 != pTm5
+    array.push(rungM5.t, pTm5), array.push(rungM5.tc, pTCm5), array.push(rungM5.o, pOm5), array.push(rungM5.h, pHm5), array.push(rungM5.l, pLm5), array.push(rungM5.c, pCm5), array.push(rungM5.v, pVm5)
+    if array.size(rungM5.t) > TF_HISTORY_CAP
+        array.shift(rungM5.t), array.shift(rungM5.tc), array.shift(rungM5.o), array.shift(rungM5.h), array.shift(rungM5.l), array.shift(rungM5.c), array.shift(rungM5.v)
+pTm5 := tM5, pTCm5 := tcM5, pOm5 := oM5, pHm5 := hM5, pLm5 := lM5, pCm5 := cM5, pVm5 := vM5
+
+var array<Rung> allRungs = array.new<Rung>()
+if barstate.isfirst
+    array.push(allRungs, rungM)
+    array.push(allRungs, rungW)
+    array.push(allRungs, rungD)
+    array.push(allRungs, rungH4)
+    array.push(allRungs, rungH1)
+    array.push(allRungs, rungM15)
+    array.push(allRungs, rungM5)
+
+chain = array.slice(allRungs, topIdx, array.size(allRungs))
+topRung = array.get(chain, 0)
+topCount = array.size(topRung.t)
+
+var int prevTopCount = -1
+triggerClosed = prevTopCount >= 0 and topCount > prevTopCount
+prevTopCount := topCount
+
+// ============================= PERSISTING FINAL WATCH-BOX (M1 stage) =============================
+var box   finalBoxId = na
+var float finalTop = na, var float finalBot = na, var bool finalResolved = true
+
+if not finalResolved and not na(finalBoxId)
+    inZone = high >= finalBot and low <= finalTop
+    fromAbove = inZone and close[1] > finalTop
+    fromBelow = inZone and close[1] < finalBot
+    if fromAbove
+        label.new(bar_index, high, "BUY", style = label.style_label_up, color = color.new(CLR_GREEN, 0), textcolor = color.white, size = size.normal)
+        finalResolved := true
+        alert("LVN Clarity Cascade: BUY zone reached from above", alert.freq_once_per_bar)
+    else if fromBelow
+        label.new(bar_index, low, "SELL", style = label.style_label_down, color = color.new(CLR_RED, 0), textcolor = color.white, size = size.normal)
+        finalResolved := true
+        alert("LVN Clarity Cascade: SELL zone reached from below", alert.freq_once_per_bar)
+    else
+        box.set_right(finalBoxId, int(time) + 60000)
+
+// ============================= MAIN CASCADE (once per newly closed top-stage candle) =============================
+if triggerClosed and topCount >= 1
+    idx0 = topCount - 1
+    gT  = array.get(topRung.t,  idx0)
+    gTC = array.get(topRung.tc, idx0)
+
+    [sa0, sb0] = f_m1Range(gT, gTC)
+    if sa0 >= 0 and sb0 > sa0
+        cnt0 = sb0 - sa0 + 1
+        hh0 = f_slice(m1High, sa0, cnt0)
+        ll0 = f_slice(m1Low, sa0, cnt0)
+        vv0 = f_slice(m1Vol, sa0, cnt0)
+        [zTop0, zBot0, buckets0, clarity0, found0] = f_valleyClarity(hh0, ll0, vv0, minBucketsInput, maxBucketsInput, gapThresholdInput)
+
+        if not na(zTop0)
+            clr0 = found0 ? f_stageColor(0) : CLR_WARN
+            box.new(gT, zTop0, gTC, zBot0, xloc = xloc.bar_time, border_color = clr0, bgcolor = color.new(clr0, 78))
+            if showLabels
+                dbg0 = showDebugInfo ? "  (" + str.tostring(buckets0) + " ردیف, وضوح " + str.tostring(clarity0, "#.#") + "٪)" : ""
+                label.new(gT, zBot0, topRung.label + " LVN" + (found0 ? " ✓" : " ⚠") + dbg0,
+                     xloc = xloc.bar_time, style = label.style_label_up, color = color.new(clr0, 0), textcolor = color.white, size = size.small)
+
+            // ---- stage cascade: walk down every remaining rung, containment rule ----
+            winT = gT
+            winTC = gTC
+            zTop = zTop0
+            zBot = zBot0
+            stageOk = true
+            nStages = array.size(chain)
+
+            for si = 1 to nStages - 1
+                if stageOk
+                    rung = array.get(chain, si)
+                    fIdx = f_findFirstContaining(rung.t, rung.tc, rung.o, rung.h, rung.l, rung.c, winT, winTC, zTop, zBot, coverageMode)
+                    if fIdx >= 0
+                        fT  = array.get(rung.t,  fIdx)
+                        fTC = array.get(rung.tc, fIdx)
+                        [sa1, sb1] = f_m1Range(fT, fTC)
+                        if sa1 >= 0 and sb1 > sa1
+                            cnt1 = sb1 - sa1 + 1
+                            hh1 = f_slice(m1High, sa1, cnt1)
+                            ll1 = f_slice(m1Low, sa1, cnt1)
+                            vv1 = f_slice(m1Vol, sa1, cnt1)
+                            [zT1, zB1, bkt1, clr1v, fnd1] = f_valleyClarity(hh1, ll1, vv1, minBucketsInput, maxBucketsInput, gapThresholdInput)
+                            if not na(zT1)
+                                stClr = fnd1 ? f_stageColor(si) : CLR_WARN
+                                box.new(fT, zT1, fTC, zB1, xloc = xloc.bar_time, border_color = stClr, bgcolor = color.new(stClr, 78))
+                                if showLabels
+                                    dbg1 = showDebugInfo ? "  (" + str.tostring(bkt1) + " ردیف, وضوح " + str.tostring(clr1v, "#.#") + "٪)" : ""
+                                    label.new(fT, zB1, rung.label + " LVN" + (fnd1 ? " ✓" : " ⚠") + dbg1,
+                                         xloc = xloc.bar_time, style = label.style_label_up, color = color.new(stClr, 0), textcolor = color.white, size = size.small)
+                                winT := fT
+                                winTC := fTC
+                                zTop := zT1
+                                zBot := zB1
+                            else
+                                stageOk := false
+                        else
+                            stageOk := false
+                    else
+                        stageOk := false
+                        if showLabels
+                            label.new(winT, zBot, rung.label + ": کندلی که ناحیه رو کامل بپوشونه پیدا نشد — کسکید متوقف شد",
+                                 xloc = xloc.bar_time, style = label.style_label_down, color = color.new(GRAYC, 0), textcolor = color.white, size = size.small)
+
+            // ---- final watch-box: whatever zone the cascade ended on ----
+            if stageOk
+                finalBoxId := box.new(winT, zTop, winTC, zBot, xloc = xloc.bar_time, border_color = CLR_TEAL, bgcolor = color.new(CLR_TEAL, 78))
+                finalTop := zTop
+                finalBot := zBot
+                finalResolved := false
+                if showLabels
+                    label.new(winT, zBot, "ناحیه‌ی نهایی — منتظر رسیدن قیمت", xloc = xloc.bar_time, style = label.style_label_down, color = color.new(CLR_TEAL, 0), textcolor = color.white, size = size.small)
