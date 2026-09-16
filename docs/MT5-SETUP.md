@@ -6,32 +6,35 @@
 دقیقاً با همین ساختار کپی کنید:
 
 ```
+<Data Folder>/MQL5/Include/Hayati/ClarityLVN.mqh      ← استراتژی اصلی
 <Data Folder>/MQL5/Include/Hayati/VolumeProfile.mqh
 <Data Folder>/MQL5/Include/Hayati/VolumeTools.mqh
-<Data Folder>/MQL5/Indicators/Hayati/VPFR_LVN.mq5
-<Data Folder>/MQL5/Experts/Hayati/VPFR_LVN_EA.mq5
+<Data Folder>/MQL5/Experts/Hayati/LVNCascade_EA.mq5   ← استراتژی اصلی
+<Data Folder>/MQL5/Experts/Hayati/VPFR_LVN_EA.mq5     (کد آزمایشی قبلی)
+<Data Folder>/MQL5/Indicators/Hayati/VPFR_LVN.mq5     (کد آزمایشی قبلی)
 ```
 
 پوشهٔ `Hayati` داخل `Include` **اجباری** است — مسیر `#include <Hayati/...>` به آن وابسته است.
 
 ## ۲. کامپایل
 
-MetaEditor را باز کنید (F4)، هر دو فایل `.mq5` را باز کنید و F7 بزنید.
+MetaEditor را باز کنید (F4)، فایل‌های `.mq5` را باز کنید و F7 بزنید.
 فایل‌های `.mqh` جداگانه کامپایل نمی‌شوند؛ خودشان include می‌شوند.
 
-## ۳. اول اندیکاتور، بعد اکسپرت
+## ۳. اکسپرت را روی چارت ۱ دقیقه بگذارید
 
-قبل از هر بک‌تستی، `VPFR_LVN` را روی چارت بیندازید و با همان نماد/تایم‌فریم/بازه در
-TradingView مقایسه کنید. اگر POC و LVNها با پروفایل TradingView نمی‌خوانَد، بک‌تست
-گرفتن بی‌معنی است — اول باید پروفایل هم‌تراز شود.
+`LVNCascade_EA` مثل کد Pine اصلی **فقط روی M1 درست کار می‌کند** — همهٔ پروفایل‌ها از
+کندل‌های یک‌دقیقه‌ای ساخته می‌شوند. روی هر تایم‌فریم دیگری اخطار می‌دهد.
 
-برای هم‌تراز کردن:
+## ۴. اول ناحیه‌ها را با تریدینگ‌ویو مقایسه کنید
 
-- **تعداد ردیف‌ها (`InpProfileRows`)** باید با `Row Size` در تنظیمات FRVP تریدینگ‌ویو یکی باشد.
-  تریدینگ‌ویو در حالت `Number Of Rows` عدد ردیف می‌گیرد و در حالت `Ticks Per Row` اندازهٔ ردیف.
-- **بازه (`InpProfileBars`)** باید همان تعداد کندلی باشد که در TradingView انتخاب کرده‌اید.
-- **`InpProfileShift`** یعنی بازه چند کندل عقب‌تر تمام می‌شود. مقدار پیش‌فرض `2` است تا
-  کندل سیگنال، خودش جزئی از پروفایلی که می‌شکند نباشد.
+قبل از هر بک‌تستی، اکسپرت را **با AutoTrading خاموش** روی چارت M1 بگذارید.
+`InpHistoryDraw` (پیش‌فرض ۲۰) کسکیدهای گذشته را روی چارت رسم می‌کند. این مستطیل‌ها
+باید با جعبه‌های اسکریپت Pine روی همان نماد بخوانند.
+
+اگر نمی‌خوانند، **عدد پارامترها را دستکاری نکنید** — اول علت را پیدا کنید. محتمل‌ترین
+علت، تفاوت حجم تیکی بین فید تریدینگ‌ویو و فید بروکر شماست؛ در `docs/STRATEGY.md`
+بخش «نکاتی که موقع پیاده‌سازی دیدم» توضیح داده شده.
 
 ## ۴. منبع حجم — مهم‌ترین نکته
 
@@ -55,18 +58,20 @@ tick volume بین بروکرها **فرق می‌کند**. پروفایلی ک�
 
 ## ۵. حالت‌های Strategy Tester
 
-`InpDistribution = VP_DIST_M1` حجم هر کندل را با کمک کندل‌های یک‌دقیقه‌ای پخش می‌کند و
-نزدیک‌ترین نتیجه به تریدینگ‌ویو را می‌دهد — ولی به تاریخچهٔ M1 نیاز دارد.
+کل استراتژی روی دادهٔ M1 بنا شده، پس تاریخچهٔ یک‌دقیقه‌ای **اجباری** است.
 
-| مدل بک‌تست | داده M1 | نتیجه |
-|---|---|---|
-| Every tick based on real ticks | ✅ | دقیق‌ترین، کندترین |
-| Every tick | ✅ | خوب |
-| 1 minute OHLC | ✅ | خوب، سریع‌تر — **پیشنهاد برای شروع** |
-| Open prices only | ❌ | پروفایل به حالت uniform برمی‌گردد، نتایج قابل‌اتکا نیست |
+| مدل بک‌تست | مناسب؟ |
+|---|---|
+| Every tick based on real ticks | ✅ دقیق‌ترین، کندترین — برای تأیید نهایی |
+| Every tick | ✅ خوب |
+| 1 minute OHLC | ✅ **پیشنهاد برای شروع** |
+| Open prices only | ❌ کار نمی‌کند — پروفایل ساخته نمی‌شود |
 
-اگر مجبورید `Open prices only` بزنید، `InpDistribution` را روی `VP_DIST_UNIFORM` بگذارید
-تا حداقل بدانید چه چیزی محاسبه می‌شود.
+متاتریدر کندل‌های D1/4H/1H/15m/5m را خودش از همان دادهٔ M1 می‌سازد، پس چیز اضافه‌ای
+لازم نیست.
+
+نکتهٔ مهم دربارهٔ ورود: معامله دقیقاً روی لمس یک ناحیهٔ باریک باز می‌شود، یعنی اسپرد
+در بدترین لحظه پرداخت می‌شود. حتماً با اسپرد واقعی بک‌تست بگیرید، نه اسپرد ثابتِ صفر.
 
 ## ۶. دربارهٔ بهینه‌سازی
 
@@ -84,18 +89,22 @@ tick volume بین بروکرها **فرق می‌کند**. پروفایلی ک�
 
 ## ۷. تنظیمات پیشنهادی برای اولین اجرا
 
+پارامترهای کسکید عیناً پیش‌فرض‌های کد Pine شماست:
+
 ```
-InpProfileBars     = 200
-InpProfileRows     = 120
-InpProfileShift    = 2
-InpDistribution    = VP_DIST_M1
-InpVolumeSource    = VP_VOL_AUTO
-InpEntryMode       = ENTRY_BREAKOUT
-InpBreakoutRVOL    = 1.5
-InpLVNRatio        = 0.30
-InpRiskPercent     = 1.0
-InpSLMode          = SL_NODE
-InpTPMode          = TP_NEXT_HVN
+InpTopStage      = TOP_DAILY
+InpMinRows       = 3
+InpMaxRows       = 8
+InpGapThreshold  = 40.0
+InpCoverage      = COV_FULL
+InpVolumeSource  = VP_VOL_AUTO
+InpIntrabar      = true
+InpRiskPercent   = 1.0
+InpSLMode        = CLSL_ZONE     ← اینها در کد Pine نیستند
+InpTPMode        = CLTP_RR
+InpTPRR          = 2.0
 ```
 
-روی `EURUSD H1` یا `XAUUSD M15` شروع کنید، و اول فقط یک سال داده — نه ده سال.
+چارت M1، و اول فقط یک سال داده. `InpVerbose = true` بگذارید تا در تب Journal ببینید
+هر کسکید تا کدام مرحله پیش رفته — اگر اغلبشان نیمه‌راه متوقف می‌شوند، مشکل از پارامتر
+خروج نیست، از خود کسکید است.

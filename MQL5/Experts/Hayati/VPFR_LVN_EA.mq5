@@ -2,6 +2,12 @@
 //|                                                   VPFR_LVN_EA.mq5 |
 //|   Fixed Range Volume Profile / LVN strategy                       |
 //|                                                                   |
+//|   NOTE: written before the original Pine Script was available and |
+//|   it is NOT the LVN Clarity Cascade strategy — see                |
+//|   MQL5/Experts/Hayati/LVNCascade_EA.mq5 for that. Kept because the |
+//|   profile engine behind it is generic and may serve the second    |
+//|   strategy, but nothing here was validated against your rules.    |
+//|                                                                   |
 //|   Horizontal volume  -> the profile, its POC, value area and the   |
 //|                         low/high volume nodes carved out of it.    |
 //|   Vertical volume    -> per-bar participation, used to confirm     |
