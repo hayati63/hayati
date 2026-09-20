@@ -19,6 +19,21 @@
 **اما قوانین خروج در کد Pine وجود ندارد** و آنچه در اکسپرت هست را من اضافه کرده‌ام —
 جزئیات و سؤال‌های باز در [`docs/STRATEGY.md`](docs/STRATEGY.md).
 
+## بک‌تست و بهینه‌سازی 🔬
+
+pipeline پایتون که استراتژی اول را روی دادهٔ M1 خودِ متاتریدر شما بک‌تست و
+walk-forward بهینه می‌کند — با چهار محافظ ضد اورفیت و یک تست کنترل روی نویز.
+
+| فایل | نقش |
+|---|---|
+| `MQL5/Scripts/Hayati/ExportM1.mq5` | اکسپورت M1 + اسپرد واقعی از متاتریدر |
+| `tools/cascade_core.py` | موتور آفلاین (آینهٔ `ClarityLVN.mqh`) |
+| `tools/backtest_cascade.py` | یک بک‌تست |
+| `tools/optimize_cascade.py` | walk-forward + فلات + تست سطح تصادفی |
+| `tools/verify_optimizer.py` | کنترل: باید روی نویز «معامله نکن» بگوید |
+
+راهنمای کار: [`docs/OPTIMIZATION.md`](docs/OPTIMIZATION.md)
+
 ## استراتژی ۲ — XAUUSD Vertical Volume Gap Cascade v3 🚧
 
 کسکید روی **گپ حجم عمودی**: کندلی که حجمش کمینهٔ محلی است، کل محدودهٔ High–Low آن

@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+
+# exported market data - commit it deliberately, gzipped
+*.csv
+!tools/**/*.csv
