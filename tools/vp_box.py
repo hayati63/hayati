@@ -1,20 +1,24 @@
 # -*- coding: utf-8 -*-
 """
-دو تعریف «باکس» که در پروژه به‌طور همزمان در جریان‌اند.
+تعریف‌های «باکس» که در پروژه هم‌زمان در جریان‌اند.
 
-`valley_box` پورت وفادار `f_valleyIncremental` از اسکریپت Pine است — همان چیزی که
-CLAUDE.md بند ۱ توصیف می‌کند: شمارش ردیف تطبیقی، اولین درهٔ حجمی.
+پروفایل یک‌بار ساخته می‌شود؛ تفاوت تعریف‌ها فقط در این است که **کدام** دره
+برداشته شود. این عمدی است: اگر شمارش ردیف هم بین تعریف‌ها فرق کند، مقایسه‌شان
+ناعادلانه می‌شود.
 
-`value_area_box` پورت وفادار `box(bars)` از `app/dash.html` است — تعداد بین ثابت،
-بین‌بندی روی close، سه بینِ **پرحجم‌ترین**.
+  valley_first    اولین درهٔ میانی از پایین — وفادار به Pine
+  valley_nearest  درهٔ نزدیک‌ترین به قیمت مرجع — چیزی که چارتیکس نشان می‌دهد
+  valley_deepest  کم‌حجم‌ترین دره
+  value_area      سه بین پرحجم‌ترین روی close — پورت `box()` از dash.html
 
-این دو یک چیز نیستند و معمولاً نتیجهٔ مخالف می‌دهند. هر دو اینجا هستند تا بشود
-روی یک دادهٔ واحد کنار هم سنجیدشان.
+سه‌تای اول ناحیهٔ کم‌حجم‌اند (LVN)، چهارمی ناحیهٔ پرحجم. مفهوماً مخالف‌اند.
 """
 
 from typing import List, Optional, Sequence, Tuple
 
 Box = Tuple[float, float]  # (lo, hi)
+
+BOX_KINDS = ("valley_first", "valley_nearest", "valley_deepest", "value_area")
 
 
 class Bar:
@@ -24,20 +28,35 @@ class Bar:
         self.h, self.l, self.c, self.v = h, l, c, v
 
 
-def valley_box(
-    bars: Sequence[Bar], min_rows: int = 3, max_rows: int = 20
-) -> Optional[Tuple[float, float, int]]:
-    """اولین درهٔ حجمی. برمی‌گرداند (lo, hi, تعداد ردیفی که جواب داد).
+class Profile:
+    """پروفایل یک پنجره، به‌همراه ایندکس همهٔ دره‌های میانی."""
 
-    وفادار به Pine:
+    __slots__ = ("rows", "step", "lo", "bins", "valleys")
+
+    def __init__(self, rows: int, step: float, lo: float,
+                 bins: List[float], valleys: List[int]):
+        self.rows, self.step, self.lo = rows, step, lo
+        self.bins, self.valleys = bins, valleys
+
+    def band(self, idx: int) -> Box:
+        bot = self.lo + idx * self.step
+        return (bot, bot + self.step)
+
+
+def build_profile(
+    bars: Sequence[Bar], min_rows: int = 3, max_rows: int = 20
+) -> Optional[Profile]:
+    """اولین تعداد ردیفی که حداقل یک درهٔ میانی بدهد.
+
+    وفادار به `f_valleyIncremental` در Pine:
       - دامنه از High/Low کل پنجره، نه از close
       - حجم هر کندل به نسبت هم‌پوشانی بین ردیف‌ها پخش می‌شود
       - کندل با دامنهٔ صفر کل حجمش در یک ردیف می‌نشیند
-      - جست‌وجوی دره فقط روی ردیف‌های **میانی** (۱ تا rows-2)، از پایین به بالا
-      - اولین تعداد ردیفی که دره بدهد برنده است؛ ردیف‌ها صعودی امتحان می‌شوند
+      - دره فقط روی ردیف‌های میانی (۱ تا rows-2)
+      - ردیف‌ها صعودی امتحان می‌شوند، اولین جواب برنده
 
-    بازگشت None یعنی تا `max_rows` هیچ دره‌ای پیدا نشد — که در Pine یعنی
-    «اینجا ناحیه‌ای نیست»، نه «ردیف را بیشتر کن».
+    تفاوت با Pine: آنجا فقط **اولین** دره برمی‌گردد. اینجا همهٔ دره‌های همان
+    شمارش ردیف نگه داشته می‌شوند تا تعریف‌های دیگر هم بتوانند انتخاب کنند.
     """
     n = len(bars)
     if n <= 2:
@@ -49,8 +68,8 @@ def valley_box(
     if price_range <= 0:
         return None
 
-    # Pine در `for i = 1 to rows - 2` وقتی rows<3 باشد رو به پایین می‌شمارد و به
-    # ایندکس ‎-1‎ می‌رسد. اینجا صریحاً جلویش را می‌گیریم.
+    # Pine در `for i = 1 to rows - 2` وقتی rows<3 باشد رو به پایین می‌شمارد و
+    # به ایندکس ‎-1‎ می‌رسد. اینجا صریحاً جلویش را می‌گیریم.
     lo_rows = max(3, min_rows)
 
     for rows in range(lo_rows, max_rows + 1):
@@ -60,8 +79,7 @@ def valley_box(
         for b in bars:
             b_range = b.h - b.l
             if b_range <= 0:
-                idx = int((b.h - r_lo) / step)
-                idx = max(0, min(rows - 1, idx))
+                idx = max(0, min(rows - 1, int((b.h - r_lo) / step)))
                 bins[idx] += b.v
                 continue
             idx_lo = max(0, int((b.l - r_lo) / step))
@@ -73,16 +91,29 @@ def valley_box(
                 if overlap > 0:
                     bins[bi] += b.v * (overlap / b_range)
 
-        for i in range(1, rows - 1):
-            if bins[i] < bins[i - 1] and bins[i] < bins[i + 1]:
-                bot = r_lo + i * step
-                return (bot, bot + step, rows)
+        valleys = [
+            i for i in range(1, rows - 1)
+            if bins[i] < bins[i - 1] and bins[i] < bins[i + 1]
+        ]
+        if valleys:
+            return Profile(rows, step, r_lo, bins, valleys)
 
     return None
 
 
+def valley_box(
+    bars: Sequence[Bar], min_rows: int = 3, max_rows: int = 20
+) -> Optional[Tuple[float, float, int]]:
+    """اولین درهٔ میانی از پایین. خروجی (lo, hi, تعداد ردیف). وفادار به Pine."""
+    p = build_profile(bars, min_rows, max_rows)
+    if p is None:
+        return None
+    lo, hi = p.band(p.valleys[0])
+    return (lo, hi, p.rows)
+
+
 def value_area_box(bars: Sequence[Bar]) -> Optional[Box]:
-    """سه بینِ پرحجم‌ترین، بین‌بندی روی close. پورت `box()` از dash.html."""
+    """سه بین پرحجم‌ترین، بین‌بندی روی close. پورت `box()` از dash.html."""
     if len(bars) < 3:
         return None
     if sum(b.v for b in bars) <= 0:
@@ -97,12 +128,48 @@ def value_area_box(bars: Sequence[Bar]) -> Optional[Box]:
     w = (hi - lo) / nb
     vol = [0.0] * nb
     for b in bars:
-        k = int((b.c - lo) / w)
-        k = max(0, min(nb - 1, k))
+        k = max(0, min(nb - 1, int((b.c - lo) / w)))
         vol[k] += b.v
 
     order = sorted(range(nb), key=lambda j: (-vol[j], j))[: min(3, nb)]
     return (lo + min(order) * w, lo + (max(order) + 1) * w)
+
+
+def make_box(
+    kind: str,
+    bars: Sequence[Bar],
+    ref_price: Optional[float] = None,
+    min_rows: int = 3,
+    max_rows: int = 20,
+) -> Optional[Box]:
+    """یک تعریف را روی یک پنجره اجرا می‌کند.
+
+    `ref_price` فقط برای `valley_nearest` لازم است و باید قیمتی باشد که در
+    لحظهٔ ساخت باکس **در دسترس بوده** — کلوز آخرین روز همان ماه، نه کلوز ماه
+    بعد. وگرنه لوک‌اهد وارد می‌شود.
+    """
+    if kind == "value_area":
+        return value_area_box(bars)
+
+    p = build_profile(bars, min_rows, max_rows)
+    if p is None:
+        return None
+
+    if kind == "valley_first":
+        idx = p.valleys[0]
+    elif kind == "valley_deepest":
+        idx = min(p.valleys, key=lambda i: (p.bins[i], i))
+    elif kind == "valley_nearest":
+        if ref_price is None:
+            raise ValueError("valley_nearest به ref_price نیاز دارد")
+        idx = min(
+            p.valleys,
+            key=lambda i: (abs((p.lo + (i + 0.5) * p.step) - ref_price), i),
+        )
+    else:
+        raise ValueError(f"تعریف ناشناخته: {kind}")
+
+    return p.band(idx)
 
 
 def state(close: float, box: Optional[Box]) -> str:
