@@ -12,6 +12,8 @@
 | `tools/verify_box.py` | تست تفاضلی پورت دره در برابر رونویسی مستقل از Pine |
 | `tools/monthly_backtest.py` | بک‌تست ماهانه: نرخ پایه، تست جایگشت، هندسهٔ ۱:۱، تفکیک درآمد ثابت |
 | `tools/build_dashboard.py` | داشبورد HTML تک‌فایل با ۹ پنل بک‌تست و کلید انتخاب تعریف باکس |
+| `tools/snapshot_dashboard.py` | داشبورد تصمیم و پرتفو از خروجی `export_monthly_risk.py` |
+| `data/risk_export_20260921.txt` | خروجی واقعی اجرای ۱۴۰۵/۰۶/۳۰ — ۱۴۲ نماد |
 
 ## اجرا
 
@@ -19,7 +21,14 @@
 python3 tools/verify_box.py                         # صحت پورت
 python3 tools/monthly_backtest.py --data data_auto  # هر چهار تعریف، کنار هم
 python3 tools/build_dashboard.py --data data_auto --out dashboard.html
+python3 tools/snapshot_dashboard.py --in data/risk_export_20260921.txt \
+    --out decision.html --capital 1000000000
 ```
+
+`snapshot_dashboard.py` خروجی متنی `export_monthly_risk.py` را می‌خواند و
+صفحهٔ تصمیم + پرتفو می‌سازد: سایز هر پوزیشن از روی فاصله تا کف باکس، با
+`--top`، `--total-risk` و `--capital`. بک‌تست ندارد — ورودی‌اش عکس لحظه‌ای
+است، نه سری زمانی.
 
 `build_dashboard.py` همان تحلیل را در یک صفحهٔ HTML خودکفا می‌ریزد. با
 `--artifact` اسکلت `html/head/body` را حذف می‌کند تا مستقیم روی claude.ai
