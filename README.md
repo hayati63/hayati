@@ -11,13 +11,19 @@
 | `tools/vp_box.py` | چهار تعریف باکس: سه انتخاب‌گر دره (پورت Pine) و سه‌بین‌پرحجم (پورت `dash.html`) |
 | `tools/verify_box.py` | تست تفاضلی پورت دره در برابر رونویسی مستقل از Pine |
 | `tools/monthly_backtest.py` | بک‌تست ماهانه: نرخ پایه، تست جایگشت، هندسهٔ ۱:۱، تفکیک درآمد ثابت |
+| `tools/build_dashboard.py` | داشبورد HTML تک‌فایل با ۹ پنل بک‌تست و کلید انتخاب تعریف باکس |
 
 ## اجرا
 
 ```bash
 python3 tools/verify_box.py                         # صحت پورت
 python3 tools/monthly_backtest.py --data data_auto  # هر چهار تعریف، کنار هم
+python3 tools/build_dashboard.py --data data_auto --out dashboard.html
 ```
+
+`build_dashboard.py` همان تحلیل را در یک صفحهٔ HTML خودکفا می‌ریزد. با
+`--artifact` اسکلت `html/head/body` را حذف می‌کند تا مستقیم روی claude.ai
+منتشر شود، و `--note` یک بنر بالای صفحه می‌گذارد.
 
 `--data` پوشهٔ CSVهای روزانه است (خروجی `algotik_tse` یا BrsApi). ستون تاریخ و
 `close` لازم است؛ `high`/`low`/`volume` اگر باشند استفاده می‌شوند.
