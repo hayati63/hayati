@@ -56,28 +56,36 @@
    "n": 528,
    "empty": 62.689393939393945,
    "target": 98,
-   "stop": 65,
+   "stop": 53,
+   "ambiguous": 12,
+   "ambiguous_pct": 2.272727272727273,
    "avg_r": 0.1710492044379697
   },
   "valley_nearest": {
    "n": 523,
    "empty": 60.80305927342257,
    "target": 106,
-   "stop": 65,
+   "stop": 53,
+   "ambiguous": 12,
+   "ambiguous_pct": 2.294455066921606,
    "avg_r": 0.2052084707080476
   },
   "valley_deepest": {
    "n": 526,
    "empty": 62.16730038022814,
    "target": 101,
-   "stop": 65,
+   "stop": 53,
+   "ambiguous": 12,
+   "ambiguous_pct": 2.2813688212927756,
    "avg_r": 0.18603550770922947
   },
   "value_area": {
    "n": 321,
    "empty": 46.41744548286604,
    "target": 84,
-   "stop": 10,
+   "stop": 8,
+   "ambiguous": 2,
+   "ambiguous_pct": 0.6230529595015576,
    "avg_r": 0.4458256616763397
   }
  }

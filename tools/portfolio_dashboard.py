@@ -1352,14 +1352,31 @@ function panels(){
       باکس، تارگت به اندازهٔ ارتفاع باکس. «خالی» یعنی پولبک نخورد و ورودی نبود.</p>
     <div class="box scroll"><table><thead><tr>
       <th>تعریف</th><th class="n">سیگنال</th><th class="n">حمایت خالی</th>
-      <th class="n">تارگت</th><th class="n">استاپ</th><th class="n">میانگین R</th>
+      <th class="n">تارگت</th><th class="n">استاپ</th>
+      <th class="n">هم‌کندل</th><th class="n">میانگین R</th>
       </tr></thead><tbody>${
-      Object.entries(EV.geom).map(([k,v])=>`
-      <tr><td>${esc(KN[k]||k)}</td><td class="n">${v.n}</td>
+      Object.entries(EV.geom).map(([k,v])=>{
+        const amb=v.ambiguous_pct;
+        const bad=amb!=null&&amb>=15;
+        return `<tr><td>${esc(KN[k]||k)}</td><td class="n">${v.n}</td>
         <td class="n">${v.empty.toFixed(0)}٪</td>
         <td class="n">${v.target}</td><td class="n">${v.stop}</td>
-        <td class="n">${v.avg_r==null?'—':(v.avg_r>=0?'+':'')+v.avg_r.toFixed(3)}</td>
-      </tr>`).join('')}</tbody></table></div>
+        <td class="n">${amb==null?'—':`<b style="color:${bad?'var(--red)':'var(--muted)'}">${amb.toFixed(0)}٪</b>`}</td>
+        <td class="n">${v.avg_r==null?'—'
+          :(bad?`<span class="muted">${(v.avg_r>=0?'+':'')+v.avg_r.toFixed(3)}</span>`
+               :(v.avg_r>=0?'+':'')+v.avg_r.toFixed(3))}</td>
+      </tr>`}).join('')}</tbody></table></div>
+    ${(()=>{const m=Math.max(...Object.values(EV.geom)
+        .map(v=>v.ambiguous_pct||0));
+      return m<15?'':`<div class="note bad"><b>ستون «میانگین R» را نخوانید.</b>
+      در <span class="num">${m.toFixed(0)}٪</span> موارد، ورود و استاپ در
+      <b>یک کندل</b> افتاده‌اند — استاپ زیر کف باکس است و باکس از دامنهٔ یک
+      کندل باریک‌تر، پس دادهٔ روزانه نمی‌داند اول کدام رخ داده. آن عددها
+      نتیجهٔ قاعده نیستند، <b>حدِ تفکیکِ داده</b>اند. برای تفکیکشان کندلِ
+      ریزتر لازم است — H4 برای ماهانه، H1 برای هفتگی، همان چیزی که بند ۱
+      <span class="num">CLAUDE.md</span> می‌گوید.
+      <b>ستون «مزیت» بالا از این مشکل مصون است</b>، چون بازده را کلوز به
+      کلوز می‌گیرد و اصلاً به مسیرِ داخلِ دوره کار ندارد.</div>`;})()}
     <div class="note warn"><b>R را با R مقایسه نکنید.</b> «سه‌بین پرحجم» میانگین
       R بالاتری می‌دهد چون باکسش
       ${EV.perm.value_area&&EV.perm.valley_first
