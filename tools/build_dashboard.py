@@ -167,7 +167,8 @@ def analyse(series, kind, min_rows, max_rows, min_bars, iters):
     for o in live:
         by_m[o["month"]].append(o)
     edge, p = permutation_p(by_m, "بالا", iters)
-    perm = {"months": len(month_edge(by_m, "بالا")), "edge": edge, "p": p}
+    perm = {"months": len(month_edge(by_m, "بالا")), "edge": edge, "p": p,
+            "iters": iters}
 
     # ── ماه‌به‌ماه ──
     monthly = []
@@ -559,7 +560,7 @@ function render(kind){
           ['میانگین','num'],['مزیت بازده','num']],cellRows,'short')+`</section>`;
 
   /* ۳ — جایگشت */
-  const pv=perm.p, ceiling=1/(M.months_n+1);
+  const pv=perm.p, floor=1/((perm.iters||5000)+1);
   h+=`<section><div class="eyebrow">معناداری</div>
     <h2>تست جایگشت</h2>
     <p class="lede">برچسب «بالا» داخل هر ماه به‌هم ریخته می‌شود، پس حرکت کل بازار
@@ -579,15 +580,16 @@ function render(kind){
       <div class="tile"><div class="k">ماه قابل‌استفاده</div>
         <div class="v"><span class="num">${perm.months}</span></div>
         <div class="n">n مؤثر، نه تعداد معامله</div></div>
-      <div class="tile"><div class="k">کمترین p ممکن</div>
-        <div class="v"><span class="num">${ceiling.toFixed(2)}</span></div>
-        <div class="n">سقف توان با این حجم داده</div></div></div>`;
-    if(ceiling>0.05)
-      h+=`<div class="verdict warn" style="margin-top:14px">⚠️ با
-        <b>${M.months_n} ماه</b> داده، کمترین p ممکن حدود
-        <span class="num">${ceiling.toFixed(2)}</span> است — یعنی
-        <b>هیچ سیگنالی، هرچقدر واقعی، به p&lt;0.05 نمی‌رسد.</b>
-        این با تحلیل بهتر حل نمی‌شود، فقط با دادهٔ بیشتر.</div>`;
+      <div class="tile"><div class="k">کف p</div>
+        <div class="v"><span class="num">${floor.toFixed(5)}</span></div>
+        <div class="n">۱/(تکرار+۱) — نه تابع تعداد ماه</div></div></div>`;
+    h+=`<div class="verdict ${pv<0.05?'ok':'warn'}" style="margin-top:14px">
+      کف p برابر <span class="num">${floor.toFixed(5)}</span> است، نه
+      <span class="num">${(1/(M.months_n+1)).toFixed(2)}</span>: برچسب سیگنال
+      <b>داخل</b> هر ماه جابه‌جا می‌شود و هر ماه ده‌ها نماد دارد، پس تعداد
+      جایگشت ممکن نجومی است. آنچه <b>${M.months_n} ماه</b> محدود می‌کند
+      تعمیم‌پذیری است، نه تفکیک‌پذیری — p کوچک می‌گوید باکس
+      <b>در این دوره</b> بهتر از تصادف انتخاب کرده، نه اینکه همیشه می‌کند.</div>`;
   }
   h+=`</section>`;
 

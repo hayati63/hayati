@@ -21,6 +21,7 @@
 
 import argparse
 import csv
+import json
 import math
 import random
 import re
@@ -215,6 +216,8 @@ def main():
     ap.add_argument("--include-fixed", action="store_true",
                     help="درآمد ثابت را هم داخل تحلیل اصلی بیاور (پیش‌فرض: جدا)")
     ap.add_argument("--iters", type=int, default=5000)
+    ap.add_argument("--json", dest="json_out", default=None,
+                    help="نتیجه را در این فایل JSON هم بنویس — تا داشبورد\n                          عددها را از همین‌جا بردارد، نه از رونویسی دستی")
     args = ap.parse_args()
 
     kinds = [k.strip() for k in args.kinds.split(",") if k.strip()]
@@ -356,6 +359,7 @@ def main():
     print(f"تست جایگشت — برچسب «بالا» داخل هر ماه به‌هم ریخته ({args.iters} بار)")
     print("  پوچ: باکس نماد بهتری از تصادف انتخاب نمی‌کند.")
     print(f"\n  {'تعریف':<16} {'ماه':>5} {'مزیت واحد٪':>12} {'p':>8}")
+    perm_out = {}
     for k in kinds:
         rows = [o for o in per_kind[k] if not o["fixed"]]
         by_m = defaultdict(list)
@@ -366,12 +370,25 @@ def main():
             print(f"  {k:<16} — ماه کافی نیست")
             continue
         n_m = len(month_edge(by_m, "بالا"))
+        sel = [o["ret"] for o in rows if o["st"] == "بالا"]
+        allr = [o["ret"] for o in rows]
+        perm_out[k] = {
+            "months": n_m, "edge": edge, "p": p, "n_signal": len(sel),
+            "avg": statistics.mean(sel) if sel else None,
+            "win": (sum(1 for r in sel if r > 0) / len(sel) * 100) if sel else None,
+            "base_win": (sum(1 for r in allr if r > 0) / len(allr) * 100)
+            if allr else None,
+            "width_med": statistics.median(widths[k]) if widths[k] else None,
+        }
         ps = "—" if p is None else f"{p:.4f}"
         star = " ★" if (p is not None and p < 0.05) else ""
         print(f"  {k:<16} {n_m:>5} {edge:>+11.2f} {ps:>8}{star}")
     print("\n  p بالای ۰٫۰۵ یعنی از تصادف قابل تفکیک نیست.")
-    print(f"  با {len(months_all)} ماه، کمترین p ممکن حدود {1/(len(months_all)+1):.2f}")
-    print("  است — یعنی حتی سیگنال واقعی هم با این تعداد ماه اثبات نمی‌شود.")
+    print(f"  کف p برابر ۱/(تکرار+۱) = {1/(args.iters+1):.5f} است، نه تابع تعداد ماه:")
+    print("  برچسب‌ها داخل هر ماه جابه‌جا می‌شوند و هر ماه ده‌ها نماد دارد، پس")
+    print("  تعداد جایگشت ممکن نجومی است.")
+    print(f"  ولی {len(months_all)} ماه یک رژیم بازار است — p کوچک می‌گوید باکس")
+    print("  در این دوره بهتر از تصادف انتخاب کرده، نه اینکه همیشه می‌کند.")
 
     # ─── هندسهٔ ۱:۱ ───
     print("\n" + "─" * 72)
@@ -390,6 +407,32 @@ def main():
         print(f"  {k:<16} {len(g):>7} {empty/len(g)*100:>6.0f}٪"
               f" {tp:>7} {sl:>7} {avg:>+10.3f}")
     print("  «خالی» = حمایت خالی: پولبک نخورد، پس ورودی نبود.")
+
+    if args.json_out:
+        geom_out = {}
+        for k in kinds:
+            g = geom[k]
+            if not g:
+                continue
+            rs = [r for _, r in g if r is not None]
+            geom_out[k] = {
+                "n": len(g),
+                "empty": sum(1 for o, _ in g if o == "خالی") / len(g) * 100,
+                "target": sum(1 for o, _ in g if o == "تارگت"),
+                "stop": sum(1 for o, _ in g if o == "استاپ"),
+                "avg_r": statistics.mean(rs) if rs else None,
+            }
+        Path(args.json_out).write_text(json.dumps({
+            "window": "باکس از ماه قبل، بازده کل ماه بعد",
+            "kind": "prev_month",
+            "months": len(months_all),
+            "span": [f"{months_all[0][0]}/{months_all[0][1]:02d}",
+                     f"{months_all[-1][0]}/{months_all[-1][1]:02d}"],
+            "symbols": len(series), "iters": args.iters,
+            "p_floor": 1 / (args.iters + 1),
+            "perm": perm_out, "geom": geom_out,
+        }, ensure_ascii=False, indent=1), encoding="utf-8")
+        print(f"\nJSON: {Path(args.json_out).resolve()}")
 
     print("\n" + "=" * 72)
     return 0

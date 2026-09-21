@@ -373,6 +373,8 @@ tfoot td{background:var(--card-2);font-weight:700;border-top:2px solid var(--bor
 .b-mid{background:rgba(236,201,75,.15);color:var(--yellow)}
 .b-dn{background:rgba(245,101,101,.15);color:var(--red)}
 .b-f{background:rgba(99,179,237,.13);color:var(--blue)}
+tbody tr.hl td{background:rgba(61,214,140,.07)}
+tbody tr.hl td:first-child{box-shadow:inset 3px 0 0 var(--green)}
 
 .chips{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px}
 .chip{padding:4px 12px;border-radius:12px;font-size:12px;border:1px solid var(--border);
@@ -391,6 +393,7 @@ tfoot td{background:var(--card-2);font-weight:700;border-top:2px solid var(--bor
   font-size:13px;background:var(--card);margin:14px 0}
 .note.warn{border-color:rgba(236,201,75,.45);background:rgba(236,201,75,.08)}
 .note.bad{border-color:rgba(245,101,101,.45);background:rgba(245,101,101,.08)}
+.note.ok{border-color:rgba(61,214,140,.45);background:rgba(61,214,140,.07)}
 .note b{font-weight:800}
 
 .legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--muted);
@@ -1046,7 +1049,8 @@ function panels(){
     <div class="box scroll"><table><thead><tr>
       <th>نماد</th><th>گروه</th><th>چراغ</th><th class="n">تعداد</th>
       <th class="n">کلوز</th><th class="n">ارزش</th><th class="n">٪ سبد</th>
-      <th class="n">ریسک تا حمایت</th><th>وضعیت</th></tr></thead><tbody>${
+      <th class="n">ریسک تا حمایت</th><th>وضعیت</th>
+      <th class="n">٪ حجم روز</th><th class="n">روز خروج</th></tr></thead><tbody>${
       hv.map(h=>{const r=h.row, gt=r?D.gates[r.group]:null; return `
       <tr><td>${esc(h.sym)}</td>
         <td style="color:var(--muted);font-size:12px">${r?esc(r.group):'—'}</td>
@@ -1057,8 +1061,24 @@ function panels(){
         <td class="n">${hTotal?(h.val/hTotal*100).toFixed(1):'0.0'}٪</td>
         <td class="n">${r?r.risk.toFixed(2)+'٪':'—'}</td>
         <td>${r?`<span class="badge ${stCls(r.st)}">${esc(r.st)}</span>`
-          :'<span class="badge b-mid">خارج از جهان</span>'}</td></tr>`;}).join('')}
+          :'<span class="badge b-mid">خارج از جهان</span>'}</td>
+        <td class="n">${r&&r.liq&&r.liq.pct_of_volume!=null
+          ?r.liq.pct_of_volume.toFixed(2)+'٪':'—'}</td>
+        <td class="n">${r&&r.liq&&r.liq.exit_days!=null
+          ?`<b style="color:${r.liq.exit_days>2?'var(--red)':r.liq.exit_days>0.5?'var(--yellow)':'var(--green)'}">${r.liq.exit_days.toFixed(2)}</b>`
+          :'—'}</td></tr>`;}).join('')}
     </tbody></table></div>
+    ${D.liq_meta?(()=>{const worst=hv.map(h=>h.row&&h.row.liq&&h.row.liq.exit_days)
+        .filter(x=>x!=null).sort((a,b)=>b-a)[0];
+      return worst==null?'':`<div class="note ${worst>2?'bad':'ok'}">
+      <b>نقدشوندگی ${worst>2?'قید هست':'قید نیست'}.</b> بدترین پوزیشن
+      <span class="num">${worst.toFixed(2)}</span> روز طول می‌کشد تا با
+      <span class="num">${(D.liq_meta.participation*100).toFixed(0)}٪</span>
+      مشارکت در حجم روزانه بسته شود (میانهٔ
+      <span class="num">${D.liq_meta.window}</span> روز اخیر).
+      ${worst>2?'یعنی خروج چند روز طول می‌کشد و باید در سایزینگ لحاظ شود.'
+        :'یعنی «امشب بفروشم یا فردا» سؤال اجرایی نیست — این حجم‌ها در یک نشست بازار جا می‌شوند. هر تصمیمی اینجا تصمیم قاعده است، نه تصمیم نقدشوندگی.'}
+      </div>`;})():''}
     <div class="note warn"><b>سه اهرمی یک شرط‌بندی است، نه سه تا.</b>
       همبستگی داخل مجموعهٔ سهام بالای ۰٫۹ است، پس دوایکس و موج و بیدار در
       عمل یک پوزیشن‌اند. تنوع واقعی بین <b>عامل</b>ها به دست می‌آید، نه بین
@@ -1091,16 +1111,194 @@ function panels(){
       <th class="n">مبلغ</th></tr></thead>
       <tbody id="reb-rows"></tbody></table></div>`;
 
+  /* شواهد */
+  const EV=D.ev, EVI=D.evi;
+  const KN={valley_first:'اولین دره',valley_nearest:'نزدیک‌ترین دره',
+            valley_deepest:'عمیق‌ترین دره',value_area:'سه‌بین پرحجم'};
+  P.ev = !EV ? `<div class="note warn">فایل شواهد ساخته نشده. اجرا کنید:
+      <span class="num">python3 tools/monthly_backtest.py --data data_auto
+      --json data/evidence_month.json</span></div>` : `
+    <div class="note"><b>این تب می‌گوید کدام تعریف باکس شواهد دارد و کدام ندارد
+      — روی دادهٔ خودتان، نه روی حرف.</b> آزمون، جایگشتِ درون‌ماه است: برچسب
+      سیگنال داخل هر ماه به‌هم می‌ریزد، پس حرکت کل بازار در آن ماه و تعداد
+      سیگنال‌های آن ماه ثابت می‌مانند و تنها چیزی که تصادفی می‌شود این است که
+      کدام نماد برچسب گرفت.</div>
+
+    <h2>پنجرهٔ ۱ — باکس ماه قبل، بازده کل ماه بعد</h2>
+    <p class="lede">تنها پنجره‌ای که بدون لوک‌اهد قابل معامله است: باکس وقتی
+      ساخته می‌شود که ماه تمام شده، و ورود روی کلوز اولین روز ماه بعد است.
+      <span class="num">${EV.symbols}</span> نماد،
+      <span class="num">${EV.months}</span> ماه
+      (<span class="num">${EV.span[0]}</span> تا
+      <span class="num">${EV.span[1]}</span>).</p>
+    <div class="box scroll"><table><thead><tr>
+      <th>تعریف</th><th class="n">سیگنال</th><th class="n">نرخ پایه</th>
+      <th class="n">برد</th><th class="n">میانگین</th><th class="n">عرض باکس</th>
+      <th class="n">مزیت واحد٪</th><th class="n">p</th><th>حکم</th>
+      </tr></thead><tbody>${
+      Object.entries(EV.perm).sort((a,b)=>(a[1].p??1)-(b[1].p??1)).map(([k,v])=>`
+      <tr${v.p!=null&&v.p<0.05?' class="hl"':''}>
+        <td><b>${esc(KN[k]||k)}</b><div class="muted num">${esc(k)}</div></td>
+        <td class="n">${v.n_signal}</td>
+        <td class="n">${v.base_win==null?'—':v.base_win.toFixed(1)+'٪'}</td>
+        <td class="n">${v.win==null?'—':v.win.toFixed(1)+'٪'}</td>
+        <td class="n">${v.avg==null?'—':pc(v.avg)}</td>
+        <td class="n">${v.width_med==null?'—':v.width_med.toFixed(2)+'٪'}</td>
+        <td class="n">${v.edge>=0?'+':''}${v.edge.toFixed(2)}</td>
+        <td class="n"><b>${v.p==null?'—':v.p.toFixed(4)}</b></td>
+        <td>${v.p!=null&&v.p<0.05
+            ? '<span class="badge b-up">قابل تفکیک از تصادف</span>'
+            : '<span class="badge b-dn">قابل تفکیک نیست</span>'}</td>
+      </tr>`).join('')}</tbody></table></div>
+    <p class="lede">ستون «برد» را نخوانید، ستون «مزیت» را بخوانید. وقتی نرخ پایه
+      <span class="num">${Object.values(EV.perm)[0].base_win.toFixed(1)}٪</span>
+      است، «برد ۸۲٪» عمدتاً خودِ همان نرخ پایه است.</p>
+    <div class="note ${Object.values(EV.perm).some(v=>v.p!=null&&v.p<0.05)?'ok':'warn'}">
+      <b>کف p برابر <span class="num">${EV.p_floor.toFixed(5)}</span> است</b>
+      (۱ تقسیم بر <span class="num">${EV.iters.toLocaleString('en')}</span> تکرار،
+      به‌علاوهٔ یک) — نه <span class="num">${(1/(EV.months+1)).toFixed(2)}</span>.
+      آن عدد دوم برای آزمونی است که علامتِ کل یک ماه را وارونه می‌کند؛ اینجا
+      برچسب <b>داخل</b> هر ماه جابه‌جا می‌شود و هر ماه ده‌ها نماد دارد، پس فضای
+      جایگشت نجومی است. آنچه
+      <span class="num">${EV.months}</span> ماه محدود می‌کند <b>تعمیم‌پذیری</b>
+      است، نه تفکیک‌پذیری: p کوچک می‌گوید باکس <b>در این دوره</b> بهتر از تصادف
+      انتخاب کرده، نه اینکه همیشه می‌کند.</div>
+
+    ${EV.geom?`<h2>هندسهٔ ۱:۱ — ورود روی پولبک</h2>
+    <p class="lede">همان قاعدهٔ خودتان: ورود روی پولبک به سقف باکس، استاپ کف
+      باکس، تارگت به اندازهٔ ارتفاع باکس. «خالی» یعنی پولبک نخورد و ورودی نبود.</p>
+    <div class="box scroll"><table><thead><tr>
+      <th>تعریف</th><th class="n">سیگنال</th><th class="n">حمایت خالی</th>
+      <th class="n">تارگت</th><th class="n">استاپ</th><th class="n">میانگین R</th>
+      </tr></thead><tbody>${
+      Object.entries(EV.geom).map(([k,v])=>`
+      <tr><td>${esc(KN[k]||k)}</td><td class="n">${v.n}</td>
+        <td class="n">${v.empty.toFixed(0)}٪</td>
+        <td class="n">${v.target}</td><td class="n">${v.stop}</td>
+        <td class="n">${v.avg_r==null?'—':(v.avg_r>=0?'+':'')+v.avg_r.toFixed(3)}</td>
+      </tr>`).join('')}</tbody></table></div>
+    <div class="note warn"><b>R را با R مقایسه نکنید.</b> «سه‌بین پرحجم» میانگین
+      R بالاتری می‌دهد چون باکسش
+      ${EV.perm.value_area&&EV.perm.valley_first
+        ? `<span class="num">${(EV.perm.value_area.width_med/EV.perm.valley_first.width_med).toFixed(1)}</span> برابر`
+        : 'چند برابر'}
+      پهن‌تر است — استاپ دورتر، تارگت دورتر. یک R آنجا حرکت قیمتی بسیار بزرگ‌تری
+      است، و همان تعریف در آزمون جایگشت رد شد.</div>`:''}
+
+    ${EVI?`<h2>پنجرهٔ ۲ — باکس همین ماه تا امروز، بازده تا پایان همین ماه</h2>
+    <p class="lede">این پنجرهٔ چراغی است که داشبورد <b>در طول ماه</b> نشان
+      می‌دهد. باکس روز d فقط کندل‌های تا روز d را می‌بیند، پس لوک‌اهد ندارد.
+      <span class="num">${EVI.n_obs.toLocaleString('en')}</span> مشاهده
+      (نماد×روز) روی <span class="num">${EVI.symbols}</span> نماد و
+      <span class="num">${EVI.months}</span> ماه.</p>
+    <div class="box scroll"><table><thead><tr>
+      <th>حالت امروز</th><th class="n">n</th><th class="n">مثبت</th>
+      <th class="n">میانگین تا پایان ماه</th><th class="n">مزیت واحد٪</th>
+      <th class="n">p</th></tr></thead><tbody>${
+      ['بالا','داخل','زیر'].filter(k=>EVI.states[k]).map(k=>{
+        const v=EVI.states[k];
+        return `<tr><td><span class="badge ${k==='بالا'?'b-up':k==='زیر'?'b-dn':'b-mid'}">${esc(k)} باکس</span></td>
+        <td class="n">${v.n.toLocaleString('en')}</td>
+        <td class="n">${v.win==null?'—':v.win.toFixed(1)+'٪'}</td>
+        <td class="n">${v.avg==null?'—':pc(v.avg)}</td>
+        <td class="n">${v.edge>=0?'+':''}${v.edge.toFixed(2)}</td>
+        <td class="n">${v.p==null?'—':v.p.toFixed(4)}</td></tr>`}).join('')}
+      </tbody></table></div>
+    <p class="lede">نرخ پایهٔ این پنجره: میانگین
+      <span class="num">${pc(EVI.base_avg)}</span> ·
+      مثبت <span class="num">${EVI.base_win.toFixed(1)}٪</span>.
+      p در این جدول یک‌طرفه و رو به بالاست، پس برای «زیر» عدد بزرگ یعنی بد بودن
+      تأیید می‌شود؛ ستونی که باید خواند «مزیت» است.</p>
+
+    ${EVI.cells&&Object.keys(EVI.cells).length?`
+    <h2>همان جدول، این بار با کنترل افق</h2>
+    <p class="lede">جدول بالا دو چیز را کنترل نکرده: کدام ماه، و کدام روزِ ماه
+      — چون هرچه دیرتر در ماه، افق تا کلوز کوتاه‌تر است. اینجا مقایسه فقط
+      <b>داخل هر سلولِ (ماه × روزِ ماه)</b> انجام می‌شود، یعنی فقط بین نمادهایی
+      که در یک روزِ یکسان از یک ماهِ یکسان‌اند.</p>
+    <div class="box scroll"><table><thead><tr>
+      <th>حالت امروز</th><th class="n">میانگین روزِ ماه</th><th class="n">سلول</th>
+      <th class="n">n</th><th class="n">مزیت واحد٪</th><th class="n">خطای معیار</th>
+      <th class="n">t</th></tr></thead><tbody>${
+      ['بالا','داخل','زیر'].filter(k=>EVI.cells[k]).map(k=>{const v=EVI.cells[k];
+      return `<tr><td><span class="badge ${k==='بالا'?'b-up':k==='زیر'?'b-dn':'b-mid'}">${esc(k)} باکس</span></td>
+        <td class="n">${v.mean_day.toFixed(1)}</td>
+        <td class="n">${v.cells}</td>
+        <td class="n">${v.n.toLocaleString('en')}</td>
+        <td class="n"><b>${v.edge>=0?'+':''}${v.edge.toFixed(2)}</b></td>
+        <td class="n">${v.se==null?'—':v.se.toFixed(2)}</td>
+        <td class="n">${v.t==null?'—':(v.t>=0?'+':'')+v.t.toFixed(2)}</td>
+      </tr>`}).join('')}</tbody></table></div>
+    <h2>سه مشخصه، کنار هم</h2>
+    <p class="lede">یک برآورد وقتی معنی دارد که با تغییر روشِ کنترل نلرزد.
+      این جدول همان سه عدد را برای هر حالت کنار هم می‌گذارد.</p>
+    <div class="box scroll"><table><thead><tr>
+      <th>حالت امروز</th>
+      <th class="n">خام<div class="muted">بدون کنترل</div></th>
+      <th class="n">جایگشت<div class="muted">کنترل ماه</div></th>
+      <th class="n">سلولی<div class="muted">کنترل ماه و افق</div></th>
+      <th>پایداری</th></tr></thead><tbody>${
+      ['بالا','داخل','زیر'].filter(k=>EVI.states[k]).map(k=>{
+        const raw=EVI.states[k].avg-EVI.base_avg;
+        const perm=EVI.states[k].edge;
+        const cell=EVI.cells&&EVI.cells[k]?EVI.cells[k].edge:null;
+        const vals=[raw,perm,cell].filter(x=>x!=null);
+        const stable=vals.every(x=>x>=0)||vals.every(x=>x<=0);
+        return `<tr><td><span class="badge ${k==='بالا'?'b-up':k==='زیر'?'b-dn':'b-mid'}">${esc(k)} باکس</span></td>
+        <td class="n">${raw>=0?'+':''}${raw.toFixed(2)}</td>
+        <td class="n">${perm>=0?'+':''}${perm.toFixed(2)}</td>
+        <td class="n">${cell==null?'—':(cell>=0?'+':'')+cell.toFixed(2)}</td>
+        <td>${stable?'<span class="badge b-mid">هم‌علامت</span>'
+          :'<span class="badge b-dn">علامت عوض می‌شود</span>'}</td>
+      </tr>`}).join('')}</tbody></table></div>
+    ${(()=>{const up=EVI.cells?EVI.cells['بالا']:null;if(!up)return'';
+      const days=['بالا','داخل','زیر'].filter(k=>EVI.cells[k])
+        .map(k=>EVI.cells[k].mean_day);
+      const spread=Math.max(...days)-Math.min(...days);
+      const flip=['بالا','داخل','زیر'].filter(k=>{
+        if(!EVI.states[k]||!EVI.cells||!EVI.cells[k])return false;
+        const v=[EVI.states[k].avg-EVI.base_avg,EVI.states[k].edge,EVI.cells[k].edge];
+        return !(v.every(x=>x>=0)||v.every(x=>x<=0));});
+      return `<div class="note bad">
+      <b>افق مقصر نیست</b> — میانگین روزِ ماه بین حالت‌ها فقط
+      <span class="num">${spread.toFixed(1)}</span> روز فرق دارد. ولی با کنترل
+      کامل، مزیتِ «بالای باکس»
+      <span class="num">${up.edge>=0?'+':''}${up.edge.toFixed(2)}</span> واحد درصد
+      است (t=<span class="num">${up.t==null?'—':(up.t>=0?'+':'')+up.t.toFixed(2)}</span>)
+      — یعنی صفر. ${flip.length?`و برای <b>${flip.map(esc).join(' و ')}</b> علامتِ
+      برآورد با انتخاب مشخصه عوض می‌شود؛ برآوردی که چنین می‌کند نویز را اندازه
+      می‌گیرد، نه اثر را.`:''}
+      <b>چراغ زندهٔ وسط ماه در این داده اطلاعاتی حمل نمی‌کند که از تصادف قابل
+      تفکیک باشد.</b> این «اثباتِ نبودِ اثر» نیست، «نبودِ اثباتِ اثر» است.</div>`;})()}
+    `:''}`:`
+    <div class="note warn"><b>پنجرهٔ ۲ هنوز اجرا نشده.</b>
+      <span class="num">python3 tools/intramonth_test.py --data data_auto
+      --json data/evidence_intramonth.json</span></div>`}
+
+    <div class="note"><b>دو چراغ، دو معنی.</b> ستون «وضعیت جاری» در بقیهٔ تب‌ها
+      از باکس <b>همین ماه تا امروز</b> می‌آید (پنجرهٔ ۲) و ستون «وضعیت ماه قبل»
+      از باکس <b>ماه قبل</b> (پنجرهٔ ۱). این دو می‌توانند هم‌زمان خلاف هم بگویند
+      و این تناقض نیست — دو پنجره‌اند.</div>`;
+
   /* سلامت داده */
   P.health=`
     <div class="note bad"><b>${O.n} معاملهٔ باز</b> در بک‌تست با قیمت امروز
       ارزش‌گذاری شده‌اند (${pc(O.n/A.n*100)} کل). تا بسته نشوند، نرخ برد و
       میانگین بازده را خوش‌بینانه نشان می‌دهند.</div>
-    <div class="note warn"><b>نرخ پایه هنوز غایب است.</b> این فایل فقط
+    ${EV?`<div class="note ok"><b>نرخ پایه دیگر غایب نیست.</b> این فایل فقط
+      سیگنال‌های گرفته‌شده را دارد، ولی گروه کنترل حالا از CSVهای
+      <span class="num">data_auto</span> ساخته شده:
+      <span class="num">${EV.symbols}</span> نماد،
+      <span class="num">${EV.months}</span> ماه. نرخ پایه
+      <span class="num">${Object.values(EV.perm)[0].base_win.toFixed(1)}٪</span>
+      است — یعنی ${C.win.toFixed(1)}٪ برد را باید منهای آن خواند. تب
+      <b>شواهد</b> را ببینید.</div>`
+      :`<div class="note warn"><b>نرخ پایه هنوز غایب است.</b> این فایل فقط
       سیگنال‌های گرفته‌شده را دارد، نه نماد-ماه‌هایی که سیگنال ندادند. بدون
       گروه کنترل نمی‌شود گفت ${C.win.toFixed(1)}٪ از «هر نماد تصادفی در همان
-      ماه» بهتر است یا نه. برای آن به CSVهای <span class="num">data_auto</span>
-      نیاز است.</div>
+      ماه» بهتر است یا نه. اجرا کنید:
+      <span class="num">python3 tools/monthly_backtest.py --data data_auto
+      --json data/evidence_month.json</span></div>`}
     <div class="note"><b>ماه جاری باز است.</b> باکس ماه جاری تا پایان ماه کامل
       نمی‌شود، پس ستون «ریسک جاری» موقتی است. ستون «ریسک ماه قبل» روی دورهٔ
       کامل‌شده حساب شده و پایدارتر است.</div>
@@ -1118,8 +1316,9 @@ function panels(){
 
   const P=panels();
   const TABS=[['drv','محرک‌ها'],['mine','پرتفوی من'],['today','تصمیم امروز'],
-              ['pf','پرتفوی هدف'],['reb','تراز پرتفو'],['bt','بک‌تست'],
-              ['corr','همبستگی دسته‌ها'],['all','همهٔ نمادها'],['health','سلامت داده']];
+              ['pf','پرتفوی هدف'],['reb','تراز پرتفو'],['ev','شواهد'],
+              ['bt','بک‌تست'],['corr','همبستگی دسته‌ها'],['all','همهٔ نمادها'],
+              ['health','سلامت داده']];
   const tabs=document.getElementById('tabs'), panelsEl=document.getElementById('panels');
   TABS.forEach(([id,label],i)=>{
     const b=document.createElement('button');
@@ -1208,8 +1407,14 @@ def main():
                     help="فایل محرک‌ها؛ اگر نباشد پروکسی استفاده می‌شود")
     ap.add_argument("--holdings", default="data/holdings.txt",
                     help="پرتفوی فعلی: هر خط «نماد تعداد»")
-    ap.add_argument("--liquidity", default="data/liquidity.csv",
-                    help="نقدشوندگی: نماد,ارزش‌معامله,ارزش‌بازار")
+    ap.add_argument("--liquidity", default="data/liquidity.json",
+                    help="خروجی tools/liquidity.py — روزِ خروج از هر پوزیشن")
+    ap.add_argument("--evidence", default="data/evidence_month.json",
+                    help="خروجی tools/monthly_backtest.py --json")
+    ap.add_argument("--evidence-intramonth",
+                    dest="evidence_intra",
+                    default="data/evidence_intramonth.json",
+                    help="خروجی tools/intramonth_test.py --json")
     ap.add_argument("--max-group", type=float, default=35.0,
                     help="سقف وزن هر گروه (٪ سرمایه)")
     ap.add_argument("--artifact", action="store_true")
@@ -1257,26 +1462,44 @@ def main():
         a["gates"][g] = {"light": light, "score": score, "detail": detail}
 
     # ── نقدشوندگی ──
-    liq = {}
+    # JSON خروجی tools/liquidity.py: واحدمحور، پس مقیاس‌آزاد. اگر نبود،
+    # CSV قدیمیِ «ارزش معامله / ارزش بازار» هنوز خوانده می‌شود.
+    liq, liq_meta = {}, None
     lp = Path(args.liquidity)
     if lp.exists():
-        for line in lp.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if not line or line.startswith("#"):
-                continue
-            parts = [x.strip() for x in re.split(r"[,\t]", line)]
-            if len(parts) < 3:
-                continue
-            try:
-                val, cap = float(parts[1]), float(parts[2])
-            except ValueError:
-                continue
-            if cap > 0:
-                liq[parts[0]] = {"value": val, "mcap": cap,
-                                 "turnover": val / cap * 100}
+        if lp.suffix == ".json":
+            blob = json.loads(lp.read_text(encoding="utf-8"))
+            liq = blob.get("rows", {})
+            liq_meta = {"window": blob.get("window"),
+                        "participation": blob.get("participation")}
+        else:
+            for line in lp.read_text(encoding="utf-8").splitlines():
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                parts = [x.strip() for x in re.split(r"[,\t]", line)]
+                if len(parts) < 3:
+                    continue
+                try:
+                    val, cap = float(parts[1]), float(parts[2])
+                except ValueError:
+                    continue
+                if cap > 0:
+                    liq[parts[0]] = {"med_value": val, "mcap": cap,
+                                     "turnover": val / cap * 100}
     for r in a["rows"]:
         r["liq"] = liq.get(r["sym"])
     a["has_liquidity"] = bool(liq)
+    a["liq_meta"] = liq_meta
+
+    # ── شواهد: کدام تعریف باکس از آزمون جایگشت رد شد و کدام نشد ──
+    a["ev"] = a["evi"] = None
+    ep = Path(args.evidence)
+    if ep.exists():
+        a["ev"] = json.loads(ep.read_text(encoding="utf-8"))
+    eip = Path(args.evidence_intra)
+    if eip.exists():
+        a["evi"] = json.loads(eip.read_text(encoding="utf-8"))
 
     # ── پرتفوی فعلی ──
     holds = {}
