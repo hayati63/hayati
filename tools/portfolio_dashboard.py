@@ -29,7 +29,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from drivers import (  # noqa: E402
-    DRIVERS, EXPOSURE, SUBSECTOR, coverage, gate, group_of,
+    CERTIFICATES, DRIVERS, EXPOSURE, SUBSECTOR, coverage, gate, group_of,
 )
 
 # دسته‌های خام → عامل. پایهٔ تفکیک، ماتریس همبستگی خودِ داده است.
@@ -558,6 +558,7 @@ function renderPf(){
 
   const rFloor=Math.max(0.1,+document.getElementById('rf').value||2);
   const maxW=Math.max(1,+document.getElementById('mw').value||15);
+  const maxG=D.cfg.max_group;
 
   const useGate=document.getElementById('gate') &&
                 document.getElementById('gate').checked;
@@ -571,9 +572,23 @@ function renderPf(){
         if(gt && gt.light==='قرمز') return false;
       }
       return true;
-    }).sort((a,b)=>b.score-a.score).slice(0,k);
+    }).sort((a,b)=>b.score-a.score);
   }
-  const eq=pick('سهام‌محور',nEq), me=pick('فلزات',nMe);
+  // سقف وزن هر گروه: از هر گروه حداکثر به تعداد لازم برداشته می‌شود تا
+  // یک گروه، سبد را نبلعد — سه اهرمی در سبد، یک شرط‌بندی است نه سه تا.
+  function capGroups(list,k,w){
+    const perG=Math.max(1,Math.ceil(k*Math.min(1,maxG/Math.max(w,1e-9))));
+    const cnt={}, out=[];
+    for(const r of list){
+      const g=r.group||'—';
+      if((cnt[g]||0)>=perG) continue;
+      cnt[g]=(cnt[g]||0)+1; out.push(r);
+      if(out.length>=k) break;
+    }
+    return out;
+  }
+  const eq=capGroups(pick('سهام‌محور',nEq),nEq,wEq);
+  const me=capGroups(pick('فلزات',nMe),nMe,wMe);
   const legs=[['سهام‌محور',eq,wEq],['فلزات',me,wMe]];
 
   let out=[];
@@ -679,6 +694,10 @@ function renderPf(){
 
 function renderReb(){
   if(!TARGET.length) renderPf();
+  const ta=document.getElementById('cur');
+  if(ta && !ta.value && Object.keys(D.holdings||{}).length){
+    ta.value=Object.entries(D.holdings).map(([s,n])=>s+' '+n).join('\n');
+  }
   const txt=(document.getElementById('cur')||{}).value||'';
   const cash=Math.max(0,+((document.getElementById('cash')||{}).value)||0);
   const price={}, grp={};
@@ -940,6 +959,23 @@ function panels(){
         <td style="color:var(--muted);font-size:12px">${esc(d.source)}</td></tr>`).join('')}
     </tbody></table></div>
 
+    <h2>گواهی سپردهٔ کالایی</h2>
+    <p class="lede">این‌ها برخلاف بالایی‌ها <b>قابل معامله‌اند</b>، ولی نقششان
+      در تصمیم همان است: قیمت پایهٔ فیزیکی که صندوق رویش بنا شده. اگر گواهی
+      شمش نقره زیر حمایتش باشد، صندوق نقره هم معمولاً همان‌جاست.</p>
+    <div class="box scroll" style="max-height:none"><table><thead><tr>
+      <th>گواهی</th><th>چه چیزی را می‌راند</th><th class="n">کلوز</th>
+      <th class="n">باکس</th><th>وضعیت</th><th>منبع داده</th>
+      </tr></thead><tbody>${D.certs.map(c=>`
+      <tr><td>${esc(c.name)}</td>
+        <td style="color:var(--muted);font-size:12px">${c.drives.map(esc).join('، ')}</td>
+        <td class="n">${c.close==null?'—':money(c.close)}</td>
+        <td class="n">${c.lo==null?'—':money(c.lo)+' – '+money(c.hi)}</td>
+        <td>${c.state?`<span class="badge ${c.state==='بالا'?'b-up':(c.state==='زیر'?'b-dn':'b-mid')}">${esc(c.state)}</span>`
+          :'<span class="badge b-mid">منتظر داده</span>'}</td>
+        <td style="color:var(--muted);font-size:12px">${esc(c.source)}</td></tr>`).join('')}
+    </tbody></table></div>
+
     <h2>چراغ هر گروه</h2>
     <p class="lede">هر گروه از ترکیب وضعیت محرک‌هایش چراغ می‌گیرد. ستون
       «β شاخص» بتای اندازه‌گیری‌شدهٔ همان گروه روی معاملات بستهٔ بک‌تست است —
@@ -967,6 +1003,66 @@ function panels(){
       املاک <span class="num">۰٫۲۲</span> — دقیقاً همان ترتیبی که ترکیب
       دارایی پیش‌بینی می‌کند. دستهٔ «بخشی» هم به زیربخش شکسته شد، چون
       بانکی و پالایشی و فلزی در یک سطل، محرک‌های متفاوتی دارند.</div>`;
+
+  /* پرتفوی من */
+  const HOLD=D.holdings||{};
+  const hv=[], byG={}, byF={};
+  let hTotal=0;
+  Object.entries(HOLD).forEach(([sym,n])=>{
+    const r=D.rows.find(x=>x.sym===sym);
+    const px=r?r.close:0, val=n*px;
+    hTotal+=val;
+    hv.push({sym,n,val,row:r});
+    const g=r?r.group:'ناشناس', f=r?r.factor:'ناشناس';
+    byG[g]=(byG[g]||0)+val; byF[f]=(byF[f]||0)+val;
+  });
+  hv.sort((a,b)=>b.val-a.val);
+  const topW=hTotal?hv[0].val/hTotal*100:0;
+  const top2=hTotal?(hv[0].val+(hv[1]?hv[1].val:0))/hTotal*100:0;
+  const nReal=hv.filter(h=>h.val>hTotal*0.001).length;
+  const facRows=Object.entries(byF).sort((a,b)=>b[1]-a[1]);
+
+  P.mine = !hv.length ? `<div class="note">فایل <span class="num">data/holdings.txt</span> خالی است.</div>` : `
+    <h2>پرتفوی فعلی شما</h2>
+    <p class="lede">جمع دو حساب، به قیمت پایانی. درصدها نسبت به ارزش سهام است،
+      بدون نقد.</p>
+    <div class="kpis">
+      <div class="kpi b"><div class="k">ارزش سهام</div>
+        <div class="v"><span class="num">${money(hTotal)}</span></div>
+        <div class="s">${nReal} پوزیشن مؤثر</div></div>
+      <div class="kpi ${topW>25?'r':''}"><div class="k">بزرگ‌ترین پوزیشن</div>
+        <div class="v"><span class="num">${topW.toFixed(1)}٪</span></div>
+        <div class="s">${esc(hv[0].sym)}</div></div>
+      <div class="kpi ${top2>50?'r':''}"><div class="k">دو پوزیشن اول</div>
+        <div class="v"><span class="num">${top2.toFixed(1)}٪</span></div></div>
+      ${facRows.map(([f,v])=>`<div class="kpi"><div class="k">${esc(f)}</div>
+        <div class="v" style="color:${FC[f]||'var(--text)'}"><span class="num">${(v/hTotal*100).toFixed(1)}٪</span></div>
+        <div class="s">${money(v)}</div></div>`).join('')}
+    </div>
+    ${topW>25?`<div class="note bad"><b>تمرکز.</b> ${topW.toFixed(1)}٪ سبد در یک
+      نماد (${esc(hv[0].sym)}) است و ${top2.toFixed(1)}٪ در دو نماد. هیچ
+      چارچوب حرفه‌ای‌ای وزن تک‌پوزیشن را بالای حدود ۱۰–۱۵٪ نمی‌گذارد —
+      نه چون آن نماد بد است، بلکه چون یک خطای واحد نباید سبد را ببرد.</div>`:''}
+    <div class="box scroll"><table><thead><tr>
+      <th>نماد</th><th>گروه</th><th>چراغ</th><th class="n">تعداد</th>
+      <th class="n">کلوز</th><th class="n">ارزش</th><th class="n">٪ سبد</th>
+      <th class="n">ریسک تا حمایت</th><th>وضعیت</th></tr></thead><tbody>${
+      hv.map(h=>{const r=h.row, gt=r?D.gates[r.group]:null; return `
+      <tr><td>${esc(h.sym)}</td>
+        <td style="color:var(--muted);font-size:12px">${r?esc(r.group):'—'}</td>
+        <td>${gt?`<span class="badge ${gt.light==='سبز'?'b-up':(gt.light==='قرمز'?'b-dn':'b-mid')}">${esc(gt.light)}</span>`:'—'}</td>
+        <td class="n">${money(h.n)}</td>
+        <td class="n">${r?money(r.close):'—'}</td>
+        <td class="n">${money(h.val)}</td>
+        <td class="n">${hTotal?(h.val/hTotal*100).toFixed(1):'0.0'}٪</td>
+        <td class="n">${r?r.risk.toFixed(2)+'٪':'—'}</td>
+        <td>${r?`<span class="badge ${stCls(r.st)}">${esc(r.st)}</span>`
+          :'<span class="badge b-mid">خارج از جهان</span>'}</td></tr>`;}).join('')}
+    </tbody></table></div>
+    <div class="note warn"><b>سه اهرمی یک شرط‌بندی است، نه سه تا.</b>
+      همبستگی داخل مجموعهٔ سهام بالای ۰٫۹ است، پس دوایکس و موج و بیدار در
+      عمل یک پوزیشن‌اند. تنوع واقعی بین <b>عامل</b>ها به دست می‌آید، نه بین
+      نمادهای یک عامل.</div>`;
 
   /* تراز پرتفو */
   P.reb=`
@@ -1021,9 +1117,9 @@ function panels(){
   document.getElementById('stamp').textContent = D.generated;
 
   const P=panels();
-  const TABS=[['drv','محرک‌ها'],['today','تصمیم امروز'],['pf','پرتفوی'],
-              ['reb','تراز پرتفو'],['bt','بک‌تست'],['corr','همبستگی دسته‌ها'],
-              ['all','همهٔ نمادها'],['health','سلامت داده']];
+  const TABS=[['drv','محرک‌ها'],['mine','پرتفوی من'],['today','تصمیم امروز'],
+              ['pf','پرتفوی هدف'],['reb','تراز پرتفو'],['bt','بک‌تست'],
+              ['corr','همبستگی دسته‌ها'],['all','همهٔ نمادها'],['health','سلامت داده']];
   const tabs=document.getElementById('tabs'), panelsEl=document.getElementById('panels');
   TABS.forEach(([id,label],i)=>{
     const b=document.createElement('button');
@@ -1110,6 +1206,12 @@ def main():
                     help="سقف وزن هر نماد (٪ سرمایه)")
     ap.add_argument("--drivers", default="data/drivers.txt",
                     help="فایل محرک‌ها؛ اگر نباشد پروکسی استفاده می‌شود")
+    ap.add_argument("--holdings", default="data/holdings.txt",
+                    help="پرتفوی فعلی: هر خط «نماد تعداد»")
+    ap.add_argument("--liquidity", default="data/liquidity.csv",
+                    help="نقدشوندگی: نماد,ارزش‌معامله,ارزش‌بازار")
+    ap.add_argument("--max-group", type=float, default=35.0,
+                    help="سقف وزن هر گروه (٪ سرمایه)")
     ap.add_argument("--artifact", action="store_true")
     args = ap.parse_args()
 
@@ -1154,9 +1256,50 @@ def main():
         light, score, detail = gate(g, dstate, proxy_map)
         a["gates"][g] = {"light": light, "score": score, "detail": detail}
 
+    # ── نقدشوندگی ──
+    liq = {}
+    lp = Path(args.liquidity)
+    if lp.exists():
+        for line in lp.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            parts = [x.strip() for x in re.split(r"[,\t]", line)]
+            if len(parts) < 3:
+                continue
+            try:
+                val, cap = float(parts[1]), float(parts[2])
+            except ValueError:
+                continue
+            if cap > 0:
+                liq[parts[0]] = {"value": val, "mcap": cap,
+                                 "turnover": val / cap * 100}
+    for r in a["rows"]:
+        r["liq"] = liq.get(r["sym"])
+    a["has_liquidity"] = bool(liq)
+
+    # ── پرتفوی فعلی ──
+    holds = {}
+    hp = Path(args.holdings)
+    if hp.exists():
+        for line in hp.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            m = re.match(r"^(.+?)[\s,،\t]+([\d.,]+)$", line)
+            if m:
+                try:
+                    holds[m.group(1).strip()] = float(
+                        m.group(2).replace(",", "").replace("،", ""))
+                except ValueError:
+                    pass
+    a["holdings"] = holds
+
+    a["certs"] = [dict(c) for c in CERTIFICATES]
     a["cfg"] = {"capital": args.capital, "w_eq": w_eq, "n_eq": args.n_eq,
                 "n_me": args.n_me, "max_risk": args.max_risk,
-                "risk_floor": args.risk_floor, "max_weight": args.max_weight}
+                "risk_floor": args.risk_floor, "max_weight": args.max_weight,
+                "max_group": args.max_group}
     a["generated"] = datetime.now().strftime("%Y-%m-%d %H:%M")
 
     html = TEMPLATE.replace("__DATA__", json.dumps(a, ensure_ascii=False))
