@@ -67,6 +67,15 @@ def main():
                          "است، نه پیشرو. ۰ یعنی این قید خاموش")
     ap.add_argument("--require-driver", action="store_true",
                     help="محرکِ اصلیِ گروه هم باید بالای باکس هفتگی باشد")
+    ap.add_argument("--keep-bonus", type=float, default=1.6,
+                    help="امتیازِ ماندنِ نمادی که همین حالا در پرتفو هست و "
+                         "هنوز واجد شرط است، برحسب واحدِ ریسک (درصد فاصله "
+                         "تا حمایت). چرا ۱٫۶: کارمزد رفت‌وبرگشت صندوق "
+                         "۰٫۵۵٪ است و **قطعی**، ولی فاصلهٔ بیشترِ استاپ "
+                         "فقط وقتی خرج می‌شود که استاپ بخورد — حدود ۳۵٪ "
+                         "مواقع (۵۳ استاپ از ۱۵۱ معاملهٔ پرشده، "
+                         "data/evidence_month.json). پس ۰٫۵۵ ÷ ۰٫۳۵ ≈ ۱٫۶ "
+                         "واحد ریسک هم‌ارزِ کارمزدِ تعویض است. ۰ یعنی خاموش")
     ap.add_argument("--json", dest="json_out", default=None)
     args = ap.parse_args()
 
@@ -242,10 +251,16 @@ def main():
                else {"سهام‌محور": args.w_eq, "فلزات": 100.0 - args.w_eq})
     per_group = max(1, math.ceil(args.n * args.max_group / 100))
     picks, gc = [], defaultdict(int)
+    # ترتیبِ انتخاب ≠ ترتیبِ نمایش: نمادی که همین حالا داریم به اندازهٔ
+    # کارمزدِ تعویض جلو می‌افتد، وگرنه سیستم هر هفته یک صندوق طلا را با
+    # صندوق طلای دیگری عوض می‌کند و کارمزد، مزیتِ نازک را می‌خورد
+    # (بند ۹ CLAUDE.md).
+    order = sorted(elig, key=lambda r: r["risk"]
+                   - (args.keep_bonus if r["sym"] in holds else 0.0))
     for fac, bud in budgets.items():
         want = max(1, round(args.n * bud / 100))
         taken = 0
-        for r in elig:
+        for r in order:
             if r["factor"] != fac or taken >= want:
                 continue
             if gc[r["group"]] >= per_group:
