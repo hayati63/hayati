@@ -1,0 +1,357 @@
+<title>تصمیم فردا</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;700;900&display=swap">
+<style>
+:root{
+  --bg:#EEF1F5; --surface:#FFFFFF; --sunk:#F6F8FA;
+  --ink:#141E29; --muted:#5B6874; --faint:#8B98A5;
+  --line:#D5DDE5; --line-soft:#E6ECF2;
+  --brass:#8A6512; --brass-soft:#F0E6CE;
+  --up:#0B6E4F; --up-bg:#DFF1E9;
+  --flat:#66727E; --flat-bg:#E8ECF0;
+  --down:#A32A21; --down-bg:#FAE3E1;
+  --warn:#8A5A00; --warn-bg:#FBF0DB;
+}
+@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]){
+  --bg:#0C1117; --surface:#141C25; --sunk:#101821;
+  --ink:#E3EAF1; --muted:#95A2AF; --faint:#6C7A88;
+  --line:#25313C; --line-soft:#1C2732;
+  --brass:#D6A93A; --brass-soft:#2B2413;
+  --up:#45C28F; --up-bg:#10281F;
+  --flat:#8A96A2; --flat-bg:#1B242E;
+  --down:#EE7365; --down-bg:#2E1715;
+  --warn:#D9A445; --warn-bg:#2A2113;
+}}
+:root[data-theme="dark"]{
+  --bg:#0C1117; --surface:#141C25; --sunk:#101821;
+  --ink:#E3EAF1; --muted:#95A2AF; --faint:#6C7A88;
+  --line:#25313C; --line-soft:#1C2732;
+  --brass:#D6A93A; --brass-soft:#2B2413;
+  --up:#45C28F; --up-bg:#10281F;
+  --flat:#8A96A2; --flat-bg:#1B242E;
+  --down:#EE7365; --down-bg:#2E1715;
+  --warn:#D9A445; --warn-bg:#2A2113;
+}
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:Vazirmatn,"Segoe UI",system-ui,sans-serif;
+  font-size:15px; line-height:1.7; direction:rtl;
+  -webkit-text-size-adjust:100%;
+}
+.wrap{max-width:1080px; margin:0 auto; padding-block:28px 56px; padding-left:16px; padding-right:16px}
+h1,h2,h3{text-wrap:balance; margin:0}
+.masthead{display:flex; flex-wrap:wrap; align-items:baseline; gap:8px 16px; margin-bottom:6px}
+h1{font-size:clamp(26px,5vw,38px); font-weight:900; letter-spacing:-.02em; line-height:1.25}
+.stamp{font-size:12.5px; color:var(--muted); font-variant-numeric:tabular-nums}
+.lede{color:var(--muted); font-size:14.5px; max-width:62ch; margin:8px 0 0}
+section{margin-top:40px}
+.shead{display:flex; align-items:baseline; gap:12px; border-bottom:2px solid var(--brass); padding-bottom:7px; margin-bottom:6px}
+.shead h2{font-size:19px; font-weight:700; letter-spacing:-.01em}
+.shead .sub{font-size:12.5px; color:var(--faint); margin-inline-start:auto; font-variant-numeric:tabular-nums}
+.snote{color:var(--muted); font-size:13.5px; margin:10px 0 16px; max-width:66ch}
+.tbox{overflow-x:auto; background:var(--surface); border:1px solid var(--line); border-radius:9px}
+table{border-collapse:collapse; width:100%; font-size:13.5px; font-variant-numeric:tabular-nums}
+th,td{padding:8px 11px; text-align:right; white-space:nowrap; border-bottom:1px solid var(--line-soft)}
+thead th{background:var(--sunk); font-size:11.5px; font-weight:700; color:var(--muted);
+  letter-spacing:.04em; position:sticky; top:0; border-bottom:1px solid var(--line)}
+tbody tr:last-child td{border-bottom:none}
+td.sym{font-weight:700}
+td.n,th.n{text-align:left; font-feature-settings:"tnum"}
+.pill{display:inline-block; padding:1px 8px; border-radius:11px; font-size:11.5px; font-weight:700; line-height:1.6}
+.p-up{background:var(--up-bg); color:var(--up)} .p-flat{background:var(--flat-bg); color:var(--flat)}
+.p-down{background:var(--down-bg); color:var(--down)} .p-warn{background:var(--warn-bg); color:var(--warn)}
+tr.buy td.act{color:var(--up); font-weight:700}
+tr.sell td.act{color:var(--down); font-weight:700}
+tr.sell{background:color-mix(in srgb,var(--down-bg) 40%,transparent)}
+tr.cash td{color:var(--muted); font-style:italic}
+tfoot td{font-weight:700; background:var(--sunk); border-top:1px solid var(--line)}
+.cards{display:grid; grid-template-columns:repeat(auto-fit,minmax(165px,1fr)); gap:12px; margin:16px 0}
+.card{background:var(--surface); border:1px solid var(--line); border-radius:9px; padding:13px 15px}
+.card .k{font-size:11.5px; color:var(--faint); letter-spacing:.03em}
+.card .v{font-size:25px; font-weight:900; letter-spacing:-.02em; font-variant-numeric:tabular-nums; line-height:1.3}
+.card .d{font-size:12px; color:var(--muted)}
+.grid3{border-collapse:collapse; width:100%; font-size:13.5px; font-variant-numeric:tabular-nums}
+.grid3 th,.grid3 td{border:1px solid var(--line); padding:9px 8px; text-align:center}
+.grid3 thead th{background:var(--sunk); font-size:11.5px; color:var(--muted)}
+.grid3 td.rh{background:var(--sunk); font-weight:700; font-size:12px}
+.grid3 td .nn{display:block; font-size:16px; font-weight:800}
+.grid3 td .cc{display:block; font-size:11px; color:var(--faint)}
+.cell-good{background:var(--up-bg)} .cell-good .nn{color:var(--up)}
+.cell-bad{background:var(--down-bg)} .cell-bad .nn{color:var(--down)}
+.note{border-inline-start:3px solid var(--brass); background:var(--surface);
+  padding:12px 15px; border-radius:0 8px 8px 0; margin:16px 0; font-size:13.5px; color:var(--muted)}
+.note b{color:var(--ink)}
+.note.alarm{border-inline-start-color:var(--down)}
+.note.caution{border-inline-start-color:var(--warn)}
+ul{margin:8px 0; padding-inline-start:20px} li{margin:5px 0; font-size:13.5px; color:var(--muted)}
+li b{color:var(--ink)}
+.foot{margin-top:48px; padding-top:18px; border-top:1px solid var(--line);
+  font-size:12.5px; color:var(--faint); max-width:66ch}
+.foot b{color:var(--muted)}
+@media (max-width:560px){
+  th,td{padding:7px 8px; font-size:12.5px}
+  .card .v{font-size:21px}
+}
+</style>
+
+<div class="wrap">
+
+<header>
+  <div class="masthead">
+    <h1>تصمیم فردا</h1>
+    <span class="stamp" id="stamp"></span>
+  </div>
+  <p class="lede">باکس حجمی روی دورهٔ کامل‌شدهٔ قبل — ماهانه و هفتگی با هم.
+  ترتیب بخش‌ها همان ترتیب شرط‌های یک معامله است: اول چه بخرم، بعد چه دارم،
+  بعد شواهدی که پشتش است.</p>
+</header>
+
+<section>
+  <div class="shead"><h2>۱. پرتفوی هدف</h2><span class="sub" id="cap"></span></div>
+  <p class="snote">از میان <b id="uni"></b> نماد، <b id="elig"></b> تا هم بالای باکس ماهانه‌اند
+  و هم بالای باکس هفتگی. وزن = امتیاز ÷ ریسک، با سقف ۱۲٪ هر نماد و ۳۶٪ هر گروه.
+  «ریسک» فاصلهٔ درصدی تا کفِ باکس است — همان‌جا که استاپ می‌نشیند.</p>
+  <div class="cards" id="cards"></div>
+  <div class="tbox"><table id="t-pf"></table></div>
+</section>
+
+<section>
+  <div class="shead"><h2>۲. چه چیزی را به چه چیزی</h2><span class="sub">اول فروش، بعد خرید</span></div>
+  <p class="snote">بند ۲ راهنما: پول آزادشده منبع خرید همان صبح است، پس ترتیب اجرا مهم است.</p>
+  <div class="tbox"><table id="t-reb"></table></div>
+  <div class="note caution" id="fee"></div>
+</section>
+
+<section>
+  <div class="shead"><h2>۳. پرتفوی فعلی</h2><span class="sub">خوانده‌شده با جدول بخش ۴</span></div>
+  <div class="tbox"><table id="t-cur"></table></div>
+  <p class="snote" id="curnote"></p>
+</section>
+
+<section>
+  <div class="shead"><h2>۴. ماهانه × هفتگی</h2><span class="sub" id="combon"></span></div>
+  <p class="snote">میانگین بازده هفتهٔ بعد در هر ترکیب. نرخ پایه <b id="base"></b> —
+  هر خانه را با همین بسنج، نه با صفر.</p>
+  <div class="tbox" style="padding:12px"><table class="grid3" id="t-grid"></table></div>
+  <div class="note" id="verdict"></div>
+</section>
+
+<section>
+  <div class="shead"><h2>۵. شواهد</h2><span class="sub">آزمون جایگشت، ۲۰٬۰۰۰ بار</span></div>
+  <p class="snote">برچسب سیگنال داخل هر دوره به‌هم ریخته می‌شود، پس حرکت خودِ بازار
+  در آن دوره خنثی است. «مزیت» یعنی چقدر بهتر از میانگینِ همان دوره.</p>
+  <div class="tbox"><table id="t-ev"></table></div>
+  <div class="note caution"><b>قید روش:</b> بند ۱ می‌گوید پروفایل ماهانه با H4
+  و هفتگی با H1 ساخته شود. همهٔ اعداد اینجا با کندل <b>روزانه</b>اند — هر هفته
+  فقط ۵ تا ۷ کندل. همین باعث می‌شود ۱۲٫۴٪ سیگنال‌های هفتگی «استاپ‌هم‌کندل»
+  شوند در برابر ۲٫۳٪ ماهانه.</div>
+</section>
+
+<section>
+  <div class="shead"><h2>۶. محرک‌ها</h2><span class="sub">ستون هفتگی حکم نیست</span></div>
+  <div class="note alarm"><b>اینجا باگ داشتم و مصطفی گرفتش.</b>
+  باکس هفتگیِ دلار را «زیر» نشان می‌دادم در حالی که چارت H1 «بالا» بود.
+  دلیل: باکس هفتگی محرک‌ها از <b>۵ تا ۷ کندل روزانه</b> ساخته می‌شود و
+  هیستوگرامِ ۳ردیفه دره‌اش را جایی می‌گذارد که معنا ندارد — برای دلار
+  پهنای باکس ۰٫۷٪ درآمد در هفته‌ای با رنج ۵٫۲٪. تا وقتی H1 نرسیده،
+  ستون هفتگی با «؟» علامت خورده و <b>هیچ نمادی را فیلتر نمی‌کند</b>.
+  ستون ماهانه (۲۰+ کندل) سر جایش است.</div>
+  <div class="tbox"><table id="t-drv"></table></div>
+</section>
+
+<section>
+  <div class="shead"><h2>۷. چه دیتایی نداریم</h2></div>
+  <ul>
+    <li><b>اونس طلا</b> — تنها محرکِ نرسیده. اکسپورت ۱D چارتیکس، کد <code>OANDA_XAUUSD</code>.</li>
+    <li><b>H1 و H4 همهٔ نمادها</b> — بزرگ‌ترین شکافِ روشی. با آن، هم باکس هفتگی
+        درست می‌شود و هم باگ بخش ۶ از بین می‌رود.</li>
+    <li><b>۱۱ نماد کم‌داده</b> — چیزی برای فرستادن نیست، تازه‌پذیرش‌اند:
+        دلتا، مهرگلد، پلاتا، تراست، نقراط، سیان، سیمان، سیلوا، بانکپاد، یاس، نقرآمد.</li>
+    <li><b>لغزش</b> — بند ۸ راهنما آن را بزرگ‌ترین شکاف بین بک‌تست و اجرا می‌نامد
+        و هنوز عددی برایش نداریم. روی صندوق اهرمی با صف خرید ممکن است اصلاً
+        در قیمت پیش‌گشایش پر نشوی.</li>
+  </ul>
+</section>
+
+<p class="foot">
+  <b>این توصیهٔ مالی نیست.</b> این خوانشِ قاعده‌های خودِ مصطفی روی داده است.
+  دوره‌ای که رویش اندازه‌گیری شده ۱۱ ماه است و رژیمِ معمولی نیست:
+  میانگین بازده ماهانهٔ اهرم در این پنجره ‎+۱۲٫۸۹٪ بوده در برابر ‎+۲٫۸۷٪
+  در ۱۹ ماه قبلش. مزیت‌ها نسبت به نرخ پایه سنجیده شده‌اند پس با رژیم
+  بالا و پایین نمی‌روند، ولی بازده مطلق حتماً می‌رود.
+</p>
+
+</div>
+
+<script id="D" type="application/json">{"month":{"window":"باکس از ماه قبل، بازده کل ماه بعد","kind":"prev_month","months":11,"span":["2025/11","2026/09"],"symbols":138,"iters":20000,"p_floor":4.999750012499375e-05,"perm":{"valley_first":{"months":9,"edge":0.7550048301780546,"p":0.00039998000099995,"n_signal":528,"avg":9.712718982765624,"win":76.89393939393939,"base_win":67.04980842911877,"width_med":4.180170118441204},"valley_nearest":{"months":9,"edge":0.740948577611478,"p":0.000999950002499875,"n_signal":523,"avg":9.712502586089398,"win":76.8642447418738,"base_win":67.04980842911877,"width_med":4.180170118441204},"valley_deepest":{"months":9,"edge":0.740290052513381,"p":0.0006999650017499125,"n_signal":526,"avg":9.698265625877642,"win":76.99619771863118,"base_win":67.04980842911877,"width_med":4.180170118441204},"value_area":{"months":9,"edge":0.5383286619778931,"p":0.10654467276636168,"n_signal":321,"avg":10.816861973448384,"win":82.2429906542056,"base_win":67.00507614213198,"width_med":9.48744769874477}},"geom":{"valley_first":{"n":528,"empty":62.689393939393945,"target":98,"stop":53,"ambiguous":12,"ambiguous_pct":2.272727272727273,"avg_r":0.1710492044379697},"valley_nearest":{"n":523,"empty":60.80305927342257,"target":106,"stop":53,"ambiguous":12,"ambiguous_pct":2.294455066921606,"avg_r":0.2052084707080476},"valley_deepest":{"n":526,"empty":62.16730038022814,"target":101,"stop":53,"ambiguous":12,"ambiguous_pct":2.2813688212927756,"avg_r":0.18603550770922947},"value_area":{"n":321,"empty":46.41744548286604,"target":84,"stop":8,"ambiguous":2,"ambiguous_pct":0.6230529595015576,"avg_r":0.4458256616763397}}},"week":{"window":"باکس از هفتهٔ قبل، بازده کل هفتهٔ بعد","kind":"prev_week","profile_tf":"روزانه (باید H1 باشد)","weeks":42,"span":["2025-10-25","2026-09-19"],"calendar":{"چهارشنبه":136},"thursday_friday_symbols":0,"symbols":136,"iters":20000,"p_floor":4.999750012499375e-05,"perm":{"valley_first":{"weeks":36,"edge":0.2929459096745419,"p":0.00034998250087495624,"n_signal":1674,"avg":2.532307358763083,"win":71.50537634408603,"base_win":66.27522935779815,"width_med":1.423461672676515},"valley_nearest":{"weeks":36,"edge":0.30647519584784494,"p":0.00024998750062496874,"n_signal":1666,"avg":2.5457083556789875,"win":71.60864345738295,"base_win":66.27522935779815,"width_med":1.423461672676515},"valley_deepest":{"weeks":36,"edge":0.3054786466481432,"p":0.000199990000499975,"n_signal":1670,"avg":2.548641357908286,"win":71.67664670658682,"base_win":66.27522935779815,"width_med":1.423461672676515},"value_area":{"weeks":36,"edge":0.3127969576472914,"p":0.02039898005099745,"n_signal":1580,"avg":2.399686757080139,"win":70.63291139240506,"base_win":65.68686262747451,"width_med":4.062166272883624}},"geom":{"valley_first":{"n":1674,"empty":64.21744324970132,"target":276,"stop":51,"ambiguous":207,"ambiguous_pct":12.365591397849462,"avg_r":0.03213252530489508},"valley_nearest":{"n":1666,"empty":63.62545018007203,"target":283,"stop":51,"ambiguous":207,"ambiguous_pct":12.424969987995198,"avg_r":0.04331251263635669},"valley_deepest":{"n":1670,"empty":64.0119760479042,"target":279,"stop":51,"ambiguous":206,"ambiguous_pct":12.335329341317365,"avg_r":0.038681169147474465},"value_area":{"n":1580,"empty":41.77215189873418,"target":449,"stop":51,"ambiguous":42,"ambiguous_pct":2.6582278481012658,"avg_r":0.4178435909033952}}},"combo":{"kind":"valley_first","n_obs":2417,"weeks":41,"symbols":120,"base_avg":1.6821147884017154,"base_win":65.16342573438146,"iters":20000,"groups":{"فقط هفتگی بالا":{"n":1458,"win":70.43895747599451,"avg":2.172769655217898,"weeks":31,"edge":0.2230399485900095,"p":0.01224938753062347},"فقط ماهانه بالا":{"n":1806,"win":69.15836101882613,"avg":1.8892453352327923,"weeks":35,"edge":0.045380631413939325,"p":0.20543972801359933},"هر دو بالا":{"n":1320,"win":71.06060606060606,"avg":2.202656892020168,"weeks":31,"edge":0.14368811646367707,"p":0.09444527773611319},"هفتگی بالا، ماهانه نه":{"n":138,"win":64.4927536231884,"avg":1.8868917379787928,"weeks":8,"edge":1.2455996498710535,"p":0.005699715014249288},"ماهانه بالا، هفتگی نه":{"n":486,"win":63.991769547325106,"avg":1.0380040698843638,"weeks":25,"edge":0.2717548782576603,"p":0.05874706264686766},"_interaction":{"mean":-2.4194721877493555,"se":0.5993131330414536,"t":-4.037075202191513,"weeks":8}},"grid":{"بالا":{"بالا":{"n":1320,"avg":2.202656892020168},"داخل":{"n":189,"avg":1.5459168494518212},"زیر":{"n":297,"avg":0.7147868465232545}},"داخل":{"بالا":{"n":90,"avg":2.000584385820746},"داخل":{"n":14,"avg":3.5886491652132597},"زیر":{"n":120,"avg":1.8587927016310766}},"زیر":{"بالا":{"n":48,"avg":1.6737180232751305},"داخل":{"n":50,"avg":2.37832098846399},"زیر":{"n":289,"avg":0.0037752469326497386}}}},"tom":{"date":"2026-09-20","capital":120541106844.0,"universe":93,"eligible":24,"picks":[{"sym":"زیتون","cat":"مختلط","group":"مختلط","factor":"سهام‌محور","close":43690.0,"date":"2026-09-20","mst":"بالا","wst":"بالا","mrisk":3.673609521629664,"wrisk":0.22888532845044635,"n":7,"avg":2.893229676604558,"win":100.0,"med_vol":34837475.5,"value":1486031299703.0,"score":-6.5005748278822155,"breadth":100.0,"driver":"tedpix","driver_st":null,"driver_ok":null,"risk":0.22888532845044635,"raw_w":0.9996167814118563,"w":12.0},{"sym":"شیلد","cat":"مختلط","group":"مختلط","factor":"سهام‌محور","close":19500.0,"date":"2026-09-20","mst":"بالا","wst":"بالا","mrisk":10.0,"wrisk":1.7435897435897436,"n":6,"avg":4.324607031729668,"win":100.0,"med_vol":6797210.5,"value":128467742111.0,"score":-5.522466968546723,"breadth":100.0,"driver":"tedpix","driver_st":null,"driver_ok":null,"risk":1.7435897435897436,"raw_w":1.4209380621570262,"w":12.0},{"sym":"پتروما","cat":"بخشی","group":"پالایشی_پتروشیمی","factor":"سهام‌محور","close":40059.0,"date":"2026-09-20","mst":"بالا","wst":"بالا","mrisk":27.020145285703588,"wrisk":1.9680970568411629,"n":5,"avg":13.579295245599953,"win":80.0,"med_vol":467015.0,"value":18226282039.0,"score":2.4089173761813782,"breadth":50.0,"driver":"oil","driver_st":null,"driver_ok":null,"risk":1.9680970568411629,"raw_w":5.288823201071145,"w":6.208057773755612},{"sym":"پتروآبان","cat":"بخشی","group":"پالایشی_پتروشیمی","factor":"سهام‌محور","close":28751.0,"date":"2026-09-20","mst":"بالا","wst":"بالا","mrisk":24.87356961496992,"wrisk":3.1801792401423676,"n":4,"avg":8.303330892764782,"win":50.0,"med_vol":3942635.0,"value":112850323400.0,"score":-0.8290432199620117,"breadth":50.0,"driver":"oil","driver_st":null,"driver_ok":null,"risk":3.1801792401423676,"raw_w":2.254890758835645,"w":12.0},{"sym":"گوهر","cat":"طلا","group":"طلا","factor":"فلزات","close":1131715.0,"date":"2026-09-20","mst":"بالا","wst":"بالا","mrisk":17.491034992614452,"wrisk":1.7774351316364987,"n":5,"avg":6.345259575545121,"win":80.0,"med_vol":4746523.0,"value":5175087388141.5,"score":-3.3446473593145027,"breadth":100.0,"driver":"dollar","driver_st":null,"driver_ok":null,"risk":1.7774351316364987,"raw_w":2.619140669510272,"w":12.0},{"sym":"عیار","cat":"طلا","group":"طلا","factor":"فلزات","close":658940.0,"date":"2026-09-20","mst":"بالا","wst":"بالا","mrisk":17.232069687680212,"wrisk":2.191550065256321,"n":4,"avg":1.8824443459142,"win":75.0,"med_vol":154180231.0,"value":95128571123620.5,"score":-5.906455465832756,"breadth":100.0,"driver":"dollar","driver_st":null,"driver_ok":null,"risk":2.191550065256321,"raw_w":0.9552802682253055,"w":12.0},{"sym":"طلا","cat":"طلا","group":"طلا","factor":"فلزات","close":1675000.0,"date":"2026-09-20","mst":"بالا","wst":"بالا","mrisk":17.13486567164179,"wrisk":2.2453731343283585,"n":4,"avg":6.663234087501247,"win":75.0,"med_vol":11940565.5,"value":19120543065180.0,"score":-3.174575613497299,"breadth":100.0,"driver":"dollar","driver_st":null,"driver_ok":null,"risk":2.2453731343283585,"raw_w":2.1490523391098173,"w":12.0}],"eligible_all":["زیتون","شیلد","گوهر","پتروما","عیار","طلا","نفیس","گلدا","قیراط","مثقال","میراث","زر","پتروآبان","زروان","گلدیس","همیان","ناب","ریتون","کهربا","زرگر","زرفام","گنج","نهال","لیان"]},"current":[{"sym":"نقران","units":4138989.0,"close":12441.0,"mst":"بالا","wst":"داخل","mrisk":9.0,"wrisk":0.7,"pct":42.7},{"sym":"کهربا","units":157741.0,"close":227899.0,"mst":"بالا","wst":"بالا","mrisk":17.2,"wrisk":3.9,"pct":29.8},{"sym":"دوایکس","units":466064.0,"close":37944.0,"mst":"بالا","wst":"داخل","mrisk":49.2,"wrisk":0.5,"pct":14.7},{"sym":"موج","units":92290.0,"close":86796.0,"mst":"بالا","wst":"زیر","mrisk":40.2,"wrisk":-1.8,"pct":6.6},{"sym":"بیدار","units":128260.0,"close":57728.0,"mst":"بالا","wst":"زیر","mrisk":23.3,"wrisk":-0.7,"pct":6.1}],"drivers":[{"id":"dollar","name":"دلار","close":2309000.0,"mst":"بالا","wst":"زیر","wbars":7,"wok":false,"mrisk":17.3,"wrisk":-0.7},{"id":"usdt","name":"تتر","close":228845.0,"mst":"بالا","wst":"داخل","wbars":7,"wok":false,"mrisk":16.5,"wrisk":0.0},{"id":"xag","name":"اونس نقره","close":66.1615,"mst":"بالا","wst":"بالا","wbars":5,"wok":false,"mrisk":10.8,"wrisk":2.8},{"id":"oil","name":"نفت برنت","close":99.949,"mst":"بالا","wst":"زیر","wbars":5,"wok":false,"mrisk":16.3,"wrisk":-3.2},{"id":"gold18","name":"طلای ۱۸","close":23819200.0,"mst":"بالا","wst":"بالا","wbars":7,"wok":false,"mrisk":17.7,"wrisk":0.6},{"id":"tedpix","name":"شاخص کل","close":7280430.0,"mst":"بالا","wst":"زیر","wbars":5,"wok":false,"mrisk":27.3,"wrisk":-0.5},{"id":"eqwt","name":"شاخص هم‌وزن","close":906896.0,"mst":"بالا","wst":"زیر","wbars":5,"wok":false,"mrisk":15.3,"wrisk":-2.4},{"id":"cert_gold","name":"گواهی شمش طلا","close":31280000.0,"mst":"بالا","wst":"بالا","wbars":5,"wok":false,"mrisk":16.5,"wrisk":2.0},{"id":"cert_silver","name":"گواهی شمش نقره","close":4979990.0,"mst":"بالا","wst":"داخل","wbars":5,"wok":false,"mrisk":16.6,"wrisk":0.4},{"id":"xau","name":"اونس طلا","missing":true}]}</script>
+<script>
+(function(){
+  var D = JSON.parse(document.getElementById('D').textContent);
+  var q = function(id){ return document.getElementById(id); };
+  var num = function(x,d){ return (x==null||isNaN(x)) ? '—' :
+        Number(x).toLocaleString('en-US',{minimumFractionDigits:d||0,maximumFractionDigits:d||0}); };
+  var sgn = function(x,d){ return (x==null||isNaN(x)) ? '—' :
+        (x>=0?'+':'−') + Math.abs(x).toFixed(d==null?2:d); };
+  var PILL = {'بالا':'p-up','داخل':'p-flat','زیر':'p-down'};
+  var pill = function(s){ return s ? '<span class="pill '+(PILL[s]||'p-warn')+'">'+s+'</span>'
+        : '<span class="pill p-warn">؟</span>'; };
+  var esc = function(s){ return String(s).replace(/[&<>]/g, function(c){
+        return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c]; }); };
+  var head = function(cols){ return '<thead><tr>' + cols.map(function(c){
+        return '<th'+(c[1]?' class="n"':'')+'>'+c[0]+'</th>'; }).join('') + '</tr></thead>'; };
+
+  var T = D.tom, picks = T.picks.slice(), bn = 1e6;
+  picks.sort(function(a,b){ return b.w - a.w; });
+  var inv = picks.reduce(function(s,p){ return s + p.w; }, 0);
+  var cash = Math.max(0, 100 - inv);
+
+  q('stamp').textContent = 'کلوز ' + T.date + '  ·  سرمایه ' +
+      num(T.capital/1e9,1) + ' میلیارد ریال';
+  q('cap').textContent = num(T.capital/1e9,1) + ' میلیارد ریال';
+  q('uni').textContent = T.universe;
+  q('elig').textContent = T.eligible;
+
+  // ── کارت‌ها: تقسیم گروهی ──
+  var byg = {};
+  picks.forEach(function(p){ byg[p.group] = (byg[p.group]||0) + p.w; });
+  var gk = Object.keys(byg).sort(function(a,b){ return byg[b]-byg[a]; });
+  q('cards').innerHTML =
+    '<div class="card"><div class="k">در بازار</div><div class="v">' +
+      inv.toFixed(1) + '٪</div><div class="d">' + picks.length + ' نماد</div></div>' +
+    '<div class="card"><div class="k">نقد</div><div class="v">' + cash.toFixed(1) +
+      '٪</div><div class="d">' + num(T.capital*cash/100/bn,0) + ' میلیون ریال</div></div>' +
+    gk.map(function(g){ return '<div class="card"><div class="k">' + esc(g) +
+      '</div><div class="v">' + byg[g].toFixed(0) + '٪</div><div class="d">' +
+      picks.filter(function(p){return p.group===g;}).length + ' نماد</div></div>'; }).join('');
+
+  // ── جدول پرتفوی هدف ──
+  q('t-pf').innerHTML = head([['نماد'],['گروه'],['کلوز',1],['وزن',1],
+      ['مبلغ (م.ر)',1],['تعداد واحد',1],['ریسک',1],['ماهانه'],['هفتگی'],['پهنای گروه',1]]) +
+    '<tbody>' + picks.map(function(p){
+      var amt = T.capital * p.w / 100;
+      return '<tr><td class="sym">' + esc(p.sym) + '</td><td>' + esc(p.group) +
+        '</td><td class="n">' + num(p.close) + '</td><td class="n"><b>' + p.w.toFixed(1) +
+        '٪</b></td><td class="n">' + num(amt/bn) + '</td><td class="n">' +
+        num(amt/p.close) + '</td><td class="n">' + p.risk.toFixed(2) + '٪</td><td>' +
+        pill(p.mst) + '</td><td>' + pill(p.wst) + '</td><td class="n">' +
+        p.breadth.toFixed(0) + '٪</td></tr>'; }).join('') +
+      '<tr class="cash"><td class="sym">نقد</td><td>—</td><td class="n">—</td>' +
+      '<td class="n"><b>' + cash.toFixed(1) + '٪</b></td><td class="n">' +
+      num(T.capital*cash/100/bn) + '</td><td class="n">—</td><td class="n">—</td>' +
+      '<td>—</td><td>—</td><td class="n">—</td></tr></tbody>';
+
+  // ── تبدیل ──
+  var cur = D.current, tgt = {}, rows = [], names = {};
+  picks.forEach(function(p){ tgt[p.sym] = p; names[p.sym] = 1; });
+  cur.forEach(function(c){ names[c.sym] = 1; });
+  Object.keys(names).forEach(function(s){
+    var c = cur.filter(function(x){ return x.sym===s; })[0];
+    var t = tgt[s];
+    var cw = c ? c.pct : 0, tw = t ? t.w : 0, px = t ? t.close : (c ? c.close : 0);
+    if (Math.abs(tw - cw) < 0.05) return;
+    rows.push({sym:s, cw:cw, tw:tw, d:tw-cw, units:(tw-cw)/100*T.capital/px,
+               amt:(tw-cw)/100*T.capital, px:px});
+  });
+  rows.sort(function(a,b){ return a.d - b.d; });
+  q('t-reb').innerHTML = head([['نماد'],['کار'],['الان',1],['هدف',1],['Δ',1],
+      ['تعداد واحد',1],['مبلغ (م.ر)',1]]) + '<tbody>' + rows.map(function(r){
+    var sell = r.d < 0;
+    return '<tr class="' + (sell?'sell':'buy') + '"><td class="sym">' + esc(r.sym) +
+      '</td><td class="act">' + (sell?'فروش':'خرید') + '</td><td class="n">' +
+      r.cw.toFixed(1) + '٪</td><td class="n">' + r.tw.toFixed(1) + '٪</td><td class="n">' +
+      sgn(r.d,1) + '</td><td class="n">' + num(Math.abs(r.units)) + '</td><td class="n">' +
+      num(Math.abs(r.amt)/bn) + '</td></tr>'; }).join('') + '</tbody>';
+
+  var turn = rows.reduce(function(s,r){ return s + Math.abs(r.amt); }, 0);
+  var fee = turn * 0.00275;
+  q('fee').innerHTML = '<b>کارمزد این چرخش ≈ ' + num(fee/bn) + ' میلیون ریال</b> — ' +
+    num(turn/1e9,1) + ' میلیارد گردش با ۰٫۵۵٪ رفت‌وبرگشت، یعنی ' +
+    (fee/T.capital*100).toFixed(2) + '٪ کل سرمایه. بند ۹ راهنما: مزیت روی صندوق اهرمی ' +
+    'محکم است و روی سهام نازک — این کارمزد بخشی از همان مزیت نازک را می‌خورد.';
+
+  // ── پرتفوی فعلی ──
+  q('t-cur').innerHTML = head([['نماد'],['تعداد واحد',1],['کلوز',1],['سهم',1],
+      ['ماهانه'],['تا کف ماهانه',1],['هفتگی'],['تا کف هفتگی',1],['خانه']]) +
+    '<tbody>' + cur.map(function(c){
+      var g = D.combo.grid[c.mst] && D.combo.grid[c.mst][c.wst];
+      return '<tr><td class="sym">' + esc(c.sym) + '</td><td class="n">' + num(c.units) +
+        '</td><td class="n">' + num(c.close) + '</td><td class="n">' + c.pct.toFixed(1) +
+        '٪</td><td>' + pill(c.mst) + '</td><td class="n">' + sgn(c.mrisk,1) +
+        '</td><td>' + pill(c.wst) + '</td><td class="n">' + sgn(c.wrisk,1) +
+        '</td><td class="n">' + (g && g.avg!=null ? sgn(g.avg,2)+'٪' : '—') +
+        '</td></tr>'; }).join('') + '</tbody>';
+
+  var nbad = cur.filter(function(c){ return c.wst !== 'بالا'; }).length;
+  q('curnote').innerHTML = '<b>هر پنج نماد ماهانه بالا هستند، ولی ' + nbad +
+    ' تا از ۵ تا هفتگی زیر یا داخل‌اند.</b> ستون آخر می‌گوید تاریخاً از آن خانه ' +
+    'چه بیرون آمده. این دقیقاً همان وضعی است که سؤال توصیفش می‌کرد.';
+
+  // ── جدول ۳×۳ ──
+  var sts = ['بالا','داخل','زیر'], G = D.combo.grid;
+  q('base').textContent = sgn(D.combo.base_avg,2) + '٪ هفتگی · ' +
+      D.combo.base_win.toFixed(1) + '٪ مثبت';
+  q('combon').textContent = num(D.combo.n_obs) + ' نماد×هفته · ' + D.combo.weeks + ' هفته';
+  var h = '<thead><tr><th style="text-align:center">ماهانه ↓ / هفتگی ←</th>' +
+      sts.map(function(s){ return '<th>' + s + '</th>'; }).join('') + '</tr></thead><tbody>';
+  sts.forEach(function(m){
+    h += '<tr><td class="rh">' + m + '</td>';
+    sts.forEach(function(w){
+      var c = G[m] && G[m][w];
+      if (!c || c.avg == null || c.n < 20) { h += '<td>—</td>'; return; }
+      var cls = c.avg > D.combo.base_avg + 0.3 ? ' class="cell-good"'
+              : c.avg < D.combo.base_avg - 0.5 ? ' class="cell-bad"' : '';
+      h += '<td' + cls + '><span class="nn">' + sgn(c.avg,2) + '٪</span>' +
+           '<span class="cc">n=' + num(c.n) + '</span></td>';
+    });
+    h += '</tr>';
+  });
+  q('t-grid').innerHTML = h + '</tbody>';
+
+  var wonly = D.combo.groups['فقط هفتگی بالا'], both = D.combo.groups['هر دو بالا'];
+  q('verdict').innerHTML =
+    '<b>دو حکم، و این دو را نباید قاطی کرد.</b><br>' +
+    '<b>در جهت منفی حق با توست:</b> «ماهانه بالا ولی هفتگی زیر» ' +
+    sgn(G['بالا']['زیر'].avg,2) + '٪ می‌دهد — کمتر از نصفِ نرخ پایه. ' +
+    '«هر دو زیر» ' + sgn(G['زیر']['زیر'].avg,2) + '٪، یعنی صفرِ گرد. ' +
+    'باکس ماهانهٔ مثبت هیچ چیزی را نجات نمی‌دهد وقتی هفتگی شکسته.<br>' +
+    '<b>ولی در جهت مثبت تأیید ماهانه چیزی اضافه نمی‌کند:</b> فقط هفتگی بالا ' +
+    sgn(wonly.avg,2) + '٪ (n=' + num(wonly.n) + ') در برابر هر دو بالا ' +
+    sgn(both.avg,2) + '٪ (n=' + num(both.n) + ') — اختلاف ' +
+    sgn(both.avg-wonly.avg,2) + ' واحد درصد، یعنی هیچ.<br>' +
+    '<b>پس:</b> هفتگی موتورِ سیگنال است، ماهانه فیلترِ ریسک. هر دو شرط ورودند ' +
+    'نه چون جمعشان سود بیشتری می‌دهد، بلکه چون دو خانهٔ قرمز را حذف می‌کند. ' +
+    'همان نتیجه‌ای که بند ۳ برای «هم‌جهت بودن هر سه حمایت» گرفته بود (t=۰٫۱۴).';
+
+  // ── شواهد ──
+  var M = D.month.perm.valley_first, W = D.week.perm.valley_first;
+  var MG = D.month.geom.valley_first, WG = D.week.geom.valley_first;
+  q('t-ev').innerHTML = head([['پنجره'],['دوره',1],['سیگنال',1],['نرخ پایه',1],
+      ['نرخ برد',1],['مزیت',1],['p',1],['حمایت خالی',1],['استاپ‌هم‌کندل',1],['میانگین R',1]]) +
+    '<tbody>' +
+    '<tr><td class="sym">ماهانه</td><td class="n">' + D.month.months + ' ماه</td>' +
+      '<td class="n">' + num(M.n_signal) + '</td><td class="n">' + M.base_win.toFixed(1) +
+      '٪</td><td class="n"><b>' + M.win.toFixed(1) + '٪</b></td><td class="n">' +
+      sgn(M.edge,2) + '</td><td class="n"><b>' + M.p.toFixed(4) + '</b></td>' +
+      '<td class="n">' + MG.empty.toFixed(0) + '٪</td><td class="n">' +
+      MG.ambiguous_pct.toFixed(1) + '٪</td><td class="n">' + sgn(MG.avg_r,3) + '</td></tr>' +
+    '<tr><td class="sym">هفتگی</td><td class="n">' + D.week.weeks + ' هفته</td>' +
+      '<td class="n">' + num(W.n_signal) + '</td><td class="n">' + W.base_win.toFixed(1) +
+      '٪</td><td class="n"><b>' + W.win.toFixed(1) + '٪</b></td><td class="n">' +
+      sgn(W.edge,2) + '</td><td class="n"><b>' + W.p.toFixed(4) + '</b></td>' +
+      '<td class="n">' + WG.empty.toFixed(0) + '٪</td><td class="n"><span class="pill p-warn">' +
+      WG.ambiguous_pct.toFixed(1) + '٪</span></td><td class="n">' + sgn(WG.avg_r,3) +
+      '</td></tr></tbody>';
+
+  // ── محرک‌ها ──
+  q('t-drv').innerHTML = head([['محرک'],['کلوز',1],['ماهانه'],['تا کف ماهانه',1],
+      ['هفتگی'],['کندلِ پشتِ باکس هفتگی',1]]) + '<tbody>' + D.drivers.map(function(d){
+    if (d.missing) return '<tr><td class="sym">' + esc(d.name) +
+      '</td><td class="n">—</td><td><span class="pill p-warn">نرسیده</span></td>' +
+      '<td class="n">—</td><td>—</td><td class="n">—</td></tr>';
+    var dec = d.close < 1000 ? 2 : 0;
+    return '<tr><td class="sym">' + esc(d.name) + '</td><td class="n">' + num(d.close,dec) +
+      '</td><td>' + pill(d.mst) + '</td><td class="n">' + sgn(d.mrisk,1) + '</td><td>' +
+      (d.wok ? pill(d.wst) : '<span class="pill p-warn">؟</span>') + '</td>' +
+      '<td class="n">' + d.wbars + ' کندل</td></tr>'; }).join('') + '</tbody>';
+})();
+</script>

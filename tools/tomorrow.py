@@ -193,10 +193,19 @@ def main():
                 drv[did] = st
 
     def driver_ok(g):
-        """محرکِ با بیشترین وزن در این گروه — بالای باکس هفتگی است؟"""
+        """محرکِ با بیشترین وزن در این گروه — بالای باکس هفتگی است؟
+
+        اگر باکسِ هفتگیِ محرک از کمتر از ۲۰ کندل ساخته شده باشد **حکم
+        نمی‌دهیم** و `None` برمی‌گردانیم. دلیلش در `breadth.py` نوشته
+        شده: با کندل روزانه یک هفته ۵ تا ۷ کندل دارد و آن پروفایل
+        قابل‌اتکا نیست. تا وقتی H1 نرسیده، این ستون فقط خبر است نه حکم.
+        """
         for did in sorted(EXPOSURE.get(g, {}), key=lambda k: -EXPOSURE[g][k]):
             if did in drv:
-                return drv[did]["wst"] == "بالا", did, drv[did]["wst"]
+                d = drv[did]
+                if not d.get("wok"):
+                    return None, did, None
+                return d["wst"] == "بالا", did, d["wst"]
         return None, None, None
 
     # ── واجد شرط: هر دو بالا، سابقهٔ کافی، حجم کافی ──
@@ -241,7 +250,7 @@ def main():
     for r in elig:
         wn = "—" if r["win"] is None else f"{r['win']:.0f}٪"
         ds = ("—" if not r["driver"] else
-              f"{r['driver']}:{ {'بالا':'✓','داخل':'~','زیر':'✗'}.get(r['driver_st'],'?') }")
+              f"{r['driver']}:{ {'بالا':'✓','داخل':'~','زیر':'✗'}.get(r['driver_st'],'؟') }")
         print(f"{r['sym']:<11}{r['group']:<13}{r['close']:>11,.0f}"
               f"{r['risk']:>7.2f}{r['mrisk']:>8.1f}{r['wrisk']:>8.1f}"
               f"{r['breadth']:>6.0f}٪{ds:>16}{r['n']:>4}{wn:>7}")

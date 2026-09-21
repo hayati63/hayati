@@ -20,8 +20,17 @@ for (let i = 0; i < args.length; i++) if (args[i] === '--want') want.push(args[+
 if (!file) { console.error('کاربرد: node tools/render_check.js صفحه.html [--want «متن»]'); process.exit(2); }
 
 const html = fs.readFileSync(file, 'utf8');
-const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]);
-if (!scripts.length) { console.error('✗ هیچ بلوک <script> پیدا نشد'); process.exit(1); }
+// هر <script> با هر مجموعه صفتی. آن‌هایی که type دارند و جاوااسکریپت
+// نیستند (مثل application/json) اجرا نمی‌شوند، ولی محتوایشان باید از طریق
+// getElementById در دسترس باشد — صفحه داده‌اش را از همان‌جا می‌خواند و بدون
+// این، JSON.parse('') خطا می‌دهد و به‌غلط شبیه باگِ صفحه به نظر می‌رسد.
+const blocks = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/g)]
+  .map(m => ({ attrs: m[1], body: m[2] }));
+const isJS = a => { const t = /type\s*=\s*["']?([^"'\s>]+)/i.exec(a);
+  return !t || /^(text\/javascript|application\/javascript|module)$/i.test(t[1]); };
+const dataBlocks = blocks.filter(b => !isJS(b.attrs));
+const scripts = blocks.filter(b => isJS(b.attrs)).map(b => b.body);
+if (!scripts.length) { console.error('✗ هیچ بلوک <script> اجراشدنی پیدا نشد'); process.exit(1); }
 
 function mkEl(tag) {
   const el = {
@@ -43,6 +52,15 @@ function mkEl(tag) {
   return el;
 }
 const byId = {};
+// بلوک‌های دادهٔ inline را با محتوایشان می‌نشانیم، پیش از اجرای اسکریپت.
+for (const b of dataBlocks) {
+  const m = /\bid\s*=\s*["']?([^"'\s>]+)/i.exec(b.attrs);
+  if (!m) continue;
+  const el = mkEl('script');
+  el.textContent = b.body;
+  el.innerHTML = b.body;
+  byId[m[1]] = el;
+}
 global.document = {
   createElement: mkEl,
   getElementById(id){ return byId[id] || (byId[id] = mkEl('div')); },
