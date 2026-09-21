@@ -51,12 +51,20 @@ if errorlevel 1 goto :fail
 python tools\target_portfolio.py --data data_auto --holdings data\holdings.txt --liquidity data\liquidity.json --json data\target_portfolio.json
 if errorlevel 1 goto :fail
 
+REM داشبورد — از خودِ data_auto ساخته می‌شود، بدون نیاز به هیچ
+REM اسکریپت بیرونی. اگر dashboard_monthly.py هم داشتی، آن ترجیح دارد.
 if exist dashboard_monthly.py (
   python dashboard_monthly.py
-  if exist dashboard_monthly.html (
-    python tools\portfolio_dashboard.py --in dashboard_monthly.html --out portfolio.html
-  )
 )
+if exist dashboard_monthly.html (
+  python tools\portfolio_dashboard.py --in dashboard_monthly.html --out portfolio.html
+) else (
+  python tools\build_from_data.py --data data_auto --out data\bridge.html
+  if errorlevel 1 goto :fail
+  python tools\portfolio_dashboard.py --in data\bridge.html --out portfolio.html
+  if errorlevel 1 goto :fail
+)
+echo   داشبورد: %CD%\portfolio.html
 
 REM ── ۴. ثبت و ارسال ────────────────────────────────────────────────
 echo.

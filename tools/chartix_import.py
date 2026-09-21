@@ -16,6 +16,7 @@
 """
 import argparse
 import csv
+import re
 import statistics
 from collections import OrderedDict
 from pathlib import Path
@@ -38,6 +39,9 @@ ALIAS = {
     "silverbar": "گواهی_شمش_نقره",
     "usdtirt": "تتر",
     "tdt": "دلار",
+    "shakhs_kl": "شاخص_کل",
+    "shakhs_kl_ghimt_hm_ozn": "شاخص_هم‌وزن",
+    "shakhs_kl_ghimt_hm_ozn_": "شاخص_هم‌وزن",
     "xauusd": "اونس_طلا",
     "silverbar": "گواهی_شمش_نقره",
     "gold18": "طلای_۱۸_عیار",
@@ -68,7 +72,11 @@ def sym_of(stem):
     keep = [p for p in parts
             if not _is_tf(p)
             and p.lower() not in ("chartix", "tadil", "adj", "1")]
+    # نام فایل گاهی فاصله و پرانتز دارد («shakhs kl ghimt (hm ozn)»),
+    # پس کلید نرمال می‌شود تا با ALIAS بخواند.
     key = "_".join(keep).lower()
+    key = re.sub(r"[()\[\]]", "", key)
+    key = re.sub(r"[\s_]+", "_", key).strip("_")
     return ALIAS.get(key, key)
 
 

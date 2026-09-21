@@ -35,11 +35,17 @@ python3 tools/target_portfolio.py --data data_auto \
     --holdings data/holdings.txt --liquidity data/liquidity.json \
     --json data/target_portfolio.json
 
-if [ -f dashboard_monthly.py ]; then
-    python3 dashboard_monthly.py
-    [ -f dashboard_monthly.html ] && python3 tools/portfolio_dashboard.py \
-        --in dashboard_monthly.html --out portfolio.html
+# داشبورد — از خودِ data_auto، بدون وابستگی به اسکریپت بیرونی
+[ -f dashboard_monthly.py ] && python3 dashboard_monthly.py || true
+if [ -f dashboard_monthly.html ]; then
+    python3 tools/portfolio_dashboard.py --in dashboard_monthly.html \
+        --out portfolio.html
+else
+    python3 tools/build_from_data.py --data data_auto --out data/bridge.html
+    python3 tools/portfolio_dashboard.py --in data/bridge.html \
+        --out portfolio.html
 fi
+echo "  داشبورد: $(pwd)/portfolio.html"
 
 echo "[۴/۴] ثبت و ارسال"
 git add data_auto data/drivers_daily data/liquidity.json data/target_portfolio.json
