@@ -14,6 +14,10 @@
 | `tools/intramonth_test.py` | همان آزمون روی **پنجرهٔ دوم**: باکسِ ماهِ جاری تا امروز |
 | `tools/liquidity.py` | روزِ خروج از هر پوزیشن، واحدمحور و مقیاس‌آزاد |
 | `tools/render_check.js` | اجرای واقعی اسکریپتِ صفحهٔ تولیدشده — گاردِ رگرسیون |
+| `tools/fetch_tsetmc.py` | **دانلود روزانه از TSETMC** — روی ماشین خودتان |
+| `tools/chartix_import.py` | تبدیل خروجی چارتیکس (۱D/H4/m15) به کندل روزانه |
+| `tools/target_portfolio.py` | امتیاز، وزن، و فاصله تا پرتفوی فعلی |
+| `refresh.bat` / `refresh.sh` | زنجیرهٔ کامل روزانه، با ثبت و ارسال به گیت |
 | `tools/build_dashboard.py` | داشبورد HTML تک‌فایل با ۹ پنل بک‌تست و کلید انتخاب تعریف باکس |
 | `tools/snapshot_dashboard.py` | داشبورد تصمیم و پرتفو از خروجی `export_monthly_risk.py` |
 | `tools/portfolio_dashboard.py` | **داشبورد پرتفوی چنددارایی** — از `dashboard_monthly.html` |
@@ -69,6 +73,34 @@ python3 tools/portfolio_dashboard.py --in dashboard_monthly.html \
 
 `--data` پوشهٔ CSVهای روزانه است (خروجی `algotik_tse` یا BrsApi). ستون تاریخ و
 `close` لازم است؛ `high`/`low`/`volume` اگر باشند استفاده می‌شوند.
+
+### به‌روزرسانی روزانه — چرا روی ماشین شما و نه اینجا
+
+دروازهٔ شبکهٔ کانتینر ابری به `cdn.tsetmc.com` و `max.chartix.ir` جواب **۴۰۳**
+می‌دهد. این منعِ سیاست است، نه خطای DNS یا TLS — هیچ کلید و لاگینی عوضش
+نمی‌کند. ولی از ویندوزِ خودتان کار می‌کند (بند ۵ `CLAUDE.md`).
+
+و بین دو منبع، **چارتیکس خودکارشدنی نیست**: فیدش سوکتی است، پس خودکارسازی‌اش
+یعنی شبیه‌سازی مرورگر. TSETMC یک GET ساده است و **کل تاریخچه** را می‌دهد، نه
+۱۵۰ کندل — همان چیزی که بک‌تست منظم لازم دارد.
+
+```bash
+python tools/fetch_tsetmc.py --discover   # یک‌بار: فهرست کامل نماد→insCode
+refresh.bat                               # هر روز: دانلود + محاسبه + گیت
+```
+
+زمان‌بندی خودکار روی ویندوز، هر روز ۱۸:۳۰ (بعد از کلوز طلا و نقره):
+
+```
+schtasks /create /tn "hayati-daily" /tr "C:\path\to\hayati\refresh.bat" /sc daily /st 18:30
+```
+
+`data/symbols.csv` با ۱۷ نمادِ `CLAUDE.md` بند ۵ پر شده تا بدون `--discover`
+هم بشود شروع کرد.
+
+⚠️ `fetch_tsetmc.py` در این کانتینر **در برابر API واقعی تست نشده** — شبکه‌اش
+بسته است. پارسرش آفلاین تست شده (`tools/test_fetch_tsetmc.py`) و هر پاسخ
+نامنتظر را با کلیدهای واقعی‌اش چاپ می‌کند به‌جای اینکه بی‌صدا رد شود.
 
 ### بررسی صفحهٔ تولیدشده
 
