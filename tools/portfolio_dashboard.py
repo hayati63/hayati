@@ -22,9 +22,15 @@ import json
 import math
 import re
 import statistics
+import sys
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from drivers import (  # noqa: E402
+    DRIVERS, EXPOSURE, SUBSECTOR, coverage, gate, group_of,
+)
 
 # دسته‌های خام → عامل. پایهٔ تفکیک، ماتریس همبستگی خودِ داده است.
 FACTOR = {
@@ -99,6 +105,61 @@ def min_var_weight(ra, rb):
     return max(0.0, min(1.0, w)), rho, len(pair)
 
 
+DRIVER_ROW = re.compile(
+    r"^(?P<sym>.+?)\s*\|\s*کلوز\s*(?P<close>[\d.]+)\s*\|\s*"
+    r"جاری\s*(?P<lo>[\d.]+)-(?P<hi>[\d.]+)\s*ریسک\s*(?P<risk>-?[\d.]+)%\s*"
+    r"(?P<st>\S+)"
+)
+_ST = {"سبز": "بالا", "قرمز": "زیر", "داخل": "داخل"}
+_ALIAS = {
+    "دلار": "dollar", "دلارآزاد": "dollar", "usd": "dollar",
+    "تتر": "usdt", "usdtirt": "usdt", "usdt": "usdt",
+    "اونسطلا": "xau", "انسطلا": "xau", "xau": "xau", "طلایجهانی": "xau",
+    "اونسنقره": "xag", "انسنقره": "xag", "xag": "xag", "نقرهجهانی": "xag",
+    "نفت": "oil", "برنت": "oil", "oil": "oil", "brent": "oil",
+    "مس": "copper", "copper": "copper",
+    "شاخصکل": "tedpix", "شاخص": "tedpix", "tedpix": "tedpix",
+    "شاخصهموزن": "eqwt", "هموزن": "eqwt", "شاخصکلهموزن": "eqwt",
+}
+
+
+def parse_drivers(path):
+    """فایل محرک‌ها، با همان قالب خروجی `export_monthly_risk.py`."""
+    out = {}
+    if not path or not Path(path).exists():
+        return out
+    for line in Path(path).read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith(("#", "=")):
+            continue
+        m = DRIVER_ROW.match(line)
+        if not m:
+            continue
+        g = m.groupdict()
+        key = re.sub(r"[\s_\-‌]+", "", g["sym"].strip()).lower()
+        did = _ALIAS.get(key)
+        if not did:
+            continue
+        out[did] = {"close": float(g["close"]), "lo": float(g["lo"]),
+                    "hi": float(g["hi"]), "risk": float(g["risk"]),
+                    "state": _ST.get(g["st"], g["st"]), "real": True}
+    return out
+
+
+def proxy_state(rows, group):
+    """وضعیت پروکسی یک گروه: حالت اکثریت نمادهایش."""
+    sel = [r for r in rows if r.get("group") == group or r.get("cat") == group]
+    if not sel:
+        return None
+    c = defaultdict(int)
+    for r in sel:
+        c[{"سبز": "بالا", "قرمز": "زیر"}.get(r["st"], r["st"])] += 1
+    top = max(c.items(), key=lambda kv: kv[1])
+    risks = sorted(r["risk"] for r in sel)
+    return {"state": top[0], "n": len(sel), "share": top[1] / len(sel) * 100,
+            "risk": risks[len(risks) // 2], "real": False}
+
+
 def analyse(data):
     today, trades, summary = data["TODAY"], data["TRADES"], data["SUMMARY"]
 
@@ -125,6 +186,11 @@ def analyse(data):
     fm = defaultdict(lambda: defaultdict(list))
     for t in closed:
         fm[FACTOR.get(t["دسته"], "سایر")][t["ماه_خروج"]].append(t["بازده٪"])
+
+    # ── همان کار، ولی روی گروه (بخشی شکسته به زیربخش) ──
+    gm = defaultdict(lambda: defaultdict(list))
+    for t in closed:
+        gm[group_of(t["نماد"], t["دسته"])][t["ماه_خروج"]].append(t["بازده٪"])
     fseries = {f: [mean(fm[f].get(m, [])) for m in months]
                for f in FACTORS if f in fm}
 
@@ -180,6 +246,7 @@ def analyse(data):
             "prisk": r.get("ریسک_قبل"), "pst": r.get("وضعیت_قبل"),
             "bt_n": b.get("n"), "bt_win": b.get("win"),
             "bt_avg": b.get("raw"), "score": b.get("shrunk"),
+            "group": group_of(name, r["دسته"]),
         })
 
     # ── ریسک ورود در برابر بازده، روی معاملات بسته‌شده ──
@@ -191,8 +258,42 @@ def analyse(data):
                             "n": len(v), "avg": mean(v),
                             "win": sum(1 for x in v if x > 0) / len(v) * 100})
 
+    # ── بتای هر گروه نسبت به پروکسی شاخص، روی معاملات بسته‌شده ──
+    gser = {g: [mean(gm[g].get(m, [])) for m in months] for g in gm}
+    base = gser.get("شاخصی")
+    gold = gser.get("طلا")
+
+    def beta_of(y, x):
+        pr = [(a, b) for a, b in zip(x or [], y) if a is not None and b is not None]
+        if len(pr) < 3:
+            return None, None, len(pr)
+        xs = [a for a, _ in pr]
+        ys = [b for _, b in pr]
+        mx, my = statistics.mean(xs), statistics.mean(ys)
+        cov = sum((a - mx) * (b - my) for a, b in pr) / len(pr)
+        vx = sum((a - mx) ** 2 for a in xs) / len(pr)
+        vy = sum((b - my) ** 2 for b in ys) / len(pr)
+        r = cov / math.sqrt(vx * vy) if vx > 0 and vy > 0 else None
+        return r, (cov / vx if vx > 0 else None), len(pr)
+
+    groups = []
+    for g, seq in sorted(gser.items(),
+                         key=lambda kv: -sum(1 for v in kv[1] if v is not None)):
+        v = [x for x in seq if x is not None]
+        if not v:
+            continue
+        r_i, b_i, n_i = beta_of(seq, base)
+        r_g, b_g, n_g = beta_of(seq, gold)
+        groups.append({
+            "g": g, "months": len(v), "avg": mean(v),
+            "rho_idx": r_i, "beta_idx": b_i, "n_idx": n_i,
+            "rho_gold": r_g, "beta_gold": b_g, "n_gold": n_g,
+            "exposure": EXPOSURE.get(g, {}),
+        })
+
     return {
         "rows": rows, "monthly": monthly, "months": months,
+        "groups": groups, "gser": gser,
         "all": stat(trades), "closed": stat(closed), "open": stat(open_t),
         "factors": keys, "fseries": fseries, "fstats": fstats, "corr": corr,
         "mv": {"w": mv_w, "rho": mv_rho, "n": mv_n},
@@ -445,6 +546,8 @@ function corrTable(){
 }
 
 /* ───────────── پرتفو ───────────── */
+let TARGET=[], TARGET_CAP=0;
+
 function renderPf(){
   const cap=Math.max(0,+document.getElementById('cap').value||0);
   const nEq=Math.max(0,+document.getElementById('nEq').value||0);
@@ -456,10 +559,19 @@ function renderPf(){
   const rFloor=Math.max(0.1,+document.getElementById('rf').value||2);
   const maxW=Math.max(1,+document.getElementById('mw').value||15);
 
+  const useGate=document.getElementById('gate') &&
+                document.getElementById('gate').checked;
   function pick(factor,k){
-    return D.rows.filter(r=>r.factor===factor && r.st==='سبز'
-        && r.risk>0 && r.risk<=maxRisk && r.score!=null && r.score>0)
-      .sort((a,b)=>b.score-a.score).slice(0,k);
+    return D.rows.filter(r=>{
+      if(r.factor!==factor||r.st!=='سبز') return false;
+      if(!(r.risk>0&&r.risk<=maxRisk)) return false;
+      if(r.score==null||r.score<=0) return false;
+      if(useGate){
+        const gt=D.gates[r.group];
+        if(gt && gt.light==='قرمز') return false;
+      }
+      return true;
+    }).sort((a,b)=>b.score-a.score).slice(0,k);
   }
   const eq=pick('سهام‌محور',nEq), me=pick('فلزات',nMe);
   const legs=[['سهام‌محور',eq,wEq],['فلزات',me,wMe]];
@@ -494,6 +606,7 @@ function renderPf(){
   });
   out.sort((a,b)=>a.factor===b.factor ? b.amount-a.amount : (a.factor==='سهام‌محور'?-1:1));
 
+  TARGET=out; TARGET_CAP=cap;
   const spent=out.reduce((a,o)=>a+o.amount,0);
   const risked=out.reduce((a,o)=>a+o.risk_rial,0);
   const byF={};
@@ -543,6 +656,8 @@ function renderPf(){
   document.getElementById('pf-rows').innerHTML = out.length ? out.map(o=>`
     <tr><td>${esc(o.sym)}</td>
       <td><span class="badge b-f" style="color:${FC[o.factor]}">${esc(o.cat)}</span></td>
+      <td>${(()=>{const g=D.gates[o.group];return g?
+        `<span class="badge ${g.light==='سبز'?'b-up':(g.light==='قرمز'?'b-dn':'b-mid')}">${esc(g.light)}</span>`:'—';})()}</td>
       <td class="n">${money(o.close)}</td>
       <td class="n">${o.risk.toFixed(2)}٪</td>
       <td class="n">${o.bt_n==null?'—':o.bt_n}</td>
@@ -556,10 +671,73 @@ function renderPf(){
     : `<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:26px">
        با این تنظیمات نمادی واجد شرایط نشد.</td></tr>`;
   document.getElementById('pf-foot').innerHTML = out.length ? `<tr>
-    <td>جمع</td><td></td><td class="n">—</td><td class="n">—</td><td class="n">—</td>
-    <td class="n">—</td><td class="n">—</td><td class="n">—</td>
+    <td>جمع</td><td></td><td></td><td class="n">—</td><td class="n">—</td>
+    <td class="n">—</td><td class="n">—</td><td class="n">—</td><td class="n">—</td>
     <td class="n">${out.reduce((a,o)=>a+o.w,0).toFixed(2)}٪</td><td class="n">—</td>
     <td class="n">${money(spent)}</td><td class="n">—</td></tr>` : '';
+}
+
+function renderReb(){
+  if(!TARGET.length) renderPf();
+  const txt=(document.getElementById('cur')||{}).value||'';
+  const cash=Math.max(0,+((document.getElementById('cash')||{}).value)||0);
+  const price={}, grp={};
+  D.rows.forEach(r=>{ price[r.sym]=r.close; grp[r.sym]=r.group; });
+
+  const cur={}, unknown=[];
+  txt.split(/\r?\n/).forEach(line=>{
+    line=line.trim(); if(!line) return;
+    const m=line.match(/^(.+?)[\s,،\t]+([\d.,]+)$/);
+    if(!m) return;
+    const sym=m[1].trim(), n=parseFloat(m[2].replace(/[,،]/g,''));
+    if(!isFinite(n)) return;
+    if(price[sym]==null){ unknown.push(sym); return; }
+    cur[sym]=(cur[sym]||0)+n;
+  });
+
+  const tgt={}; TARGET.forEach(o=>{ tgt[o.sym]=o.units; });
+  const syms=[...new Set([...Object.keys(cur),...Object.keys(tgt)])];
+  const rows=syms.map(sym=>{
+    const c=cur[sym]||0, t=tgt[sym]||0, d=t-c, px=price[sym]||0;
+    return {sym, group:grp[sym]||'—', cur:c, tgt:t, diff:d,
+            amount:Math.abs(d)*px,
+            act: d>0?'خرید':(d<0?'فروش':'بدون تغییر')};
+  }).filter(r=>r.diff!==0||r.cur>0)
+    .sort((a,b)=>(a.act==='فروش'?-1:a.act==='خرید'?0:1)-(b.act==='فروش'?-1:b.act==='خرید'?0:1)
+                 || b.amount-a.amount);
+
+  const curVal=Object.entries(cur).reduce((a,[s,n])=>a+n*(price[s]||0),0);
+  const buys=rows.filter(r=>r.act==='خرید').reduce((a,r)=>a+r.amount,0);
+  const sells=rows.filter(r=>r.act==='فروش').reduce((a,r)=>a+r.amount,0);
+  const need=buys-sells-cash;
+
+  document.getElementById('reb-kpi').innerHTML=`
+    <div class="kpi"><div class="k">ارزش پرتفوی فعلی</div>
+      <div class="v"><span class="num">${money(curVal)}</span></div>
+      <div class="s">${Object.keys(cur).length} نماد${unknown.length?` · ${unknown.length} ناشناس`:''}</div></div>
+    <div class="kpi b"><div class="k">ارزش پرتفوی هدف</div>
+      <div class="v"><span class="num">${money(TARGET.reduce((a,o)=>a+o.amount,0))}</span></div>
+      <div class="s">${TARGET.length} پوزیشن</div></div>
+    <div class="kpi g"><div class="k">باید بخرید</div>
+      <div class="v"><span class="num">${money(buys)}</span></div></div>
+    <div class="kpi r"><div class="k">باید بفروشید</div>
+      <div class="v"><span class="num">${money(sells)}</span></div></div>
+    <div class="kpi ${need>0?'y':''}"><div class="k">${need>0?'کسری نقد':'مازاد نقد'}</div>
+      <div class="v"><span class="num">${money(Math.abs(need))}</span></div>
+      <div class="s">اول بفروشید، بعد بخرید</div></div>`;
+
+  document.getElementById('reb-rows').innerHTML = rows.length ? rows.map(r=>`
+    <tr><td>${esc(r.sym)}</td>
+      <td style="color:var(--muted);font-size:12px">${esc(r.group)}</td>
+      <td><span class="badge ${r.act==='خرید'?'b-up':(r.act==='فروش'?'b-dn':'b-mid')}">${r.act}</span></td>
+      <td class="n">${money(r.cur)}</td>
+      <td class="n">${money(r.tgt)}</td>
+      <td class="n">${r.diff>0?'+':''}${money(r.diff)}</td>
+      <td class="n">${money(r.amount)}</td></tr>`).join('')
+    + (unknown.length?`<tr><td colspan="7" style="color:var(--yellow);font-size:12px">
+       نماد ناشناس (در جهان ۱۳۸تایی نیست): ${unknown.map(esc).join('، ')}</td></tr>`:'')
+    : `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:26px">
+       پرتفوی فعلی را در کادر بالا بچسبانید.</td></tr>`;
 }
 
 /* ───────────── پنل‌ها ───────────── */
@@ -624,16 +802,23 @@ function panels(){
       <label>حداکثر ریسک (٪)<input id="mr" type="number" min="0.1" step="0.5" value="${D.cfg.max_risk}"></label>
       <label>کف استاپ (٪)<input id="rf" type="number" min="0.1" step="0.25" value="${D.cfg.risk_floor}"></label>
       <label>سقف وزن هر نماد (٪)<input id="mw" type="number" min="1" max="100" step="1" value="${D.cfg.max_weight}"></label>
+      <label style="justify-content:flex-end">چراغ محرک
+        <span style="display:flex;gap:6px;align-items:center;height:37px">
+          <input id="gate" type="checkbox" checked
+            style="width:auto;accent-color:var(--blue)">
+          <span style="font-size:12.5px;color:var(--text)">گروه قرمز حذف شود</span>
+        </span></label>
     </div>
     <div class="kpis" id="pf-kpi"></div>
     <h3>تقسیم بین عامل‌ها</h3>
     <div class="box" style="padding:14px 16px"><div id="pf-split"></div></div>
     <h3>پوزیشن‌ها</h3>
     <div class="box scroll"><table><thead><tr>
-      <th>نماد</th><th>دسته</th><th class="n">کلوز</th><th class="n">ریسک</th>
-      <th class="n">بک‌تست n</th><th class="n">میانگین</th><th class="n">امتیاز</th>
-      <th class="n">بازده/ریسک</th><th class="n">وزن</th><th class="n">واحد</th>
-      <th class="n">مبلغ</th><th class="n">استاپ</th></tr></thead>
+      <th>نماد</th><th>دسته</th><th>چراغ</th><th class="n">کلوز</th>
+      <th class="n">ریسک</th><th class="n">بک‌تست n</th><th class="n">میانگین</th>
+      <th class="n">امتیاز</th><th class="n">بازده/ریسک</th><th class="n">وزن</th>
+      <th class="n">واحد</th><th class="n">مبلغ</th><th class="n">استاپ</th>
+      </tr></thead>
       <tbody id="pf-rows"></tbody><tfoot id="pf-foot"></tfoot></table></div>
     <div class="note"><b>چطور سایز می‌شود.</b> اول سرمایه بین دو عامل تقسیم
       می‌شود؛ بعد داخل هر عامل وزن متناسب با <b>امتیاز ÷ ریسک</b>
@@ -719,6 +904,97 @@ function panels(){
       <th class="n">بک‌تست</th><th>جای کلوز</th>
       </tr></thead><tbody id="all-rows"></tbody></table></div>`;
 
+  /* محرک‌ها */
+  const cov=D.coverage;
+  const lightCls=l=>l==='سبز'?'b-up':(l==='قرمز'?'b-dn':'b-mid');
+  const selfRef=D.groups.filter(g=>g.light==='خودارجاع').length;
+  P.drv=`
+    <h2>محرک‌های بازار</h2>
+    <p class="lede">این هفت مرجع خودشان معامله نمی‌شوند، ولی جهت بقیه را
+      می‌سازند. صندوقی به اسم «شاخص کل» وجود ندارد، ولی حمایت و مقاومتش
+      تصمیم صندوق‌های اهرمی را تعیین می‌کند — همان‌طور که دلار و اونس طلا
+      تصمیم صندوق‌های طلا را.</p>
+    ${selfRef?`<div class="note bad"><b>${selfRef} گروه چراغ خودارجاع دارند (↺).</b>
+      محرک اصلی‌شان فعلاً با پروکسی‌ای پر شده که <b>خودِ همان گروه</b> است —
+      چراغ «طلا» از اونس طلا می‌آید و اونس طلا با دستهٔ «طلا» پروکسی شده. آن
+      چراغ چیزی جز «طلا بالای باکس خودش است» نمی‌گوید و تا رسیدن دادهٔ واقعیِ
+      اونس و دلار، اطلاعاتی اضافه نمی‌کند.</div>`:''}
+    ${cov.have===0?`<div class="note warn"><b>هنوز دادهٔ هیچ محرکی نرسیده.</b>
+      فعلاً به‌جای هرکدام، نزدیک‌ترین گروه قابل‌معامله نشسته — دستهٔ «شاخصی»
+      به‌جای شاخص کل، «طلا» به‌جای اونس، «نقره» به‌جای اونس نقره. این‌ها با
+      نشان «پروکسی» علامت خورده‌اند و جای دادهٔ واقعی را نمی‌گیرند.</div>`
+     :`<div class="note"><b>${cov.have} از ${cov.total} محرک</b> دادهٔ واقعی
+      دارند؛ بقیه پروکسی‌اند.</div>`}
+    <div class="box scroll" style="max-height:none"><table><thead><tr>
+      <th>محرک</th><th class="n">کلوز</th><th class="n">باکس</th>
+      <th class="n">ریسک تا حمایت</th><th>وضعیت</th><th>منبع داده</th>
+      </tr></thead><tbody>${D.drivers.map(d=>`
+      <tr><td>${esc(d.name)}${d.proxy_of?` <span class="badge b-mid">پروکسی: ${esc(d.proxy_of)}</span>`:''}</td>
+        <td class="n">${d.close!=null?money(d.close)
+          :(d.n?`<span style="color:var(--muted)">${d.n} نماد</span>`:'—')}</td>
+        <td class="n">${d.lo!=null?money(d.lo)+' – '+money(d.hi)
+          :(d.share!=null?`<span style="color:var(--muted)">${d.share.toFixed(0)}٪ هم‌جهت</span>`:'—')}</td>
+        <td class="n">${d.risk==null?'—':d.risk.toFixed(2)+'٪'}</td>
+        <td>${d.state?`<span class="badge ${d.state==='بالا'?'b-up':(d.state==='زیر'?'b-dn':'b-mid')}">${esc(d.state)}</span>`
+          :'<span class="badge b-mid">منتظر داده</span>'}</td>
+        <td style="color:var(--muted);font-size:12px">${esc(d.source)}</td></tr>`).join('')}
+    </tbody></table></div>
+
+    <h2>چراغ هر گروه</h2>
+    <p class="lede">هر گروه از ترکیب وضعیت محرک‌هایش چراغ می‌گیرد. ستون
+      «β شاخص» بتای اندازه‌گیری‌شدهٔ همان گروه روی معاملات بستهٔ بک‌تست است —
+      کنترلی برای اینکه نقشه با رفتار واقعی داده بخواند.</p>
+    <div class="box scroll" style="max-height:none"><table><thead><tr>
+      <th>گروه</th><th>چراغ</th><th class="n">امتیاز</th><th>محرک‌ها</th>
+      <th class="n">β شاخص</th><th class="n">ρ</th><th class="n">ماه</th>
+      <th class="n">میانگین بازده</th></tr></thead><tbody>${
+      D.groups.map(g=>`<tr>
+        <td>${esc(g.g)}</td>
+        <td><span class="badge ${lightCls(g.light)}">${esc(g.light)}</span></td>
+        <td class="n">${g.gate_score==null?'—':f2(g.gate_score)}</td>
+        <td style="font-size:12px;color:var(--muted)">${g.gate.map(x=>
+          `${x.circular?'<span style="color:var(--yellow)">↺ </span>':''}${esc(x.name)} <span class="num">${(x.w*100).toFixed(0)}٪</span>`).join(' · ')}</td>
+        <td class="n">${g.beta_idx==null?'—':g.beta_idx.toFixed(2)}</td>
+        <td class="n">${g.rho_idx==null?'—':f2(g.rho_idx)}</td>
+        <td class="n">${g.months}</td>
+        <td class="n">${f2(g.avg)}٪</td></tr>`).join('')}
+    </tbody></table></div>
+    <div class="note warn"><b>چطور این نقشه ساخته شد.</b> وزن‌ها از ترکیب
+      دارایی هر صندوق می‌آیند — صندوق طلا سکه و شمش دارد پس به اونس و دلار
+      بند است؛ اهرمی سبد سهام بزرگ دارد پس به شاخص کل. بعد با بتای
+      اندازه‌گیری‌شده کنترل شد: اهرمی <span class="num">۱٫۶۲</span>،
+      فلزی <span class="num">۱٫۵۱</span>، بانکی <span class="num">۱٫۳۱</span>،
+      املاک <span class="num">۰٫۲۲</span> — دقیقاً همان ترتیبی که ترکیب
+      دارایی پیش‌بینی می‌کند. دستهٔ «بخشی» هم به زیربخش شکسته شد، چون
+      بانکی و پالایشی و فلزی در یک سطل، محرک‌های متفاوتی دارند.</div>`;
+
+  /* تراز پرتفو */
+  P.reb=`
+    <h2>فاصله تا پرتفوی هدف</h2>
+    <p class="lead lede">پرتفوی فعلی‌تان را اینجا بچسبانید — هر خط یک نماد و
+      تعداد واحد، با فاصله یا کاما. خروجی می‌گوید چه بخرید و چه بفروشید تا به
+      هدف برسید.</p>
+    <div class="note warn"><b>اصل کار پایان ماه است.</b> باکس ماه جاری تا
+      بسته‌شدن ماه کامل نمی‌شود. این صفحه فاصله را نشان می‌دهد تا بتوانید
+      تدریجی نزدیک شوید، ولی تراز نهایی روی کلوز آخرین روز ماه گرفته می‌شود.</div>
+    <div class="ctrl" style="align-items:stretch">
+      <label style="flex:1 1 320px">پرتفوی فعلی
+        <textarea id="cur" rows="8" spellcheck="false"
+          style="font-family:var(--mono);font-size:13px;direction:ltr;
+            text-align:left;padding:10px;border:1px solid var(--border);
+            border-radius:8px;background:var(--card);color:var(--text);width:100%"
+          placeholder="کهربا 157741&#10;نقران 4238989&#10;دوایکس 111801"></textarea></label>
+      <label>نقد فعلی (ریال)
+        <input id="cash" type="number" min="0" step="1000000" value="0"></label>
+    </div>
+    <div class="kpis" id="reb-kpi"></div>
+    <div style="height:14px"></div>
+    <div class="box scroll"><table><thead><tr>
+      <th>نماد</th><th>گروه</th><th>اقدام</th><th class="n">فعلی</th>
+      <th class="n">هدف</th><th class="n">اختلاف واحد</th>
+      <th class="n">مبلغ</th></tr></thead>
+      <tbody id="reb-rows"></tbody></table></div>`;
+
   /* سلامت داده */
   P.health=`
     <div class="note bad"><b>${O.n} معاملهٔ باز</b> در بک‌تست با قیمت امروز
@@ -745,8 +1021,9 @@ function panels(){
   document.getElementById('stamp').textContent = D.generated;
 
   const P=panels();
-  const TABS=[['today','تصمیم امروز'],['pf','پرتفوی'],['bt','بک‌تست'],
-              ['corr','همبستگی دسته‌ها'],['all','همهٔ نمادها'],['health','سلامت داده']];
+  const TABS=[['drv','محرک‌ها'],['today','تصمیم امروز'],['pf','پرتفوی'],
+              ['reb','تراز پرتفو'],['bt','بک‌تست'],['corr','همبستگی دسته‌ها'],
+              ['all','همهٔ نمادها'],['health','سلامت داده']];
   const tabs=document.getElementById('tabs'), panelsEl=document.getElementById('panels');
   TABS.forEach(([id,label],i)=>{
     const b=document.createElement('button');
@@ -765,6 +1042,7 @@ function panels(){
     document.getElementById('p-'+b.dataset.p).classList.add('active');
     try{localStorage.setItem('pf_tab',b.dataset.p)}catch(e){}
     if(b.dataset.p==='pf') renderPf();
+    if(b.dataset.p==='reb') renderReb();
   });
 
   // فیلتر دسته در تب نمادها
@@ -796,9 +1074,13 @@ function panels(){
   });
   drawAll();
   renderPf();
-  ['cap','wEq','nEq','nMe','mr','rf','mw'].forEach(id=>{
+  ['cap','wEq','nEq','nMe','mr','rf','mw','gate'].forEach(id=>{
     const el=document.getElementById(id);
-    if(el) el.addEventListener('input',renderPf);
+    if(el) el.addEventListener(id==='gate'?'change':'input',renderPf);
+  });
+  ['cur','cash'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.addEventListener('input',renderReb);
   });
   document.querySelectorAll('svg [data-t]').forEach(el=>{
     el.addEventListener('mousemove',e=>showTip(e,el.dataset.t));
@@ -826,6 +1108,8 @@ def main():
                     help="کف استاپ در محاسبهٔ سایز (٪)")
     ap.add_argument("--max-weight", type=float, default=15.0,
                     help="سقف وزن هر نماد (٪ سرمایه)")
+    ap.add_argument("--drivers", default="data/drivers.txt",
+                    help="فایل محرک‌ها؛ اگر نباشد پروکسی استفاده می‌شود")
     ap.add_argument("--artifact", action="store_true")
     args = ap.parse_args()
 
@@ -838,6 +1122,38 @@ def main():
     w_eq = args.w_eq
     if w_eq is None:
         w_eq = round(a["mv"]["w"] * 100) if a["mv"]["w"] is not None else 60.0
+    # ── محرک‌ها: دادهٔ واقعی، وگرنه پروکسی ──
+    real = parse_drivers(args.drivers)
+    drv = []
+    dstate = {}
+    for d in DRIVERS:
+        info = dict(d)
+        got = real.get(d["id"])
+        if got:
+            info.update(got)
+        elif d["proxy"]:
+            px = proxy_state(a["rows"], d["proxy"])
+            if px:
+                info.update(px)
+                info["proxy_of"] = d["proxy"]
+        info.setdefault("state", None)
+        info.setdefault("real", None)
+        drv.append(info)
+        if info.get("state"):
+            dstate[d["id"]] = info["state"]
+    a["drivers"] = drv
+    proxy_map = {d["id"]: d.get("proxy_of") for d in drv if d.get("proxy_of")}
+    a["coverage"] = dict(zip(("have", "total"), coverage(set(real))))
+
+    for g in a["groups"]:
+        light, score, detail = gate(g["g"], dstate, proxy_map)
+        g["light"], g["gate_score"], g["gate"] = light, score, detail
+    a["gates"] = {g["g"]: {"light": g["light"], "score": g["gate_score"],
+                           "detail": g["gate"]} for g in a["groups"]}
+    for g in set(EXPOSURE) - set(a["gates"]):
+        light, score, detail = gate(g, dstate, proxy_map)
+        a["gates"][g] = {"light": light, "score": score, "detail": detail}
+
     a["cfg"] = {"capital": args.capital, "w_eq": w_eq, "n_eq": args.n_eq,
                 "n_me": args.n_me, "max_risk": args.max_risk,
                 "risk_floor": args.risk_floor, "max_weight": args.max_weight}
