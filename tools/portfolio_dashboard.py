@@ -1517,13 +1517,16 @@ function panels(){
     + 'ساخت ' + D.generated;
 
   const P=panels();
-  const TABS=[['sum','برایند'],['drv','محرک‌ها'],['mine','پرتفوی من'],
-              ['today','تصمیم امروز'],['pf','پرتفوی هدف'],
-              ['reb','تراز پرتفو'],['ev','شواهد'],['bt','بک‌تست'],
-              ['corr','همبستگی دسته‌ها'],['all','همهٔ نمادها'],
-              ['health','سلامت داده']];
+  // دو ردیف: آنچه هر روز نگاه می‌کنی، و آنچه گهگاه.
+  // تفکیک بر اساس یک سؤال: اگر این تب نبود، تصمیمِ امروز عوض می‌شد؟
+  const TABS=[['sum','برایند'],['mine','پرتفوی من'],
+              ['pf','پرتفوی هدف'],['reb','تراز پرتفو'],
+              ['drv','محرک‌ها'],['all','همهٔ نمادها']];
+  const MORE=[['today','تصمیم امروز'],['ev','شواهد'],['bt','بک‌تست'],
+              ['corr','همبستگی دسته‌ها'],['health','سلامت داده']];
   const tabs=document.getElementById('tabs'), panelsEl=document.getElementById('panels');
-  TABS.forEach(([id,label],i)=>{
+  const ALL=[...TABS,...MORE];
+  ALL.forEach(([id,label],i)=>{
     const b=document.createElement('button');
     b.className='tab'+(i===0?' active':''); b.textContent=label; b.dataset.p=id;
     b.type='button'; b.setAttribute('role','tab');
@@ -1531,6 +1534,7 @@ function panels(){
     const d=document.createElement('div');
     d.className='panel'+(i===0?' active':''); d.id='p-'+id; d.innerHTML=P[id];
     panelsEl.appendChild(d);
+    if(i>=TABS.length){ b.dataset.more='1'; b.style.display='none'; }
   });
   tabs.addEventListener('click',e=>{
     const b=e.target.closest('.tab'); if(!b) return;
@@ -1584,8 +1588,25 @@ function panels(){
     el.addEventListener('mousemove',e=>showTip(e,el.dataset.t));
     el.addEventListener('mouseleave',hideTip);
   });
+  // دکمهٔ «بیشتر» — ردیف دوم تا خواسته نشود دیده نمی‌شود
+  const moreBtn=document.createElement('button');
+  moreBtn.className='tab'; moreBtn.type='button';
+  moreBtn.textContent='بیشتر ▾';
+  moreBtn.style.cssText='margin-inline-start:auto;opacity:.75';
+  let open=false;
+  moreBtn.addEventListener('click',()=>{
+    open=!open;
+    tabs.querySelectorAll('.tab[data-more]').forEach(x=>{
+      x.style.display = open ? '' : 'none';});
+    moreBtn.textContent = open ? 'کمتر ▴' : 'بیشتر ▾';
+    try{localStorage.setItem('pf_more', open?'1':'')}catch(e){}
+  });
+  tabs.appendChild(moreBtn);
+  try{ if(localStorage.getItem('pf_more')) moreBtn.click(); }catch(e){}
+
   try{ const s=localStorage.getItem('pf_tab');
-    if(s){ const b=tabs.querySelector(`.tab[data-p="${s}"]`); if(b) b.click(); } }catch(e){}
+    if(s){ const b=tabs.querySelector(`.tab[data-p="${s}"]`);
+      if(b){ if(b.dataset.more && !open) moreBtn.click(); b.click(); } } }catch(e){}
 })();
 </script>
 """

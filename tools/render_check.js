@@ -76,7 +76,9 @@ for (const [id, el] of built) {
     ? el.children
     : [{ id, innerHTML: el.innerHTML }];
   for (const c of kids) {
-    const h = c.innerHTML || '';
+    // متن دکمه‌ها با textContent ست می‌شود نه innerHTML — اگر فقط
+    // innerHTML خوانده شود، دکمه‌های ساخته‌شده با createElement نامرئی‌اند.
+    const h = c.innerHTML || c.textContent || '';
     if (!h) continue;
     panes++; chars += h.length;
     dump.push(h);
