@@ -1111,6 +1111,189 @@ function panels(){
       <th class="n">مبلغ</th></tr></thead>
       <tbody id="reb-rows"></tbody></table></div>`;
 
+  /* برایند — صفحهٔ اول */
+  const EVW=D.ev_week, TGT=D.target;
+  const dDate = D.data_date || '—';
+  const ageD = (()=>{ if(!D.data_date) return null;
+    const t=new Date(D.data_date+'T00:00:00'), n=new Date();
+    return Math.floor((n-t)/86400000); })();
+
+  P.sum = (()=>{
+    const EVs = D.ev;
+    const vf = EVs && EVs.perm ? EVs.perm.valley_first : null;
+    const va = EVs && EVs.perm ? EVs.perm.value_area : null;
+    const cell = D.evi && D.evi.cells ? D.evi.cells['بالا'] : null;
+    const wf = EVW && EVW.perm ? EVW.perm.valley_first : null;
+
+    const HOLD2 = D.holdings || {};
+    let hTot=0; const hv2=[];
+    Object.entries(HOLD2).forEach(([sym,n])=>{
+      const r=D.rows.find(x=>x.sym===sym); const v=n*(r?r.close:0);
+      hTot+=v; hv2.push({sym,v,r});});
+    hv2.sort((a,b)=>b.v-a.v);
+    const top1 = hTot?hv2[0].v/hTot*100:0;
+    const fac={}; hv2.forEach(h=>{const f=h.r?h.r.factor:'ناشناس';
+      fac[f]=(fac[f]||0)+h.v;});
+
+    let h = '';
+
+    /* ── تازگی داده — اولین چیزی که باید ببیند ── */
+    h += `<div class="note ${ageD===null?'warn':(ageD<=1?'ok':(ageD<=3?'warn':'bad'))}">
+      <b>داده تا کلوز <span class="num">${esc(dDate)}</span></b>
+      ${ageD===null?'':`— <span class="num">${ageD}</span> روز پیش.`}
+      ${ageD!==null&&ageD>1?` این صفحه <b>قیمت امروز را ندارد</b>.
+        برای به‌روزرسانی روی ویندوز خودتان <span class="num">refresh.bat</span>
+        را اجرا کنید؛ بعدش دوباره ساخته می‌شود.`
+        :' تازه است.'}</div>`;
+
+    /* ── برایند در چهار عدد ── */
+    h += `<h2>برایند</h2>
+    <p class="lede">چهار عددی که بقیهٔ صفحه‌ها را خلاصه می‌کنند.</p>
+    <div class="kpis">
+      <div class="kpi ${vf&&vf.p<0.05?'g':'r'}"><div class="k">قاعدهٔ ماهانه</div>
+        <div class="v"><span class="num">${vf?(vf.edge>=0?'+':'')+vf.edge.toFixed(2):'—'}</span></div>
+        <div class="s">واحد٪ مزیت · p=<span class="num">${vf?vf.p.toFixed(4):'—'}</span>
+          ${vf&&vf.p<0.05?'✓ از تصادف جدا شد':'✗'}</div></div>
+      <div class="kpi ${cell&&Math.abs(cell.t||0)>=2?'g':'y'}"><div class="k">چراغ وسط ماه</div>
+        <div class="v"><span class="num">${cell?(cell.edge>=0?'+':'')+cell.edge.toFixed(2):'—'}</span></div>
+        <div class="s">واحد٪ · t=<span class="num">${cell&&cell.t!=null?(cell.t>=0?'+':'')+cell.t.toFixed(2):'—'}</span>
+          ${cell&&Math.abs(cell.t||0)<2?'— یعنی صفر':''}</div></div>
+      <div class="kpi ${top1>25?'r':'b'}"><div class="k">بزرگ‌ترین پوزیشن</div>
+        <div class="v"><span class="num">${top1.toFixed(1)}٪</span></div>
+        <div class="s">${hv2.length?esc(hv2[0].sym):'—'}${top1>25?' · بالای حد':''}</div></div>
+      <div class="kpi b"><div class="k">ارزش سهام</div>
+        <div class="v"><span class="num">${money(hTot)}</span></div>
+        <div class="s">${Object.entries(fac).sort((a,b)=>b[1]-a[1])
+          .map(([f,v])=>`${esc(f)} ${(v/hTot*100).toFixed(0)}٪`).join(' · ')}</div></div>
+    </div>`;
+
+    /* ── چه چیزی شواهد دارد ── */
+    h += `<h2>چه چیزی شواهد دارد، چه چیزی ندارد</h2>
+    <p class="lede">هر سطر روی دادهٔ خودتان اندازه گرفته شده، با نرخ پایه و
+      آزمون جایگشت. «مزیت» یعنی چقدر بهتر از میانگینِ همان دوره.</p>
+    <div class="box scroll"><table><thead><tr>
+      <th>قاعده</th><th>پنجره</th><th class="n">n دوره</th>
+      <th class="n">مزیت واحد٪</th><th class="n">p</th><th>حکم</th>
+      </tr></thead><tbody>`;
+    const verd=(ok)=>ok?'<span class="badge b-up">شواهد دارد</span>'
+                       :'<span class="badge b-dn">شواهد ندارد</span>';
+    if(vf) h+=`<tr class="hl"><td><b>باکس ماه قبل → ماه بعد</b></td>
+      <td>ماهانه</td><td class="n">${vf.months}</td>
+      <td class="n"><b>${vf.edge>=0?'+':''}${vf.edge.toFixed(2)}</b></td>
+      <td class="n">${vf.p.toFixed(4)}</td><td>${verd(vf.p<0.05)}</td></tr>`;
+    if(wf) h+=`<tr${wf.p<0.05?' class="hl"':''}><td><b>باکس هفتهٔ قبل → هفتهٔ بعد</b></td>
+      <td>هفتگی</td><td class="n">${wf.weeks}</td>
+      <td class="n"><b>${wf.edge>=0?'+':''}${wf.edge.toFixed(2)}</b></td>
+      <td class="n">${wf.p.toFixed(4)}</td><td>${verd(wf.p<0.05)}</td></tr>`;
+    if(cell) h+=`<tr><td>باکس ماه جاری → بقیهٔ ماه<div class="muted">چراغ زندهٔ وسط ماه</div></td>
+      <td>درون‌ماه</td><td class="n">${D.evi.months}</td>
+      <td class="n">${cell.edge>=0?'+':''}${cell.edge.toFixed(2)}</td>
+      <td class="n">t=${cell.t==null?'—':(cell.t>=0?'+':'')+cell.t.toFixed(2)}</td>
+      <td>${verd(Math.abs(cell.t||0)>=2)}</td></tr>`;
+    if(va) h+=`<tr><td>سه‌بین پرحجم (تعریف <span class="num">dash.html</span>)</td>
+      <td>ماهانه</td><td class="n">${va.months}</td>
+      <td class="n">${va.edge>=0?'+':''}${va.edge.toFixed(2)}</td>
+      <td class="n">${va.p.toFixed(4)}</td><td>${verd(va.p<0.05)}</td></tr>`;
+    h+=`</tbody></table></div>`;
+
+    if(!EVW) h+=`<div class="note warn"><b>بک‌تست هفتگی هنوز اجرا نشده.</b>
+      <span class="num">python3 tools/weekly_backtest.py --data data_auto
+      --iters 20000 --json data/evidence_week.json</span></div>`;
+    else if(EVW.profile_tf) h+=`<div class="note warn">
+      <b>قید روی سطر هفتگی:</b> پروفایلش روی کندل
+      <b>${esc(EVW.profile_tf)}</b> ساخته شده. بند ۱ می‌گوید باکس هفتگی با
+      <b>H1</b>. هر هفته اینجا حدود ۵ کندل دارد، پس پروفایل درشت است.</div>`;
+
+    /* ── تقویم تصمیم ── */
+    h += `<h2>چه وقت چه تصمیمی</h2>
+    <p class="lede">بند ۲ <span class="num">CLAUDE.md</span> — و منطق قفلش
+      («حجم تا پایان دوره کامل نمی‌شود») همان چیزی است که جدول بالا مستقل
+      تأیید کرد: چراغ وسط دوره اطلاعاتی حمل نمی‌کند.</p>
+    <div class="box scroll"><table><thead><tr>
+      <th>سبد</th><th class="n">سهم</th><th>تصمیم روی</th><th>کِی باز است</th>
+      </tr></thead><tbody>
+      <tr><td>دیلی</td><td class="n">۱۰٪</td><td>کلوز امروز + گشایش فردا</td>
+        <td>هر روز، پیش‌گشایش ۰۸:۴۵–۰۹:۰۰</td></tr>
+      <tr><td>هفتگی</td><td class="n">۳۰٪</td><td>کلوز چهارشنبه</td>
+        <td>فقط چهارشنبه</td></tr>
+      <tr class="hl"><td><b>هستهٔ ماهانه</b></td><td class="n">۶۰٪</td>
+        <td>کلوز آخرین روز ماه میلادی</td><td>فقط پایان ماه</td></tr>
+      </tbody></table></div>
+    <div class="note"><b>ترتیب اجرا: اول فروش، بعد خرید.</b> پول آزادشده منبع
+      خرید همان صبح است — بند ۲.</div>`;
+
+    /* ── فاصله تا هدف ── */
+    if(TGT && TGT.picks && TGT.picks.length){
+      const cap = TGT.capital||0, core=(TGT.cfg&&TGT.cfg.core)||60;
+      const tmap={}; TGT.picks.forEach(r=>{tmap[r.sym]=r.w*core/100;});
+      const syms=[...new Set([...Object.keys(tmap),...Object.keys(HOLD2)])];
+      const moves=syms.map(sy=>{
+        const r=D.rows.find(x=>x.sym===sy); if(!r) return null;
+        const cw=(HOLD2[sy]||0)*r.close/(hTot||1)*100;
+        const tw=tmap[sy]||0; return {sy,cw,tw,d:tw-cw,px:r.close};
+      }).filter(m=>m&&Math.abs(m.d)>=0.4).sort((a,b)=>b.d-a.d);
+      const sells=moves.filter(m=>m.d<0), buys=moves.filter(m=>m.d>0);
+      h += `<h2>فاصله تا پرتفوی هدف</h2>
+      <p class="lede">هدف از <span class="num">target_portfolio.py</span> روی
+        کلوز <span class="num">${esc(TGT.date||dDate)}</span>. ستون هدف نسبت
+        به <b>کل سرمایه</b> است — هسته ${core}٪ از آن.</p>
+      <div class="kpis">
+        <div class="kpi r"><div class="k">فروش</div>
+          <div class="v"><span class="num">${sells.length}</span></div>
+          <div class="s">${money(Math.abs(sells.reduce((a,m)=>a+m.d,0))/100*hTot)} ریال</div></div>
+        <div class="kpi g"><div class="k">خرید</div>
+          <div class="v"><span class="num">${buys.length}</span></div>
+          <div class="s">${money(buys.reduce((a,m)=>a+m.d,0)/100*hTot)} ریال</div></div>
+        <div class="kpi y"><div class="k">جابه‌جایی کل</div>
+          <div class="v"><span class="num">${(moves.reduce((a,m)=>a+Math.abs(m.d),0)/2).toFixed(0)}٪</span></div>
+          <div class="s">از سبد</div></div>
+      </div>
+      <div class="box scroll"><table><thead><tr>
+        <th>نماد</th><th class="n">فعلی٪</th><th class="n">هدف٪</th>
+        <th class="n">Δ٪</th><th class="n">Δ واحد</th><th>کار</th>
+        </tr></thead><tbody>${moves.map(m=>`
+        <tr><td>${esc(m.sy)}</td>
+          <td class="n">${m.cw.toFixed(1)}</td>
+          <td class="n">${m.tw.toFixed(1)}</td>
+          <td class="n">${m.d>=0?'+':''}${m.d.toFixed(1)}</td>
+          <td class="n">${m.d>=0?'+':''}${money(m.d/100*hTot/m.px)}</td>
+          <td><span class="badge ${m.d>0?'b-up':'b-dn'}">${m.d>0?'خرید':'فروش'}</span></td>
+        </tr>`).join('')}</tbody></table></div>
+      <div class="note warn"><b>این جدول امروز اجرا نمی‌شود.</b> هستهٔ ماهانه
+        روی کلوز آخرین روز ماه تصمیم می‌گیرد. فاصله را نشان می‌دهد تا بشود
+        تدریجی نزدیک شد.</div>`;
+    } else {
+      h += `<div class="note warn"><b>پرتفوی هدف ساخته نشده.</b>
+        <span class="num">python3 tools/target_portfolio.py --data data_auto
+        --json data/target_portfolio.json</span></div>`;
+    }
+
+    /* ── آنچه هنوز باز است ── */
+    h += `<h2>آنچه هنوز باز است</h2>
+    <div class="box scroll"><table><thead><tr>
+      <th>مورد</th><th>چرا مهم است</th><th>چه چیزی لازم دارد</th>
+      </tr></thead><tbody>
+      <tr><td><b>لغزش</b></td>
+        <td>بند ۸ خودتان: «بزرگ‌ترین شکاف بین بک‌تست و اجرا». روی صندوق
+          اهرمی با صف خرید می‌تواند کل مزیت
+          <span class="num">${vf?'+'+vf.edge.toFixed(2):''}</span> را ببلعد.</td>
+        <td>دفتر سفارش یا ثبت اجرای واقعی خودتان</td></tr>
+      <tr><td><b>پروفایل H4</b></td>
+        <td>بند ۱: باکس ماهانه با H4. همهٔ عددهای اینجا با کندل روزانه‌اند.
+          بند ۴ همین را اشتباهِ قبلی ثبت کرده.</td>
+        <td>اکسپورت H4 همهٔ نمادها از چارتیکس</td></tr>
+      <tr><td><b>محرک‌ها</b></td>
+        <td>دلار، تتر، اونس طلا و نقره، نفت. تا نرسند چراغ طلا از خودِ
+          دستهٔ طلا پروکسی می‌شود (خودارجاع، با ↺).</td>
+        <td>دادهٔ روزانهٔ این هفت مرجع</td></tr>
+      <tr><td><b>تعمیم‌پذیری</b></td>
+        <td>۱۱ ماهِ این نمونه میانگین +۱۲٫۹٪ ماهانه داشته؛ ۱۹ ماه قبلش
+          +۲٫۹٪. مزیت در این رژیم واقعی است، دربارهٔ رژیم دیگر نمی‌دانیم.</td>
+        <td>تاریخِ بلند همهٔ نمادها — <span class="num">fetch_tsetmc.py</span></td></tr>
+      </tbody></table></div>`;
+    return h;
+  })();
+
   /* شواهد */
   const EV=D.ev, EVI=D.evi;
   const KN={valley_first:'اولین دره',valley_nearest:'نزدیک‌ترین دره',
@@ -1312,12 +1495,15 @@ function panels(){
 (function init(){
   document.getElementById('meta').textContent =
     `${D.rows.length} نماد · ${D.months.length} ماه بک‌تست`;
-  document.getElementById('stamp').textContent = D.generated;
+  document.getElementById('stamp').textContent =
+    (D.data_date ? 'داده تا ' + D.data_date + ' · ' : '')
+    + 'ساخت ' + D.generated;
 
   const P=panels();
-  const TABS=[['drv','محرک‌ها'],['mine','پرتفوی من'],['today','تصمیم امروز'],
-              ['pf','پرتفوی هدف'],['reb','تراز پرتفو'],['ev','شواهد'],
-              ['bt','بک‌تست'],['corr','همبستگی دسته‌ها'],['all','همهٔ نمادها'],
+  const TABS=[['sum','برایند'],['drv','محرک‌ها'],['mine','پرتفوی من'],
+              ['today','تصمیم امروز'],['pf','پرتفوی هدف'],
+              ['reb','تراز پرتفو'],['ev','شواهد'],['bt','بک‌تست'],
+              ['corr','همبستگی دسته‌ها'],['all','همهٔ نمادها'],
               ['health','سلامت داده']];
   const tabs=document.getElementById('tabs'), panelsEl=document.getElementById('panels');
   TABS.forEach(([id,label],i)=>{
@@ -1411,6 +1597,10 @@ def main():
                     help="خروجی tools/liquidity.py — روزِ خروج از هر پوزیشن")
     ap.add_argument("--evidence", default="data/evidence_month.json",
                     help="خروجی tools/monthly_backtest.py --json")
+    ap.add_argument("--target", default="data/target_portfolio.json",
+                    help="خروجی tools/target_portfolio.py --json")
+    ap.add_argument("--evidence-week", default="data/evidence_week.json",
+                    help="خروجی tools/weekly_backtest.py --json")
     ap.add_argument("--evidence-intramonth",
                     dest="evidence_intra",
                     default="data/evidence_intramonth.json",
@@ -1531,6 +1721,20 @@ def main():
                 "risk_floor": args.risk_floor, "max_weight": args.max_weight,
                 "max_group": args.max_group}
     a["generated"] = datetime.now().strftime("%Y-%m-%d %H:%M")
+    # تاریخِ **داده** با تاریخِ ساختِ فایل یکی نیست. اگر صفحه را یک هفته
+    # بعد باز کنید، آنچه اهمیت دارد این است که کلوزِ داخلش مال کِی است.
+    dates = sorted({r.get("date") for r in data["TODAY"] if r.get("date")}
+                   or {r.get("تاریخ") for r in data["TODAY"]
+                       if r.get("تاریخ")})
+    a["data_date"] = dates[-1] if dates else None
+    a["target"] = None
+    tgp = Path(args.target) if args.target else None
+    if tgp and tgp.exists():
+        a["target"] = json.loads(tgp.read_text(encoding="utf-8"))
+    a["ev_week"] = None
+    ewp = Path(args.evidence_week) if args.evidence_week else None
+    if ewp and ewp.exists():
+        a["ev_week"] = json.loads(ewp.read_text(encoding="utf-8"))
 
     html = TEMPLATE.replace("__DATA__", json.dumps(a, ensure_ascii=False))
     if not args.artifact:
