@@ -1099,7 +1099,7 @@ function panels(){
           style="font-family:var(--mono);font-size:13px;direction:ltr;
             text-align:left;padding:10px;border:1px solid var(--border);
             border-radius:8px;background:var(--card);color:var(--text);width:100%"
-          placeholder="کهربا 157741&#10;نقران 4238989&#10;دوایکس 111801"></textarea></label>
+          placeholder="کهربا 100000&#10;نقران 1000000&#10;دوایکس 50000"></textarea></label>
       <label>نقد فعلی (ریال)
         <input id="cash" type="number" min="0" step="1000000" value="0"></label>
     </div>
@@ -1461,6 +1461,23 @@ def main():
         light, score, detail = gate(g, dstate, proxy_map)
         a["gates"][g] = {"light": light, "score": score, "detail": detail}
 
+    # ── پرتفوی فعلی ──
+    holds = {}
+    hp = Path(args.holdings)
+    if hp.exists():
+        for line in hp.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            m = re.match(r"^(.+?)[\s,،\t]+([\d.,]+)$", line)
+            if m:
+                try:
+                    holds[m.group(1).strip()] = float(
+                        m.group(2).replace(",", "").replace("،", ""))
+                except ValueError:
+                    pass
+    a["holdings"] = holds
+
     # ── نقدشوندگی ──
     # JSON خروجی tools/liquidity.py: واحدمحور، پس مقیاس‌آزاد. اگر نبود،
     # CSV قدیمیِ «ارزش معامله / ارزش بازار» هنوز خوانده می‌شود.
@@ -1487,8 +1504,15 @@ def main():
                 if cap > 0:
                     liq[parts[0]] = {"med_value": val, "mcap": cap,
                                      "turnover": val / cap * 100}
+    # `units`/`value`/`exit_days`/`pct_of_volume` از تعداد واحدهای پرتفو
+    # می‌آیند. اگر پرتفو بارگذاری نشده، این‌ها نه معنایی دارند و نه جایی در
+    # صفحه — و نباید از راه فایل نقدشوندگی به خروجی سر بخورند.
+    POSITION_FIELDS = ("units", "value", "exit_days", "pct_of_volume")
     for r in a["rows"]:
-        r["liq"] = liq.get(r["sym"])
+        rec = liq.get(r["sym"])
+        if rec and not a["holdings"]:
+            rec = {k: v for k, v in rec.items() if k not in POSITION_FIELDS}
+        r["liq"] = rec
     a["has_liquidity"] = bool(liq)
     a["liq_meta"] = liq_meta
 
@@ -1500,23 +1524,6 @@ def main():
     eip = Path(args.evidence_intra)
     if eip.exists():
         a["evi"] = json.loads(eip.read_text(encoding="utf-8"))
-
-    # ── پرتفوی فعلی ──
-    holds = {}
-    hp = Path(args.holdings)
-    if hp.exists():
-        for line in hp.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if not line or line.startswith("#"):
-                continue
-            m = re.match(r"^(.+?)[\s,،\t]+([\d.,]+)$", line)
-            if m:
-                try:
-                    holds[m.group(1).strip()] = float(
-                        m.group(2).replace(",", "").replace("،", ""))
-                except ValueError:
-                    pass
-    a["holdings"] = holds
 
     a["certs"] = [dict(c) for c in CERTIFICATES]
     a["cfg"] = {"capital": args.capital, "w_eq": w_eq, "n_eq": args.n_eq,
