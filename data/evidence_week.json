@@ -58,40 +58,40 @@
  },
  "geom": {
   "valley_first": {
-   "n": 2725,
-   "empty": 39.44954128440367,
-   "target": 389,
-   "stop": 97,
-   "ambiguous": 1088,
-   "ambiguous_pct": 39.92660550458715,
-   "avg_r": -0.4822601712070077
+   "n": 1674,
+   "empty": 64.21744324970132,
+   "target": 276,
+   "stop": 51,
+   "ambiguous": 207,
+   "ambiguous_pct": 12.365591397849462,
+   "avg_r": 0.03213252530489508
   },
   "valley_nearest": {
-   "n": 2725,
-   "empty": 38.899082568807344,
-   "target": 398,
-   "stop": 97,
-   "ambiguous": 1094,
-   "ambiguous_pct": 40.14678899082569,
-   "avg_r": -0.47611368317811575
+   "n": 1666,
+   "empty": 63.62545018007203,
+   "target": 283,
+   "stop": 51,
+   "ambiguous": 207,
+   "ambiguous_pct": 12.424969987995198,
+   "avg_r": 0.04331251263635669
   },
   "valley_deepest": {
-   "n": 2725,
-   "empty": 39.22935779816514,
-   "target": 392,
-   "stop": 97,
-   "ambiguous": 1091,
-   "ambiguous_pct": 40.03669724770642,
-   "avg_r": -0.48051285174611275
+   "n": 1670,
+   "empty": 64.0119760479042,
+   "target": 279,
+   "stop": 51,
+   "ambiguous": 206,
+   "ambiguous_pct": 12.335329341317365,
+   "avg_r": 0.038681169147474465
   },
   "value_area": {
-   "n": 3334,
-   "empty": 19.796040791841634,
-   "target": 678,
-   "stop": 321,
-   "ambiguous": 930,
-   "ambiguous_pct": 27.894421115776847,
-   "avg_r": -0.216192257126259
+   "n": 1580,
+   "empty": 41.77215189873418,
+   "target": 449,
+   "stop": 51,
+   "ambiguous": 42,
+   "ambiguous_pct": 2.6582278481012658,
+   "avg_r": 0.4178435909033952
   }
  }
 }
