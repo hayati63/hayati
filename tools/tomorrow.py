@@ -22,8 +22,9 @@ from pathlib import Path
 from monthly_backtest import load_daily, is_fixed_income, norm
 from vp_box import make_box, state
 from weekly_backtest import week_key
-from drivers import group_of
+from drivers import group_of, EXPOSURE
 from target_portfolio import FACTOR, factor_of, _fill
+from breadth import box_states, DRIVER_FILE
 
 
 def read_holdings(path):
@@ -58,6 +59,14 @@ def main():
     ap.add_argument("--max-exit-days", type=float, default=2.0)
     ap.add_argument("--participation", type=float, default=0.20)
     ap.add_argument("--min-n", type=int, default=3)
+    ap.add_argument("--drivers", default="data/drivers_daily")
+    ap.add_argument("--min-breadth", type=float, default=50.0,
+                    help="کمینه درصد اعضای گروه که باید بالای باکس هفتگی "
+                         "باشند. صندوق‌های یک گروه همگرایی بالایی دارند، پس "
+                         "نمادِ مثبت در گروهی که اکثرش منفی است عقب‌افتاده "
+                         "است، نه پیشرو. ۰ یعنی این قید خاموش")
+    ap.add_argument("--require-driver", action="store_true",
+                    help="محرکِ اصلیِ گروه هم باید بالای باکس هفتگی باشد")
     ap.add_argument("--json", dest="json_out", default=None)
     args = ap.parse_args()
 
@@ -159,6 +168,28 @@ def main():
     capital = sum(n * recs[s]["close"] for s, n in holds.items()
                   if s in recs) or 1e9
 
+    # ── پهنای گروه و وضعیت محرک‌ها ──
+    grp_all = defaultdict(list)
+    for r in recs.values():
+        grp_all[r["group"]].append(r)
+    breadth = {g: sum(1 for x in v if x["wst"] == "بالا") / len(v) * 100
+               for g, v in grp_all.items()}
+
+    drv = {}
+    for did, fn in DRIVER_FILE.items():
+        dp = Path(args.drivers) / f"{fn}_daily.csv"
+        if dp.exists():
+            st = box_states(load_daily(dp), args.kind)
+            if st:
+                drv[did] = st
+
+    def driver_ok(g):
+        """محرکِ با بیشترین وزن در این گروه — بالای باکس هفتگی است؟"""
+        for did in sorted(EXPOSURE.get(g, {}), key=lambda k: -EXPOSURE[g][k]):
+            if did in drv:
+                return drv[did]["wst"] == "بالا", did, drv[did]["wst"]
+        return None, None, None
+
     # ── واجد شرط: هر دو بالا، سابقهٔ کافی، حجم کافی ──
     elig = []
     for r in recs.values():
@@ -170,6 +201,13 @@ def main():
         if r["n"] < args.min_n:
             continue
         if not r["med_vol"]:
+            continue
+        r["breadth"] = breadth.get(r["group"], 0.0)
+        ok, did, dst = driver_ok(r["group"])
+        r["driver"], r["driver_st"], r["driver_ok"] = did, dst, ok
+        if args.min_breadth > 0 and r["breadth"] < args.min_breadth:
+            continue
+        if args.require_driver and ok is not True:
             continue
         r["risk"] = min(r["mrisk"], r["wrisk"])   # نزدیک‌ترین حمایت
         # وزن باید مثبت بماند حتی برای نمادی که امتیازش زیر میانگین است،
@@ -185,15 +223,19 @@ def main():
           f"{len(elig)}")
     print("=" * 78)
 
+    if args.min_breadth > 0:
+        print(f"قید پهنای گروه: حداقل {args.min_breadth:.0f}٪ اعضا بالای "
+              f"باکس هفتگی")
     print(f"\n{'نماد':<11}{'گروه':<13}{'کلوز':>11}{'ریسک':>7}"
-          f"{'ماهانه':>8}{'هفتگی':>8}{'n':>4}{'برد':>7}{'ارزش روز(م ر)':>15}")
+          f"{'ماهانه':>8}{'هفتگی':>8}{'پهنا':>7}{'محرک':>16}{'n':>4}{'برد':>7}")
     print("─" * 78)
     for r in elig:
         wn = "—" if r["win"] is None else f"{r['win']:.0f}٪"
-        val = "—" if not r["value"] else f"{r['value']/1e6:,.0f}"
+        ds = ("—" if not r["driver"] else
+              f"{r['driver']}:{ {'بالا':'✓','داخل':'~','زیر':'✗'}.get(r['driver_st'],'?') }")
         print(f"{r['sym']:<11}{r['group']:<13}{r['close']:>11,.0f}"
               f"{r['risk']:>7.2f}{r['mrisk']:>8.1f}{r['wrisk']:>8.1f}"
-              f"{r['n']:>4}{wn:>7}{val:>15}")
+              f"{r['breadth']:>6.0f}٪{ds:>16}{r['n']:>4}{wn:>7}")
 
     # ── وزن‌دهی با سلّه و سقف‌ها و نقدشوندگی ──
     budgets = ({"سهام‌محور": 100.0} if args.w_eq >= 99.99
