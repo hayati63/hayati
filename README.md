@@ -13,7 +13,9 @@
 | `tools/monthly_backtest.py` | بک‌تست ماهانه: نرخ پایه، تست جایگشت، هندسهٔ ۱:۱، تفکیک درآمد ثابت |
 | `tools/build_dashboard.py` | داشبورد HTML تک‌فایل با ۹ پنل بک‌تست و کلید انتخاب تعریف باکس |
 | `tools/snapshot_dashboard.py` | داشبورد تصمیم و پرتفو از خروجی `export_monthly_risk.py` |
+| `tools/portfolio_dashboard.py` | **داشبورد پرتفوی چنددارایی** — از `dashboard_monthly.html` |
 | `data/risk_export_20260921.txt` | خروجی واقعی اجرای ۱۴۰۵/۰۶/۳۰ — ۱۴۲ نماد |
+| `data/dashboard_monthly_20260921.html` | داشبورد واقعی — منبع ۱۳۸ نماد و ۶۱۵ معامله |
 
 ## اجرا
 
@@ -23,7 +25,15 @@ python3 tools/monthly_backtest.py --data data_auto  # هر چهار تعریف،
 python3 tools/build_dashboard.py --data data_auto --out dashboard.html
 python3 tools/snapshot_dashboard.py --in data/risk_export_20260921.txt \
     --out decision.html --capital 1000000000
+python3 tools/portfolio_dashboard.py --in dashboard_monthly.html \
+    --out portfolio.html --capital 1000000000
 ```
+
+`portfolio_dashboard.py` چهار آرایهٔ جاسازی‌شدهٔ `dashboard_monthly.html` را
+بیرون می‌کشد (TODAY، TRADES، SUMMARY، SIGNALS) و با همان تم، شش تب می‌سازد:
+تصمیم امروز، پرتفوی چنددارایی، بک‌تست، همبستگی دسته‌ها، همهٔ نمادها، سلامت
+داده. سرمایه، وزن عامل‌ها، تعداد پوزیشن، کف استاپ و سقف وزن در خود صفحه
+تنظیم می‌شوند.
 
 `snapshot_dashboard.py` خروجی متنی `export_monthly_risk.py` را می‌خواند و
 صفحهٔ تصمیم + پرتفو می‌سازد: سایز هر پوزیشن از روی فاصله تا کف باکس، با
