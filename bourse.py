@@ -763,7 +763,10 @@ def zone(box, px, band):
           else "در نوار" if px <= z_hi else "بالای نوار")
     return {"lo": z_lo, "aim": z_aim, "hi": z_hi, "stop": lo,
             "target": z_aim + risk, "risk_pct": risk / z_aim * 100,
-            "state": st}
+            "state": st,
+            # فاصلهٔ درصدی تا کفِ نوار — مبنای ستونِ آلارم.
+            # مثبت = هنوز باید بالا بیاید · منفی = از نوار رد شده
+            "dist_pct": (z_lo - px) / px * 100 if px else 0.0}
 
 
 # ══ ۳. تحلیل ════════════════════════════════════════════════════════
@@ -904,29 +907,22 @@ def telegram(text):
 
 # ══ ۵. صفحه ═════════════════════════════════════════════════════════
 def html(rows, book, capital, stamp, last_date):
-    """داشبورد — تب‌دار، با کاشیِ آمار و **تفکیک بر اساس دسته**.
+    """داشبورد — با همان فرمتِ فایلی که مصطفی فرستاد.
 
-    مصطفی: «صندوق‌ها تفکیک‌شده باشن، اینجوری ردیفی‌ان» و «سینرژی چرا
-    نیست؟ نمادهای دیگه‌ای هم هست که شاید نباشه.»
+    `dashboard_monthly.html` او: تمِ تیره، تب‌های قرصی، کاشیِ آمار،
+    چیپ‌های فیلترِ دسته، و جدولی با ستون‌های «حدضرر / حدسود / ریسک /
+    موفقیت». پالت و کلاس‌ها عیناً از همان فایل برداشته شده:
 
-    هر دو یک ریشه دارند: در جدولِ صافِ ۱۲۹ردیفی نمی‌شود نمادی را پیدا
-    کرد. پس: هر جدول زیرِ عنوانِ دسته‌اش گروه‌بندی می‌شود، و یک کادرِ
-    جست‌وجو هست که با تایپِ نامِ نماد همهٔ تب‌ها را فیلتر می‌کند —
-    آن‌وقت «سینرژی کجاست» یک تایپ است، نه یک سؤال.
+        #0f1419 پس‌زمینه · #1a2332 کارت · #2d3a4f خط
+        #e7ecf3 متن · #8b9cb3 کم‌رنگ
+        #3dd68c سبز · #63b3ed آبی · #ecc94b زرد · #f56565 قرمز
+
+    چیزی که اضافه شده و در فایلِ او نبود: **نقطهٔ ورود**. آنجا فقط
+    حدضرر و حدسود بود؛ ورود روی کلوز فرض می‌شد. اندازه‌گیری نشان داد
+    ورود روی سقفِ باکس t=۱٫۳۵ می‌دهد و ۳٪ بالاترش t=۵٫۴۱، پس نقطهٔ
+    ورود ستونِ جداست و ستونِ «آلارم» می‌گوید قیمت الان به آن رسیده یا نه.
     """
     last_wd = last_date.weekday()
-    cal_html = '<table class="cal2"><tbody>' + "".join(
-        f'<tr class="{"now" if k == last_wd else ""}">'
-        f'<td class="dy">{"►" if k == last_wd else ""} {nm}</td>'
-        f'<td>{ev}</td><td class="nt2">{note if k == last_wd else ""}</td>'
-        f'</tr>' for k, nm, ev, note in WEEK_PLAN) + '</tbody></table>'
-    cal_html += f'<div class="d">ماهانه: {month_note(last_date)}</div>'
-
-    def n(x, d=0):
-        return f"{x:,.{d}f}" if x == x else "—"
-
-    PILL = {"بالا": "up", "داخل": "flat", "زیر": "down", "؟": "warn"}
-    ZP = {"در نوار": "up", "زیر نوار": "flat", "بالای نوار": "down"}
     ok_rows = [r for r in rows if r.get("ok")]
     book_syms = {r["sym"] for r in book}
     inv = sum(r["w"] for r in book)
@@ -934,312 +930,370 @@ def html(rows, book, capital, stamp, last_date):
     hot = [r for r in ok_rows if r["week"]["state"] == "در نوار"
            or r["month"]["state"] == "در نوار"]
 
-    def pill(v):
-        return f'<span class="p {PILL.get(v, "warn")}">{v}</span>'
+    def n(x, d=0):
+        return f"{x:,.{d}f}" if x == x else "—"
 
-    def wr_cell(r, hz=None):
+    BADGE = {"بالا": "b-g", "داخل": "b-y", "زیر": "b-r", "؟": "b-m"}
+    ZB = {"در نوار": "b-g", "زیر نوار": "b-m", "بالای نوار": "b-y"}
+
+    def bdg(v, mp=None):
+        return f'<span class="badge {(mp or BADGE).get(v, "b-m")}">{v}</span>'
+
+    def bar(pct, cls="g"):
+        w = max(0, min(100, pct))
+        return (f'<div class="bar-wrap"><div class="bar {cls}" '
+                f'style="width:{w:.0f}%"></div></div>')
+
+    def wr(r, hz):
         k = wr_key(r)
-        if not k:
-            return "—"
-        hz = hz or ("week" if r.get("band") == "week" else "month")
-        v = WINRATE[hz].get(k) or WINRATE["week"].get(k)
-        if not v:
-            return "—"
-        nn, win, avg = v
-        cls = "up" if win >= 70 else "flat" if win >= 55 else "down"
-        return (f'<span class="p {cls}">{win}٪</span>'
-                f'<span class="sub2">{avg:+.1f}٪</span>')
+        v = (WINRATE[hz].get(k) or WINRATE["week"].get(k)) if k else None
+        return v or (0, 0, 0.0)
 
+    def thin(r):
+        """نمادِ کم‌حجم در جدول می‌ماند ولی علامت می‌خورد — در دفتر
+        نمی‌آید و مصطفی باید بداند چرا."""
+        if r["value_bn"] >= MIN_VALUE_BN:
+            return ""
+        return (f'<span class="thin" title="ارزشِ معاملات '
+                f'{r["value_bn"]:.0f} م.ر — زیرِ {MIN_VALUE_BN:.0f}">'
+                f'کم‌حجم</span>')
+
+    def alarm(z):
+        if z["state"] == "در نوار":
+            return '<span class="badge b-g">🔔 در نوار</span>'
+        if z["state"] == "زیر نوار":
+            return (f'<span class="badge b-m">{z["dist_pct"]:+.1f}٪ تا نوار'
+                    f'</span>')
+        return '<span class="badge b-y">بالای نوار</span>'
+
+    # ── تبِ ۱: سیگنال — رتبه‌بندی‌شده ──
+    def sigrow(i, r, key):
+        z = r[key]
+        nn, win, avg = wr(r, key)
+        return (f'<tr data-s="{r["sym"]}" data-c="{r["cat"]}">'
+                f'<td class="td">{i}</td>'
+                f'<td class="td sym">{r["sym"]}{thin(r)}</td>'
+                f'<td class="td">{alarm(z)}</td>'
+                f'<td class="td n">{n(r["close"])}</td>'
+                f'<td class="td n hi">{n(z["aim"])}</td>'
+                f'<td class="td n r">{n(z["stop"])}</td>'
+                f'<td class="td n g">{n(z["target"])}</td>'
+                f'<td class="td n">{z["risk_pct"]:.1f}٪</td>'
+                f'<td class="td n">{n(nn)}</td>'
+                f'<td class="td n">{win}٪ {bar(win)}</td>'
+                f'<td class="td n {"g" if avg > 0 else "r"}">{avg:+.2f}٪</td>'
+                f'<td class="td">{bdg(r["mst"])}</td>'
+                f'<td class="td">{bdg(r["wst"])}</td></tr>')
+
+    # مصطفی: «طراحی نمی‌کنی که صندوق‌ها تفکیک شده باشن، این‌جوری
+    # صندوق‌ها ردیفی‌ان.» پس جدول دیگر یک فهرستِ صافِ ۱۳۴تایی نیست —
+    # هر دسته سرفصلِ خودش را دارد و رتبه **داخل دسته** شمرده می‌شود.
+    # ترتیبِ دسته‌ها از قانونِ طبقهٔ دارایی (CLAUDE.md §۳) می‌آید:
+    # اثرِ جریانِ پول روی اهرمی بیشترین است، روی طلا کمترین.
+    CAT_ORDER = ["اهرمی", "طلا", "نقره", "سهامی", "بخشی", "مختلط",
+                 "کالا_کشاورزی", "صندوق_در_صندوق", "املاک", "شاخصی"]
+
+    def cat_rank(c):
+        return CAT_ORDER.index(c) if c in CAT_ORDER else len(CAT_ORDER)
+
+    def in_band(r, key):
+        return r[key]["state"] == "در نوار"
+
+    def sigtab(key):
+        by = {}
+        for r in ok_rows:
+            by.setdefault(r["cat"], []).append(r)
+        out = []
+        for c in sorted(by, key=lambda c: (cat_rank(c), c)):
+            rs = sorted(by[c], key=lambda r: (
+                0 if in_band(r, key) else
+                1 if r[key]["state"] == "زیر نوار" else 2,
+                0 if r["value_bn"] >= MIN_VALUE_BN else 1,
+                r[key]["risk_pct"]))
+            hot = sum(1 for r in rs if in_band(r, key))
+            liq = sum(1 for r in rs if r["value_bn"] >= MIN_VALUE_BN)
+            out.append(
+                f'<tr class="grp" data-c="{c}"><td class="td" colspan="13">'
+                f'<span class="gname">{"بدون دسته" if c == "؟" else c}</span>'
+                f'<span class="gmeta">{len(rs)} نماد · '
+                f'<b class="g">{hot}</b> در نوار · '
+                f'{liq} با حجمِ کافی</span></td></tr>')
+            out += [sigrow(i, r, key) for i, r in enumerate(rs, 1)]
+        return "".join(out)
+
+    SIGH = ("رتبه|نماد|آلارم|کلوز|نقطهٔ ورود|حدضرر|حدسود|ریسک|"
+            "n دسته|موفقیتِ دسته|میانگین بازده|ماهانه|هفتگی")
+
+    # ── تبِ ۲: دفتر ──
+    bk = "".join(
+        f'<tr data-s="{r["sym"]}" data-c="{r["cat"]}">'
+        f'<td class="td sym">{r["sym"]}</td><td class="td">{r["cat"]}</td>'
+        f'<td class="td">{"هفتگی" if r["band"] == "week" else "ماهانه"}</td>'
+        f'<td class="td n">{n(r["close"])}</td>'
+        f'<td class="td n hi">{n(r["z"]["aim"])}</td>'
+        f'<td class="td n r">{n(r["z"]["stop"])}</td>'
+        f'<td class="td n g">{n(r["z"]["target"])}</td>'
+        f'<td class="td n">{r["z"]["risk_pct"]:.1f}٪</td>'
+        f'<td class="td n">{r["w"]:.0f}٪</td>'
+        f'<td class="td n">{n(r["amt"] / 1e6)}</td>'
+        f'<td class="td n">{n(r["units"])}</td>'
+        f'<td class="td n r">{n(r["loss"] / 1e6)}</td>'
+        f'<td class="td">{alarm(r["z"])}</td></tr>' for r in book)
+    bk += (f'<tr class="dim"><td class="td sym">نقد</td>'
+           f'<td class="td" colspan="7"></td>'
+           f'<td class="td n"><b>{100 - inv:.0f}٪</b></td>'
+           f'<td class="td n">{n(capital * (100 - inv) / 100 / 1e6)}</td>'
+           f'<td class="td" colspan="3"></td></tr>')
+
+    # ── تبِ ۴: وضعیت همهٔ نمادها ──
     def why(r):
         fb = r.get("fallback") or []
         tag = f" ({'/'.join(fb)})" if fb else ""
         if not r.get("ok"):
-            return ("warn", r.get("reason", "؟"))
+            return ("b-y", r.get("reason", "؟"))
         if r["sym"] in book_syms:
-            return ("up", "در دفتر" + tag)
+            return ("b-g", "در دفتر" + tag)
         if r["mst"] != "بالا":
-            return ("down", "زیرِ ماه قبل")
+            return ("b-r", "زیرِ ماه قبل")
         if r["wst"] != "بالا":
-            return ("down", "زیرِ هفتگی")
+            return ("b-r", "زیرِ هفتگی")
         if REQUIRE_CUR_MONTH and r["cur_st"] not in ("بالا", "؟"):
-            return ("down", "زیرِ ماهِ جاری")
+            return ("b-r", "زیرِ ماهِ جاری")
         if r["value_bn"] < MIN_VALUE_BN:
-            return ("flat", f"حجمِ کم ({r['value_bn']:,.0f})")
-        return ("flat", "واجد شرط، بزرگ‌ترینِ دسته نیست" + tag)
+            return ("b-m", f"حجمِ کم ({r['value_bn']:,.0f})")
+        return ("b-m", "واجد شرط، بزرگ‌ترینِ دسته نیست" + tag)
 
-    # ── جدولِ گروه‌بندی‌شده بر اساس دسته ──────────────────────────────
-    def grouped(items, cols, cellfn, sort_key=None):
-        """items: [(دسته، [ردیف...])]  →  HTML با سرصفحهٔ دسته."""
-        by = defaultdict(list)
-        for r in items:
-            by[r["cat"]].append(r)
-        order = sorted(by, key=lambda c: (-len(by[c]), c))
-        head = "".join(f'<th{" class=n" if w else ""}>{t}</th>'
-                       for t, w in cols)
-        body = []
-        for c in order:
-            rs = sorted(by[c], key=sort_key) if sort_key else by[c]
-            body.append(f'<tr class="grp"><td colspan="{len(cols)}">'
-                        f'{c} <span class="sub2">{len(rs)} نماد</span>'
-                        f'</td></tr>')
-            body += [cellfn(r) for r in rs]
-        return (f'<div class="tb"><table><thead><tr>{head}</tr></thead>'
-                f'<tbody>{"".join(body)}</tbody></table></div>')
+    allr = "".join(
+        (lambda k, t: (
+            f'<tr data-s="{r["sym"]}" data-c="{r["cat"]}">'
+            f'<td class="td sym">{r["sym"]}</td>'
+            f'<td class="td">{r["cat"]}</td>'
+            f'<td class="td n">{n(r["close"])}</td>'
+            f'<td class="td">{bdg(r.get("mst", "؟"))}</td>'
+            f'<td class="td">{bdg(r.get("cur_st", "؟"))}</td>'
+            f'<td class="td">{bdg(r.get("wst", "؟"))}</td>'
+            f'<td class="td n">{n(r["value_bn"])}</td>'
+            f'<td class="td"><span class="badge {k}">{t}</span></td></tr>'))
+        (*why(r)) for r in sorted(rows, key=lambda x: -x.get("value_bn", 0)))
 
-    # ── تب ۱: سفارش ──
-    bk = "".join(
-        f'<tr data-s="{r["sym"]}"><td class="s">{r["sym"]}</td>'
-        f'<td>{"هفتگی" if r["band"] == "week" else "ماهانه"}</td>'
-        f'<td>{r["cat"]}</td><td class="n">{n(r["close"])}</td>'
-        f'<td class="n"><b>{n(r["z"]["aim"])}</b></td>'
-        f'<td class="n">{n(r["z"]["stop"])}</td>'
-        f'<td class="n">{n(r["z"]["target"])}</td>'
-        f'<td class="n">{r["z"]["risk_pct"]:.1f}٪</td>'
-        f'<td class="n">{wr_cell(r)}</td>'
-        f'<td class="n">{r["w"]:.0f}٪</td>'
-        f'<td class="n">{n(r["amt"] / 1e6)}</td>'
-        f'<td class="n">{n(r["units"])}</td>'
-        f'<td><span class="p {ZP.get(r["z"]["state"], "flat")}">'
-        f'{r["z"]["state"]}</span></td></tr>' for r in book)
-    bk += (f'<tr class="dim"><td class="s">نقد</td><td colspan="8"></td>'
-           f'<td class="n"><b>{100 - inv:.0f}٪</b></td>'
-           f'<td class="n">{n(capital * (100 - inv) / 100 / 1e6)}</td>'
-           f'<td colspan="2"></td></tr>')
-
-    # ── تب ۲ و ۳: ماهانه / هفتگی، گروه‌بندی‌شده ──
-    def zrow(key):
-        def f(r):
-            z = r[key]
-            st = r["mst"] if key == "month" else r["wst"]
-            live = z["state"] == "در نوار"
-            cur = (f'<td>{pill(r["cur_st"])}</td>'
-                   if key == "month" else "")
-            return (f'<tr data-s="{r["sym"]}" class="{"" if live else "dim"}">'
-                    f'<td class="s">{r["sym"]}</td>'
-                    f'<td class="n">{n(r["close"])}</td>'
-                    f'<td>{pill(st)}</td>' + cur +
-                    f'<td class="n">{n(z["lo"])}–{n(z["hi"])}</td>'
-                    f'<td class="n"><b>{n(z["aim"])}</b></td>'
-                    f'<td class="n">{n(z["stop"])}</td>'
-                    f'<td class="n">{n(z["target"])}</td>'
-                    f'<td class="n">{z["risk_pct"]:.1f}٪</td>'
-                    f'<td class="n">{wr_cell(r, key)}</td>'
-                    f'<td><span class="p {ZP.get(z["state"], "flat")}">'
-                    f'{z["state"]}</span></td></tr>')
-        return f
-
-    MCOLS = [("نماد", 0), ("کلوز", 1), ("ماه قبل", 0), ("ماه جاری", 0),
-             ("نوار", 1), ("ورود", 1), ("استاپ", 1), ("تارگت", 1),
-             ("ریسک", 1), ("نرخ برد", 1), ("وضعیت", 0)]
-    WCOLS = [c for c in MCOLS if c[0] != "ماه جاری"]
-    zs = lambda k: (lambda r: (0 if r[k]["state"] == "در نوار" else
-                               1 if r[k]["state"] == "زیر نوار" else 2,
-                               r[k]["risk_pct"]))
-
-    # ── تب ۵: همه ──
-    def allrow(r):
-        k, txt = why(r)
-        return (f'<tr data-s="{r["sym"]}" class="{"" if k == "up" else "dim"}">'
-                f'<td class="s">{r["sym"]}</td>'
-                f'<td class="n">{n(r["close"])}</td>'
-                f'<td>{pill(r.get("mst", "—"))}</td>'
-                f'<td>{pill(r.get("cur_st", "—"))}</td>'
-                f'<td>{pill(r.get("wst", "—"))}</td>'
-                f'<td class="n">{n(r["value_bn"])}</td>'
-                f'<td><span class="p {k}">{txt}</span></td></tr>')
-
-    def bt_table(hz, title, note):
+    # ── تبِ ۵: بک‌تست ──
+    def bt(hz, title, note):
         w = WINRATE[hz]
         bn, bwin, bavg = w["_base"]
         rr = "".join(
-            f'<tr><td class="s">{k}</td><td class="n">{v[0]:,}</td>'
-            f'<td class="n"><span class="p '
-            f'{"up" if v[1] >= 70 else "flat" if v[1] >= 55 else "down"}">'
-            f'{v[1]}٪</span></td><td class="n">{v[2]:+.2f}٪</td>'
-            f'<td class="n">{v[1] - bwin:+d} واحد</td></tr>'
+            f'<tr><td class="td sym">{k}</td><td class="td n">{v[0]:,}</td>'
+            f'<td class="td n">{v[1]}٪ {bar(v[1])}</td>'
+            f'<td class="td n {"g" if v[2] > 0 else "r"}">{v[2]:+.2f}٪</td>'
+            f'<td class="td n {"g" if v[1] - bwin > 0 else "r"}">'
+            f'{v[1] - bwin:+d} واحد</td></tr>'
             for k, v in w.items() if k != "_base")
-        return (f'<h3>{title} <span class="sub2">پایه {bwin}٪ · '
-                f'{bavg:+.2f}٪ · n={bn:,}</span></h3>'
-                f'<p class="nt">{note}</p>'
-                f'<div class="tb"><table><thead><tr><th>وضعیتِ باکس</th>'
-                f'<th class="n">n</th><th class="n">مثبت</th>'
-                f'<th class="n">میانگین</th><th class="n">نسبت به پایه</th>'
-                f'</tr></thead><tbody>{rr}</tbody></table></div>')
+        return (f'<h3>{title}</h3><div class="sub">{note} — پایه: '
+                f'{bwin}٪ مثبت · {bavg:+.2f}٪ · n={bn:,}</div>'
+                f'<div class="wrap"><table class="table"><thead><tr>'
+                + "".join(f'<th class="th{" n" if i else ""}">{c}</th>'
+                          for i, c in enumerate(
+                              ["وضعیتِ باکس", "n", "موفقیت",
+                               "میانگین بازده", "نسبت به پایه"]))
+                + f'</tr></thead><tbody>{rr}</tbody></table></div>')
 
+    cats = sorted({r["cat"] for r in rows})
+    chips = ('<span class="chip on" data-c="*">همه</span>'
+             + "".join(f'<span class="chip" data-c="{c}">{c}</span>'
+                       for c in cats))
     tiles = "".join(
-        f'<div class="tile"><div class="k">{k}</div>'
-        f'<div class="v">{v}</div><div class="d">{d}</div></div>'
-        for k, v, d in [
-            ("در دفتر", f"{len(book)}", f"{inv:.0f}٪ در بازار"),
-            ("نقد", f"{100 - inv:.0f}٪", f"{n(capital*(100-inv)/100/1e6)} م.ر"),
-            ("در نوار خرید", f"{len(hot)}", f"از {len(ok_rows)} نماد"),
+        f'<div class="stat"><div class="k">{k}</div>'
+        f'<div class="v {cl}">{v}</div><div class="d">{d}</div></div>'
+        for k, v, d, cl in [
+            ("در دفتر", f"{len(book)}", f"{inv:.0f}٪ در بازار", ""),
+            ("نقد", f"{100 - inv:.0f}٪",
+             f"{n(capital * (100 - inv) / 100 / 1e6)} م.ر", ""),
+            ("🔔 در نوار خرید", f"{len(hot)}", f"از {len(ok_rows)} نماد", "g"),
             ("ریسکِ کل", f"{risk / capital * 100:.2f}٪",
-             "اگر همه استاپ بخورند"),
-            ("سرمایه", f"{n(capital / 1e9, 1)}", "میلیارد ریال"),
+             "اگر همه استاپ بخورند", "r"),
+            ("سرمایه", f"{n(capital / 1e9, 1)}", "میلیارد ریال", ""),
         ])
+    cal = "".join(
+        f'<tr class="{"now" if k == last_wd else ""}">'
+        f'<td class="dy">{"►" if k == last_wd else ""} {nm}</td>'
+        f'<td>{ev}</td><td class="nt2">{note if k == last_wd else ""}</td>'
+        f'</tr>' for k, nm, ev, note in WEEK_PLAN)
+
+    def thead(spec):
+        return "".join(
+            f'<th class="th{" n" if i >= 3 else ""}">{c}</th>'
+            for i, c in enumerate(spec.split("|")))
 
     return f"""<!doctype html><html lang="fa" dir="rtl"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>بورس — {stamp}</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;700;900&display=swap">
+<title>داشبورد ریسک و بازده — {stamp}</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;700;900&display=swap">
 <style>
-:root{{--bg:#EEF1F5;--sf:#fff;--sk:#F6F8FA;--ink:#141E29;--mut:#5B6874;
---ln:#D5DDE5;--br:#8A6512;--up:#0B6E4F;--upb:#DFF1E9;--fl:#66727E;
---flb:#E8ECF0;--dn:#A32A21;--dnb:#FAE3E1;--wn:#8A5A00;--wnb:#FBF0DB}}
-@media(prefers-color-scheme:dark){{:root{{--bg:#0C1117;--sf:#141C25;
---sk:#101821;--ink:#E3EAF1;--mut:#95A2AF;--ln:#25313C;--br:#D6A93A;
---up:#45C28F;--upb:#10281F;--fl:#8A96A2;--flb:#1B242E;--dn:#EE7365;
---dnb:#2E1715;--wn:#D9A445;--wnb:#2A2113}}}}
+:root{{--bg:#0f1419;--card:#1a2332;--card2:#1f2c3d;--th:#243044;
+--border:#2d3a4f;--text:#e7ecf3;--muted:#8b9cb3;--green:#3dd68c;
+--blue:#63b3ed;--yellow:#ecc94b;--red:#f56565}}
 *{{box-sizing:border-box}}
-body{{margin:0;background:var(--bg);color:var(--ink);font-size:15px;
-line-height:1.65;font-family:Vazirmatn,"Segoe UI",system-ui,sans-serif}}
-.w{{max-width:1250px;margin:0 auto;padding:22px 16px 50px}}
-h1{{font-size:30px;font-weight:900;margin:0;letter-spacing:-.02em}}
-h3{{font-size:16px;margin:22px 0 4px;font-weight:700}}
-.st{{color:var(--mut);font-size:13px}}
-.cal{{margin-top:16px;border:2px solid var(--br);border-radius:10px;
-background:var(--sf);padding:12px 16px}}
-.cal .d{{font-size:12.5px;color:var(--mut);margin-top:7px;
-padding-top:7px;border-top:1px solid var(--ln)}}
-.cal2{{width:100%;border-collapse:collapse;font-size:13px}}
-.cal2 td{{padding:4px 8px;border:none;border-bottom:1px solid var(--ln)}}
-.cal2 tr:last-child td{{border-bottom:none}}
-.cal2 tr.now td{{background:var(--upb);font-weight:700}}
-.cal2 td.dy{{width:86px;color:var(--mut)}}
-.cal2 tr.now td.dy{{color:var(--up)}}
-.cal2 td.nt2{{color:var(--mut);font-weight:400;font-size:12px}}
-.tiles{{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
-gap:10px;margin:16px 0}}
-.tile{{background:var(--sf);border:1px solid var(--ln);border-radius:9px;
-padding:11px 14px}}
-.tile .k{{font-size:11.5px;color:var(--mut)}}
-.tile .v{{font-size:25px;font-weight:900;letter-spacing:-.02em;
-font-variant-numeric:tabular-nums;line-height:1.25}}
-.tile .d{{font-size:11.5px;color:var(--mut)}}
-.bar{{position:sticky;top:0;z-index:9;background:var(--bg);
-padding:10px 0 8px;margin-top:14px;border-bottom:2px solid var(--br);
-display:flex;flex-wrap:wrap;gap:7px;align-items:center}}
-.tab{{padding:6px 14px;border-radius:8px;border:1px solid var(--ln);
-background:var(--sf);color:var(--mut);cursor:pointer;font:inherit;
-font-size:13.5px;font-weight:700}}
-.tab.on{{background:var(--br);color:#fff;border-color:var(--br)}}
-#q{{margin-inline-start:auto;padding:6px 12px;border-radius:8px;
-border:1px solid var(--ln);background:var(--sf);color:var(--ink);
-font:inherit;font-size:13.5px;min-width:170px}}
+body{{margin:0;background:var(--bg);color:var(--text);
+font-family:Vazirmatn,"Segoe UI",system-ui,sans-serif;font-size:15px;
+line-height:1.6}}
+.page{{max-width:1400px;margin:0 auto;padding:22px 16px 50px}}
+h1{{font-size:1.7rem;font-weight:900;margin:0 0 4px}}
+h3{{font-size:1.05rem;margin:22px 0 4px;font-weight:700}}
+.sub{{color:var(--muted);font-size:.85rem;margin-bottom:20px}}
+.cal{{border:1px solid var(--border);border-left:3px solid var(--yellow);
+border-radius:12px;background:var(--card);padding:12px 16px;margin-bottom:20px}}
+.cal table{{width:100%;border-collapse:collapse;font-size:.82rem}}
+.cal td{{padding:4px 8px;border-bottom:1px solid var(--border)}}
+.cal tr:last-child td{{border-bottom:none}}
+.cal tr.now td{{background:rgba(61,214,140,.12);font-weight:700}}
+.cal td.dy{{width:90px;color:var(--muted)}}
+.cal tr.now td.dy{{color:var(--green)}}
+.cal td.nt2{{color:var(--muted);font-weight:400;font-size:.78rem}}
+.cal .mn{{color:var(--muted);font-size:.8rem;margin-top:7px;
+padding-top:7px;border-top:1px solid var(--border)}}
+.stats{{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
+gap:12px;margin-bottom:24px}}
+.stat{{background:var(--card);border:1px solid var(--border);
+border-radius:12px;padding:14px 16px}}
+.stat .k{{color:var(--muted);font-size:.78rem}}
+.stat .v{{font-size:1.7rem;font-weight:900;font-variant-numeric:tabular-nums;
+line-height:1.3}}
+.stat .d{{color:var(--muted);font-size:.75rem}}
+.tabs{{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}}
+.tab{{background:var(--card);border:1px solid var(--border);
+color:var(--text);padding:8px 16px;border-radius:20px;cursor:pointer;
+font:inherit;font-size:.85rem;font-weight:600}}
+.tab.on{{background:var(--blue);border-color:var(--blue);color:#0f1419}}
+.filters{{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;
+align-items:center}}
+.chip{{padding:4px 12px;border-radius:12px;font-size:.8rem;
+border:1px solid var(--border);cursor:pointer;background:var(--card);
+color:var(--muted)}}
+.chip.on{{background:var(--th);color:var(--text);border-color:var(--blue)}}
+#q{{margin-inline-start:auto;padding:5px 12px;border-radius:12px;
+border:1px solid var(--border);background:var(--card);color:var(--text);
+font:inherit;font-size:.8rem;min-width:170px}}
 .panel{{display:none}} .panel.on{{display:block}}
-.tb{{overflow-x:auto;background:var(--sf);border:1px solid var(--ln);
-border-radius:9px;margin-top:10px}}
-table{{border-collapse:collapse;width:100%;font-size:13px;
-font-variant-numeric:tabular-nums}}
-th,td{{padding:7px 10px;text-align:right;white-space:nowrap;
-border-bottom:1px solid var(--ln)}}
-/* sticky روی thead داخلِ یک ظرفِ overflow-x بد می‌نشیند: ردیفِ اول
-   زیرش گم می‌شد. جدول‌ها حالا گروه‌بندی شده‌اند و کوتاه‌ترند، پس
-   لازم نیست. */
-thead th{{background:var(--sk);font-size:11px;color:var(--mut);
-font-weight:700}}
-tbody tr:last-child td{{border-bottom:none}}
-td.s{{font-weight:700}} td.n,th.n{{text-align:left}}
-tr.dim td{{color:var(--mut)}}
-tr.grp td{{background:var(--sk);font-weight:900;font-size:13.5px;
-color:var(--br);border-bottom:2px solid var(--br)}}
+.wrap{{overflow-x:auto;border-radius:12px;border:1px solid var(--border)}}
+.table{{width:100%;border-collapse:collapse;font-size:.85rem;
+background:var(--card);font-variant-numeric:tabular-nums}}
+.th{{text-align:right;padding:10px 12px;background:var(--th);
+color:var(--muted);font-weight:600;white-space:nowrap}}
+.td{{padding:9px 12px;border-top:1px solid var(--border);white-space:nowrap}}
+.th.n,.td.n{{text-align:left}}
+.td.sym{{font-weight:700}}
+.td.hi{{color:var(--blue);font-weight:700}}
+tr.dim .td{{color:var(--muted)}}
 tr.hide{{display:none}}
-.p{{display:inline-block;padding:1px 8px;border-radius:11px;
-font-size:11px;font-weight:700}}
-.up{{background:var(--upb);color:var(--up)}}
-.flat{{background:var(--flb);color:var(--fl)}}
-.down{{background:var(--dnb);color:var(--dn)}}
-.warn{{background:var(--wnb);color:var(--wn)}}
-.sub2{{color:var(--mut);font-size:11px;font-weight:400;
-margin-inline-start:5px}}
-.box{{border-inline-start:3px solid var(--br);background:var(--sf);
-padding:11px 15px;border-radius:0 8px 8px 0;margin:12px 0;
-font-size:13px;color:var(--mut)}}
-.box b{{color:var(--ink)}}
-.nt{{color:var(--mut);font-size:12.5px;margin:6px 0 0;max-width:72ch}}
-.ft{{margin-top:34px;padding-top:15px;border-top:1px solid var(--ln);
-font-size:12px;color:var(--mut);max-width:72ch}}
-@media(max-width:560px){{th,td{{padding:6px 7px;font-size:12px}}
+tr.grp .td{{background:var(--th);border-top:2px solid var(--blue);
+padding:8px 12px}}
+.gname{{font-weight:700;font-size:.95rem;color:var(--text)}}
+.gmeta{{color:var(--muted);font-size:.78rem;margin-inline-start:12px}}
+.thin{{display:inline-block;margin-inline-start:6px;padding:1px 6px;
+border-radius:6px;background:var(--th);color:var(--muted);
+font-size:.68rem;font-weight:600}}
+.g{{color:var(--green);font-weight:600}}
+.r{{color:var(--red);font-weight:600}}
+.badge{{display:inline-block;padding:2px 8px;border-radius:8px;
+font-size:.75rem;font-weight:600}}
+.b-g{{background:rgba(61,214,140,.15);color:var(--green)}}
+.b-r{{background:rgba(245,101,101,.15);color:var(--red)}}
+.b-y{{background:rgba(236,201,75,.15);color:var(--yellow)}}
+.b-m{{background:var(--th);color:var(--muted)}}
+.bar-wrap{{height:8px;background:#243044;border-radius:4px;overflow:hidden;
+min-width:60px;display:inline-block;vertical-align:middle;
+margin-inline-start:6px}}
+.bar{{height:100%;border-radius:4px;background:var(--green)}}
+.note{{border:1px solid var(--border);border-left:3px solid var(--blue);
+background:var(--card);padding:11px 15px;border-radius:12px;margin:14px 0;
+font-size:.82rem;color:var(--muted)}}
+.note b{{color:var(--text)}}
+.ft{{margin-top:34px;padding-top:15px;border-top:1px solid var(--border);
+font-size:.78rem;color:var(--muted);max-width:72ch}}
+@media(max-width:560px){{.td,.th{{padding:7px 8px;font-size:.78rem}}
 #q{{margin-inline-start:0;width:100%}}}}
-</style></head><body><div class="w">
+</style></head><body><div class="page">
 
-<h1>سفارشِ امروز</h1>
-<div class="st">کلوز {stamp} ({WD[last_wd]}) · {len(rows)} نماد بررسی شد</div>
+<h1>داشبورد ریسک و بازده — صندوق‌های ETF</h1>
+<div class="sub">کلوز {stamp} ({WD[last_wd]}) · {len(rows)} نماد بررسی شد
+· {len(ok_rows)} نماد با باکسِ معتبر</div>
 
-<div class="cal">{cal_html}</div>
-<div class="tiles">{tiles}</div>
+<div class="cal"><table><tbody>{cal}</tbody></table>
+<div class="mn">ماهانه: {month_note(last_date)}</div></div>
 
-<div class="bar">
-  <button class="tab on" data-t="p1">دفتر</button>
-  <button class="tab" data-t="p2">ماهانه</button>
-  <button class="tab" data-t="p3">هفتگی</button>
-  <button class="tab" data-t="p4">بک‌تست</button>
-  <button class="tab" data-t="p5">همهٔ نمادها</button>
-  <input id="q" type="search" placeholder="جست‌وجوی نماد…">
+<div class="stats">{tiles}</div>
+
+<div class="tabs">
+  <button class="tab on" data-t="p1">سیگنال ماهانه</button>
+  <button class="tab" data-t="p2">سیگنال هفتگی</button>
+  <button class="tab" data-t="p3">دفترِ پیشنهادی</button>
+  <button class="tab" data-t="p4">وضعیت همهٔ نمادها</button>
+  <button class="tab" data-t="p5">بک‌تست</button>
 </div>
 
+<div class="filters">{chips}
+  <input id="q" type="search" placeholder="جست‌وجوی نماد…"></div>
+
 <div class="panel on" id="p1">
-  <p class="nt">از هر دسته فقط <b>یکی</b>، و آن بزرگ‌ترین بر اساس ارزشِ
-  معاملاتِ روزانه. نمادهای زیر {MIN_VALUE_BN:.0f} میلیارد در روز حذف شده‌اند.
-  ستونِ «نرخ برد» می‌گوید تاریخاً از این حالتِ باکس چند درصد دوره‌ها مثبت
-  درآمده.</p>
-  <div class="tb"><table><thead><tr><th>نماد</th><th>باند</th><th>دسته</th>
-  <th class="n">کلوز</th><th class="n">ورود</th><th class="n">استاپ</th>
-  <th class="n">تارگت</th><th class="n">ریسک</th><th class="n">نرخ برد</th>
-  <th class="n">وزن</th><th class="n">مبلغ (م.ر)</th>
-  <th class="n">تعداد واحد</th><th>وضعیت</th></tr></thead>
-  <tbody>{bk}</tbody></table></div>
-  <div class="box"><b>اگر همه استاپ بخورند: {risk / capital * 100:.2f}٪
-  سرمایه</b> ({n(risk / 1e6)} میلیون ریال).<br>
-  باندِ هر نماد خودکار انتخاب می‌شود: هفتگی، مگر اینکه ریسکِ هفتگی زیر ۱٪
-  باشد — آن‌وقت استاپ داخلِ نوسانِ یک روز می‌نشیند و باندِ ماهانه
-  برداشته می‌شود.</div>
+  <div class="sub">باکس از ماه میلادیِ کامل‌شدهٔ قبل. <b>نقطهٔ ورود</b>
+  سقفِ باکس ‎+۳٪ است، نه خودِ سقف — در بک‌تست ورود روی سقف t=۱٫۳۵ داد و
+  ۳٪ بالاتر t=۵٫۴۱. ستونِ آلارم می‌گوید قیمت الان چقدر تا آن فاصله دارد.
+  <br><b>n دسته</b> و <b>موفقیتِ دسته</b> عددِ خودِ نماد نیست — بک‌تست
+  روی کلِ دسته بسته شده، پس همهٔ نمادهای یک دسته یک عدد دارند.
+  نمادِ <span class="thin">کم‌حجم</span> در دفتر نمی‌آید: ارزشِ معاملاتش
+  زیرِ {MIN_VALUE_BN:.0f} میلیارد ریال است و پرشدنِ سفارش تضمین نیست.</div>
+  <div class="wrap"><table class="table"><thead><tr>{thead(SIGH)}</tr>
+  </thead><tbody>{sigtab("month")}</tbody></table></div>
 </div>
 
 <div class="panel" id="p2">
-  <p class="nt">باکس از ماه میلادیِ کامل‌شدهٔ قبل. نوار: سقفِ باکس تا
-  <b>+۴٪</b> (هدف +۳٪) — ورود روی خودِ سقف در بک‌تست t=۱٫۳۵ داد،
-  ورودِ ۳٪ بالاتر t=۵٫۴۱. ستونِ «ماه جاری» چراغِ زنده است و
-  <b>شاهدِ آماری ندارد</b> (t=+۰٫۰۶).</p>
-  {grouped(ok_rows, MCOLS, zrow("month"), zs("month"))}
+  <div class="sub">باکس از هفتهٔ کامل‌شدهٔ قبل (یکشنبه تا شنبه).
+  نقطهٔ ورود سقفِ باکس ‎+۰٫۵٪ — باکس هفتگی یک‌سومِ ماهانه پهناست، پس
+  ۳٪ بالاتر آنجا خراب می‌کند (−۰٫۰۵۳R).</div>
+  <div class="wrap"><table class="table"><thead><tr>{thead(SIGH)}</tr>
+  </thead><tbody>{sigtab("week")}</tbody></table></div>
 </div>
 
 <div class="panel" id="p3">
-  <p class="nt">باکس از هفتهٔ کامل‌شدهٔ قبل (یکشنبه تا شنبه). نوار تا
-  <b>+۲٪</b> (هدف +۰٫۵٪) — باکس هفتگی یک‌سومِ ماهانه پهناست، پس ۳٪
-  بالاتر آنجا خراب می‌کند (−۰٫۰۵۳R).</p>
-  {grouped(ok_rows, WCOLS, zrow("week"), zs("week"))}
+  <div class="sub">از هر دسته فقط <b>یکی</b>، و آن بزرگ‌ترین بر اساس
+  ارزشِ معاملاتِ روزانه. زیر {MIN_VALUE_BN:.0f} میلیارد در روز حذف شده.</div>
+  <div class="wrap"><table class="table"><thead><tr>
+  {thead("نماد|دسته|باند|کلوز|نقطهٔ ورود|حدضرر|حدسود|ریسک|وزن|"
+         "مبلغ (م.ر)|تعداد واحد|ضرر اگر استاپ|آلارم")}
+  </tr></thead><tbody>{bk}</tbody></table></div>
+  <div class="note"><b>اگر همه استاپ بخورند: {risk / capital * 100:.2f}٪
+  سرمایه</b> ({n(risk / 1e6)} میلیون ریال). باندِ هر نماد خودکار انتخاب
+  می‌شود: هفتگی، مگر اینکه ریسکِ هفتگی زیر ۱٪ باشد — آن‌وقت استاپ داخلِ
+  نوسانِ یک روز می‌نشیند و باندِ ماهانه برداشته می‌شود.</div>
 </div>
 
 <div class="panel" id="p4">
-  {bt_table("month", "بک‌تست ماهانه",
-    "بازدهِ <b>ماهِ پیشِ رو</b> بر اساس وضعیتِ باکس در روزِ تصمیم. "
-    "۱۲۱ نماد، ۱۱ ماه. جدایی: <b>۸۵٪ در برابر ۳۶٪</b> نرخ برد.")}
-  {bt_table("week", "بک‌تست هفتگی",
-    "همان با افقِ <b>هفتهٔ پیشِ رو</b>. ۱۲۱ نماد، ۴۲ هفته. جدایی کمتر "
-    "است چون افق کوتاه‌تر است، ولی جهتش همان.")}
-  <div class="box"><b>این اعداد توصیف‌اند، نه پیش‌بینی.</b> دورهٔ
-  اندازه‌گیری ۱۱ ماه بوده و رژیمش صعودی — میانگین ماهانهٔ اهرم +۱۲٫۸۹٪
-  در برابر +۲٫۸۷٪ در ۱۹ ماه قبلش. در بازارِ آرام‌تر کوچک‌تر خواهند بود.</div>
+  <div class="sub">هر {len(rows)} نماد. ستونِ آخر می‌گوید چرا در دفتر
+  هست یا نیست — <b>هیچ نمادی بی‌صدا نمی‌افتد</b>.</div>
+  <div class="wrap"><table class="table"><thead><tr>
+  {thead("نماد|دسته|کلوز|ماه قبل|ماه جاری|هفتگی|حجم (م‌ر/روز)|وضعیت")}
+  </tr></thead><tbody>{allr}</tbody></table></div>
 </div>
 
 <div class="panel" id="p5">
-  <p class="nt">هر ۱۲۹ نماد، گروه‌بندی‌شده بر اساس دسته. ستونِ آخر
-  می‌گوید چرا در دفتر هست یا نیست. <b>هیچ نمادی بی‌صدا نمی‌افتد</b> —
-  اگر دنبالِ نمادِ خاصی می‌گردی، در کادرِ بالا تایپش کن.</p>
-  {grouped(rows, [("نماد", 0), ("کلوز", 1), ("ماه قبل", 0),
-                  ("ماه جاری", 0), ("هفتگی", 0), ("حجم (م‌ر/روز)", 1),
-                  ("وضعیت", 0)], allrow,
-           lambda r: -r.get("value_bn", 0))}
+  {bt("month", "بک‌تست ماهانه",
+      "بازدهِ ماهِ پیشِ رو بر اساس وضعیتِ باکس در روزِ تصمیم. ۱۲۱ نماد، ۱۱ ماه")}
+  {bt("week", "بک‌تست هفتگی",
+      "همان با افقِ هفتهٔ پیشِ رو. ۱۲۱ نماد، ۴۲ هفته")}
+  <div class="note"><b>این اعداد توصیف‌اند، نه پیش‌بینی.</b> دورهٔ
+  اندازه‌گیری ۱۱ ماه بوده و رژیمش صعودی — میانگین ماهانهٔ اهرم +۱۲٫۸۹٪
+  در برابر +۲٫۸۷٪ در ۱۹ ماه قبلش.</div>
 </div>
 
 <p class="ft"><b>این توصیهٔ مالی نیست.</b> خوانشِ قاعده‌های خودت روی
-داده است. لغزش مدل نشده: روی صندوقِ صف‌دار ممکن است اصلاً در قیمتِ نوار
+داده است. لغزش مدل نشده: روی صندوقِ صف‌دار ممکن است اصلاً در نقطهٔ ورود
 پر نشوی.</p>
 </div>
 
 <script>
 (function(){{
+  var nrm = function(x){{ return x
+    .replace(/ي/g,'ی').replace(/ك/g,'ک')
+    .replace(/‌/g,'').replace(/ /g,''); }};
   var tabs = document.querySelectorAll('.tab');
   tabs.forEach(function(b){{
     b.addEventListener('click', function(){{
@@ -1250,27 +1304,33 @@ font-size:12px;color:var(--mut);max-width:72ch}}
       document.getElementById(b.dataset.t).classList.add('on');
     }});
   }});
-  var q = document.getElementById('q');
-  q.addEventListener('input', function(){{
-    var v = q.value.trim()
-      .replace(/ي/g, 'ی').replace(/ك/g, 'ک')
-      .replace(/‌/g, '').replace(/ /g, '');
+  var cat = '*', q = document.getElementById('q');
+  function apply(){{
+    var v = nrm(q.value.trim());
     document.querySelectorAll('tr[data-s]').forEach(function(tr){{
-      var s = tr.dataset.s
-        .replace(/ي/g, 'ی').replace(/ك/g, 'ک')
-        .replace(/‌/g, '').replace(/ /g, '');
-      tr.classList.toggle('hide', v !== '' && s.indexOf(v) < 0);
+      var okC = cat === '*' || tr.dataset.c === cat;
+      var okQ = v === '' || nrm(tr.dataset.s).indexOf(v) >= 0;
+      tr.classList.toggle('hide', !(okC && okQ));
     }});
-    // سرصفحهٔ دسته‌ای که هیچ ردیفِ دیده‌شده‌ای ندارد پنهان شود
+    // سرفصلِ دسته‌ای که هیچ ردیفِ دیده‌شده‌ای ندارد باید برود،
+    // وگرنه بعد از جست‌وجو یک ستونِ سرفصلِ تنها می‌ماند
     document.querySelectorAll('tr.grp').forEach(function(g){{
-      var any = false, x = g.nextElementSibling;
-      while (x && !x.classList.contains('grp')) {{
-        if (x.dataset.s && !x.classList.contains('hide')) {{ any = true; break; }}
+      var t = g.parentNode, n = 0, x = g.nextElementSibling;
+      while (x && !x.classList.contains('grp')){{
+        if (x.dataset.s && !x.classList.contains('hide')) n++;
         x = x.nextElementSibling;
       }}
-      g.classList.toggle('hide', v !== '' && !any);
+      g.classList.toggle('hide', n === 0);
+    }});
+  }}
+  document.querySelectorAll('.chip').forEach(function(c){{
+    c.addEventListener('click', function(){{
+      document.querySelectorAll('.chip').forEach(function(x){{
+        x.classList.remove('on'); }});
+      c.classList.add('on'); cat = c.dataset.c; apply();
     }});
   }});
+  q.addEventListener('input', apply);
 }})();
 </script>
 </body></html>"""
@@ -1353,11 +1413,23 @@ def main():
             ins_map = json.loads(imf.read_text(encoding="utf-8"))
         except ValueError:
             ins_map = {}
-    rows = []
+    # TSETMC گاهی یک نماد را با نیم‌فاصله و گاهی بی‌آن برمی‌گرداند، پس
+    # «دارا یکم.csv» و «دارایکم.csv» هر دو ذخیره می‌شوند و نماد **دو بار**
+    # در جدول می‌آمد. کلیدِ یکتا نامِ نرمال‌شده است؛ از میانِ فایل‌های
+    # هم‌نام آن که تاریخچهٔ بلندتری دارد می‌ماند.
+    best = {}
     for p in sorted(DATA.glob("*.csv")):
         sym = p.stem
         if sym == "capital" or norm(sym) in NORM_FIXED:
             continue
+        k = norm(sym)
+        cur = best.get(k)
+        if cur is None or p.stat().st_size > cur.stat().st_size:
+            best[k] = p
+
+    rows = []
+    for p in sorted(best.values()):
+        sym = p.stem
         r = analyse(sym, load(sym), ins_map.get(sym),
                     allow_ticks=not args.offline and args.ticks)
         if r:
