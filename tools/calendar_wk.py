@@ -38,6 +38,9 @@ def trading_weekdays(dates, share=0.02):
     return sorted(k for k, v in cnt.items() if v > len(dates) * share)
 
 
+FUND_ANCHOR = 6          # یکشنبه — رجوع به توضیحِ weekly_backtest.week_key
+
+
 def derive_anchor(dates):
     """(روزِ شروعِ هفته، اطمینان، پیوسته‌بودن).
 
@@ -60,6 +63,11 @@ def derive_anchor(dates):
     # ابزار پیوسته: هر هفت روز کندل دارد
     if len(trading_weekdays(ds)) >= 7 or conf < MIN_GAP_SHARE:
         return CONTINUOUS_ANCHOR, conf, True
+    # بازاری که شنبه باز می‌شود، بورس ایران است. آنجا پنجرهٔ باکس
+    # یکشنبه→شنبه است (نه شنبه→چهارشنبه) — دلیلش در
+    # weekly_backtest.week_key نوشته شده و اندازه‌گیری شده.
+    if day == 5:
+        return FUND_ANCHOR, conf, False
     return day, conf, False
 
 

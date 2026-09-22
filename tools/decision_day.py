@@ -30,7 +30,8 @@ from monthly_backtest import load_daily, is_fixed_income, norm
 from vp_box import make_box, state
 from calendar_wk import week_key_for
 
-ANCHOR = {"sat": 5, "mon": 0}
+ANCHOR = {"sat": 5, "mon": 0, "sun": 6, "tue": 1, "wed": 2, "thu": 3,
+          "fri": 4}
 
 
 def build(data_dir, glob, kind, anchor, max_k):
@@ -112,7 +113,7 @@ def main():
     ap.add_argument("--data", default="data_auto")
     ap.add_argument("--glob", default="*.csv")
     ap.add_argument("--kind", default="valley_first")
-    ap.add_argument("--anchor", choices=("sat", "mon"), default="sat")
+    ap.add_argument("--anchor", choices=tuple(ANCHOR), default="sat")
     ap.add_argument("--max-k", type=int, default=4)
     ap.add_argument("--iters", type=int, default=20000)
     ap.add_argument("--json", dest="json_out", default=None)
