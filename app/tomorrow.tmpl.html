@@ -107,7 +107,33 @@ li b{color:var(--ink)}
 </header>
 
 <section>
-  <div class="shead"><h2>۱. پرتفوی هدف</h2><span class="sub" id="cap"></span></div>
+  <div class="shead"><h2>سفارشِ امروز</h2><span class="sub" id="bkcap"></span></div>
+  <p class="snote">یکی از هر گروه، و آن بزرگ‌ترین بر اساس ارزشِ معاملاتِ
+  روزانه — چون اعضای یک گروه همگرایی بالایی دارند، پس دو تا برداشتن ریسک
+  را پخش نمی‌کند و فقط نقدشوندگی را بدتر می‌کند.</p>
+  <div class="tbox"><table id="t-book"></table></div>
+  <div class="note" id="bknote"></div>
+  <div class="note alarm" id="bkskip"></div>
+</section>
+
+<section>
+  <div class="shead"><h2>داشبورد ماهانه</h2><span class="sub" id="msub"></span></div>
+  <p class="snote">باکس از ماه میلادیِ کامل‌شدهٔ قبل. نوارِ خرید سقفِ باکس
+  تا <b>+۴٪</b> است (هدف +۳٪) — چون ورود روی خودِ سقف t=۱٫۳۵ دارد و
+  ورودِ ۳٪ بالاتر t=۵٫۴۱.</p>
+  <div class="tbox"><table id="t-month"></table></div>
+</section>
+
+<section>
+  <div class="shead"><h2>داشبورد هفتگی</h2><span class="sub" id="wsub"></span></div>
+  <p class="snote">باکس از هفتهٔ کامل‌شدهٔ قبل (شنبه تا چهارشنبه). نوار
+  تا <b>+۲٪</b> (هدف +۰٫۵٪) — باکس هفتگی یک‌سومِ ماهانه پهناست، پس ۳٪
+  بالاتر آنجا خراب می‌کند.</p>
+  <div class="tbox"><table id="t-week"></table></div>
+</section>
+
+<section>
+  <div class="shead"><h2>۱. پرتفوی هدف — کاملِ فهرست</h2><span class="sub" id="cap"></span></div>
   <p class="snote">از میان <b id="uni"></b> نماد، <b id="elig"></b> تا هم بالای باکس ماهانه‌اند
   و هم بالای باکس هفتگی. وزن = امتیاز ÷ ریسک، با سقف ۱۲٪ هر نماد و ۳۶٪ هر گروه.
   «ریسک» فاصلهٔ درصدی تا کفِ باکس است — همان‌جا که استاپ می‌نشیند.</p>
@@ -391,6 +417,78 @@ li b{color:var(--ink)}
       '</td><td class="n">' + sgn(d.wrisk,1) + '</td><td>' +
       (d.anchor==null ? '—' : WD[d.anchor]) + '</td>' +
       '<td class="n">' + d.wbars + '</td></tr>'; }).join('') + '</tbody>';
+  // ── دفترِ نهایی ──
+  if (D.book) {
+    var B = D.book, bn = 1e6;
+    q('bkcap').textContent = 'سرمایه ' + num(B.capital/1e9,1) + ' میلیارد ریال';
+    q('t-book').innerHTML = head([['نماد'],['باند'],['کلوز',1],['ورود',1],
+        ['استاپ',1],['تارگت',1],['ریسک',1],['وزن',1],['مبلغ (م.ر)',1],
+        ['تعداد واحد',1],['ضرر اگر استاپ',1],['وضعیت']]) + '<tbody>' +
+      B.rows.map(function(r){
+        var ZS = {'در نوار':'p-up','زیر نوار':'p-flat','بالای نوار':'p-down'};
+        return '<tr><td class="sym">' + esc(r.sym) + '</td><td>' +
+          (r.band==='week'?'هفتگی':'ماهانه') + '</td><td class="n">' +
+          num(r.close) + '</td><td class="n"><b>' + num(r.aim) +
+          '</b></td><td class="n">' + num(r.stop) + '</td><td class="n">' +
+          num(r.target) + '</td><td class="n">' + r.risk_pct.toFixed(1) +
+          '٪</td><td class="n">' + r.w.toFixed(0) + '٪</td><td class="n">' +
+          num(r.amt/bn) + '</td><td class="n">' + num(r.units) +
+          '</td><td class="n">' + num(r.loss/bn) + '</td><td><span class="pill ' +
+          (ZS[r.state]||'p-flat') + '">' + r.state + '</span></td></tr>';
+      }).join('') +
+      '<tr class="cash"><td class="sym">نقد</td><td>—</td><td class="n">—</td>' +
+      '<td class="n">—</td><td class="n">—</td><td class="n">—</td>' +
+      '<td class="n">—</td><td class="n"><b>' + (100-B.invested).toFixed(0) +
+      '٪</b></td><td class="n">' + num(B.capital*(100-B.invested)/100/bn) +
+      '</td><td class="n">—</td><td class="n">—</td><td>—</td></tr></tbody>';
+    q('bknote').innerHTML = '<b>کلِ ریسک اگر هر سه استاپ بخورند: ' +
+      (B.risk_total/B.capital*100).toFixed(2) + '٪ سرمایه</b> (' +
+      num(B.risk_total/bn) + ' میلیون ریال). ' +
+      'این سه تقریباً مستقل‌اند — عیار/زیتون ‎−۰٫۰۶، عیار/سینرژی ‎+۰٫۳۱، ' +
+      'زیتون/سینرژی ‎+۰٫۱۰ — پس هر سه با هم خوردن بعید است.<br>' +
+      '<b>زیتون روی باندِ ماهانه است، نه هفتگی:</b> ریسکِ هفتگی‌اش ۰٫۲۳٪ ' +
+      'درمی‌آید، یعنی استاپ داخلِ نوسانِ یک روز می‌نشیند. باندِ ماهانه ' +
+      '۳٫۸٪ است و زیرِ نوسان.';
+    if (B.skipped && B.skipped.length) {
+      q('bkskip').innerHTML = '<b>حذف‌شده به دلیل حجم:</b> ' +
+        B.skipped.map(function(x){ return esc(x.sym) + ' (' +
+          num(x.value_bn) + ' میلیارد در روز)'; }).join(' · ') +
+        '. آستانه ۵۰۰ میلیارد گذاشته شد. مدلِ قبلی فقط «چند روز تا خروج» ' +
+        'را می‌دید و <b>صف</b> را نمی‌دید — پتروما ۱۹ میلیارد در روز ' +
+        'معامله می‌شود و یک موقعیتِ ۲۴ میلیاردی آنجا یعنی بیشتر از یک روزِ ' +
+        'کاملِ حجم. بند ۸ راهنما لغزش را بزرگ‌ترین شکافِ بک‌تست تا اجرا ' +
+        'می‌نامد و هنوز عددی برایش نداریم.';
+    }
+  }
+
+  // ── داشبورد ماهانه و هفتگی ──
+  if (D.zones) {
+    var ZS2 = {'در نوار':'p-up','زیر نوار':'p-flat','بالای نوار':'p-down'};
+    var mkTbl = function(key, tid, sub) {
+      var Z = D.zones.slice().sort(function(a,b){
+        var ai = a[key].state==='در نوار'?0:a[key].state==='زیر نوار'?1:2;
+        var bi = b[key].state==='در نوار'?0:b[key].state==='زیر نوار'?1:2;
+        return ai-bi || a[key].risk_pct-b[key].risk_pct; });
+      var nz = Z.filter(function(r){ return r[key].state==='در نوار'; }).length;
+      q(sub).textContent = Z.length + ' نماد · ' + nz + ' تا در نوار';
+      q(tid).innerHTML = head([['نماد'],['کلوز',1],['باکس'],['نوارِ خرید',1],
+          ['ورود',1],['استاپ',1],['تارگت',1],['ریسک',1],['وضعیت']]) +
+        '<tbody>' + Z.map(function(r){
+          var b = r[key], st = key==='month' ? r.mst : r.wst;
+          var live = b.state==='در نوار';
+          return '<tr' + (live?'':' class="cash"') + '><td class="sym">' +
+            esc(r.sym) + '</td><td class="n">' + num(r.close) + '</td><td>' +
+            pill(st) + '</td><td class="n">' + num(b.lo) + '–' + num(b.hi) +
+            '</td><td class="n">' + num(b.aim) + '</td><td class="n">' +
+            num(b.stop) + '</td><td class="n">' + num(b.target) +
+            '</td><td class="n">' + b.risk_pct.toFixed(1) +
+            '٪</td><td><span class="pill ' + (ZS2[b.state]||'p-flat') + '">' +
+            b.state + '</span></td></tr>'; }).join('') + '</tbody>';
+    };
+    mkTbl('month', 't-month', 'msub');
+    mkTbl('week', 't-week', 'wsub');
+  }
+
   // ── نوار خرید ──
   if (D.zones) {
     var OFF = D.offsets || [];

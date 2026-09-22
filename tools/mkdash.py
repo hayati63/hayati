@@ -23,6 +23,15 @@ if wf.exists():
                   "monthly_sticky", "base_weekly", "base_monthly",
                   "turn_weekly", "turn_monthly", "turn_weekly_sticky",
                   "turn_monthly_sticky")}
+# ── دفترِ نهایی: انتخابِ خودِ مصطفی، یکی از هر گروه ──────────────
+# قاعده‌اش: «اگه چند تا صندوق طلا هست تو یکی رو بگو... بزرگ‌ترینش رو بگو
+# که توی صفِ فروش و خریدش یا حجمش گیر نکنم.» داده تأییدش کرد.
+# باندِ هر نماد جدا انتخاب شده: زیتون ماهانه، چون ریسکِ هفتگی‌اش ۰٫۲۳٪
+# است — استاپی که داخلِ نوسانِ یک روز می‌نشیند، نه زیرِ آن.
+BOOK = [("عیار", "week", 20.0), ("سینرژی", "week", 20.0),
+        ("زیتون", "month", 20.0)]
+SKIPPED = [("پتروآبان", 118), ("پتروما", 19), ("شیلد", 138)]
+
 zp = Path("data/zones.json")
 if zp.exists():
     out["zones"] = json.loads(zp.read_text(encoding="utf-8"))
@@ -42,6 +51,27 @@ out["offsets"] = [
     {"label": "سقف +۴٪",   "mR": 0.241, "mT": 5.66, "mFill": 69.2,
      "wR": -0.053, "wT": -2.54, "wFill": 73.9},
 ]
+if zp.exists():
+    zz = {r["sym"]: r for r in out["zones"]}
+    cap = out["tom"]["capital"]
+    book = []
+    for sym, band, w in BOOK:
+        r = zz.get(sym)
+        if not r:
+            continue
+        b = r[band]
+        amt = cap * w / 100
+        book.append({"sym": sym, "band": band, "w": w, "close": r["close"],
+                     "aim": b["aim"], "stop": b["stop"], "target": b["target"],
+                     "risk_pct": b["risk_pct"], "state": b["state"],
+                     "amt": amt, "units": amt / b["aim"],
+                     "loss": amt * b["risk_pct"] / 100,
+                     "mst": r["mst"], "wst": r["wst"]})
+    out["book"] = {"rows": book, "capital": cap,
+                   "invested": sum(r["w"] for r in book),
+                   "risk_total": sum(r["loss"] for r in book),
+                   "skipped": [{"sym": s, "value_bn": v} for s, v in SKIPPED]}
+
 at = Path("data/attribution.json")
 if at.exists():
     out["attr"] = json.loads(at.read_text(encoding="utf-8"))

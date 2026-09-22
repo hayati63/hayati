@@ -67,6 +67,22 @@ def main():
                          "است، نه پیشرو. ۰ یعنی این قید خاموش")
     ap.add_argument("--require-driver", action="store_true",
                     help="محرکِ اصلیِ گروه هم باید بالای باکس هفتگی باشد")
+    ap.add_argument("--one-per-group", action="store_true", default=True,
+                    help="از هر گروه فقط **یک** نماد، و آن بزرگ‌ترین بر "
+                         "اساس ارزشِ معاملاتِ روزانه. قاعدهٔ مصطفی: «اینا "
+                         "همشون همگرایی دارن... بزرگ‌ترینش رو بگو که توی "
+                         "صف خرید و فروش یا حجمش گیر نکنم.» داده تأییدش "
+                         "کرد: چهار صندوق طلا با گواهی شمش ۰٫۸۹ تا ۰٫۹۲ "
+                         "همبسته‌اند، پس دو تا برداشتن ریسک را پخش نمی‌کند "
+                         "— فقط دو بار کارمزد می‌دهد و نقدشوندگی را بدتر "
+                         "می‌کند. با --many خاموش")
+    ap.add_argument("--many", dest="one_per_group", action="store_false")
+    ap.add_argument("--min-value", type=float, default=500.0,
+                    help="کمینه ارزشِ معاملاتِ روزانه، میلیارد ریال. "
+                         "مصطفی پتروآبان (۱۱۸) و پتروما (۱۹) را رد کرد چون "
+                         "در صف گیر می‌کند؛ مدلِ قبلیِ نقدشوندگی اجازه "
+                         "می‌داد چون فقط «چند روز تا خروج» را می‌دید و "
+                         "صف را نمی‌دید. ۰ یعنی خاموش")
     ap.add_argument("--sticky", action="store_true", default=True,
                     help="نمادی که همین حالا داریم و هنوز واجد شرط است "
                          "سر جایش می‌ماند، حتی اگر رتبه‌اش پایین باشد. "
@@ -282,6 +298,27 @@ def main():
     # (بند ۹ CLAUDE.md).
     order = sorted(elig, key=lambda r: r["risk"]
                    - (args.keep_bonus if r["sym"] in holds else 0.0))
+    if args.min_value > 0:
+        thin = [r for r in elig
+                if r["med_vol"] * r["close"] / 1e9 < args.min_value]
+        if thin:
+            print(f"\n⚠️ {len(thin)} نماد زیر آستانهٔ نقدشوندگی "
+                  f"({args.min_value:.0f} میلیارد ریال در روز) حذف شد:")
+            for r in sorted(thin, key=lambda x: -x["med_vol"] * x["close"]):
+                print(f"   {r['sym']:<10} "
+                      f"{r['med_vol']*r['close']/1e9:>8,.0f} میلیارد/روز")
+            elig = [r for r in elig if r not in thin]
+            order = [r for r in order if r not in thin]
+    if args.one_per_group:
+        # از هر گروه فقط پرگردش‌ترین
+        best = {}
+        for r in elig:
+            g = r["group"]
+            v = r["med_vol"] * r["close"]
+            if g not in best or v > best[g][0]:
+                best[g] = (v, r)
+        keep = {id(r) for _, r in best.values()}
+        order = [r for r in order if id(r) in keep]
     if args.sticky:
         # نمادهایی که داریم و هنوز واجد شرط‌اند اول صف. تعویضِ یک صندوق
         # طلا با صندوق طلای دیگر ۰٫۵۵٪ خرج دارد و صفر چیز عوض می‌کند —
