@@ -360,17 +360,33 @@ H1DIR = DATA / "h1"
 
 
 def parse_ticks(xml):
-    """(ساعت، حجم، قیمت) از XML ریزمعاملات.
+    """(زمان، حجم، قیمت) از XMLِ ریزمعاملات.
 
-    ستون‌ها بر اساس **شکلشان** شناسایی می‌شوند نه جایگاهشان: هر ردیف
-    یک مقدارِ «HH:MM:SS» دارد و دو عددِ دیگر. بزرگ‌ترِشان قیمت است و
-    کوچک‌ترش حجم؟ نه — این حدس خطرناک است. TSETMC ترتیبِ
-    (ردیف، زمان، حجم، قیمت) می‌دهد، پس بعد از زمان، **اولی حجم و دومی
-    قیمت** است. اگر روزی برعکس شد، `--sample` خامش را ذخیره می‌کند.
+    شکلِ **واقعی** که از old.tsetmc.com می‌آید — از خروجیِ `--sample`
+    روی ماشینِ مصطفی:
+
+        <?xml version="1.0" encoding="UTF-8"?>
+        <rows>
+        <row>
+        <cell>1</cell>            ← شمارهٔ ردیف
+        <cell>12:00:01</cell>     ← زمان
+        <cell>100000</cell>       ← حجم
+        <cell>663000.00</cell>    ← قیمت
+        </row>
+
+    اولین نسخهٔ پارسر دنبالِ `<Row>` و `<Data ss:Type=...>` می‌گشت —
+    شکلِ Excel-XML که از حافظه فرض کرده بودم. صفر تیک خواند. این
+    نسخه از روی فایلِ واقعی نوشته شده، و هر دو شکل را می‌پذیرد تا اگر
+    TSETMC روزی عوضش کرد نشکند.
+
+    ⚠️ ردیف‌ها **از آخر به اول**اند (ردیف ۱ آخرین معاملهٔ روز است)، پس
+    قبل از ساختنِ کندل بر اساس زمان مرتب می‌شوند — وگرنه «کلوزِ ساعت»
+    اولین معاملهٔ آن ساعت می‌شد نه آخرینش.
     """
     out = []
-    for row in re.findall(r"<Row>(.*?)</Row>", xml, re.S):
-        vals = re.findall(r"<Data[^>]*>(.*?)</Data>", row, re.S)
+    for row in re.findall(r"<row[^>]*>(.*?)</row>", xml, re.S | re.I):
+        vals = re.findall(r"<(?:cell|Data)[^>]*>(.*?)</(?:cell|Data)>",
+                          row, re.S | re.I)
         vals = [v.strip() for v in vals if v.strip()]
         ti = next((i for i, v in enumerate(vals)
                    if re.fullmatch(r"\d{1,2}:\d{2}:\d{2}", v)), None)
@@ -384,9 +400,10 @@ def parse_ticks(xml):
                 pass
         if len(nums) < 2:
             continue
-        hh = int(vals[ti].split(":")[0])
-        out.append((hh, nums[0], nums[1]))        # ساعت، حجم، قیمت
-    return out
+        hh, mm, ss = (int(x) for x in vals[ti].split(":"))
+        out.append((hh * 3600 + mm * 60 + ss, hh, nums[0], nums[1]))
+    out.sort()                       # از اول روز به آخرِ روز
+    return [(hh, vol, px) for _, hh, vol, px in out]
 
 
 def ticks_to_h1(ticks):
