@@ -10,6 +10,9 @@
 #   ۱۸:۱۵     → ۱۴:۴۵ UTC   یک ربع بعد از بستن طلا
 name: به‌روزرسانی روزانه
 
+# ⚠️ گیت‌هاب زمان‌بندی (`schedule`) را **فقط از برنچ پیش‌فرض** اجرا
+# می‌کند. تا وقتی PR مرج نشده، این فایل روی برنچ است و هیچ‌وقت خودکار
+# اجرا نمی‌شود. بعد از مرج، هم زمان‌بندی کار می‌کند هم دکمهٔ Run workflow.
 on:
   schedule:
     - cron: '15 9 * * 6,0,1,2,3'     # شنبه تا چهارشنبه، بعد از بستن بورس
@@ -52,8 +55,9 @@ jobs:
       - name: ساخت داشبورد
         run: python tools/build_page.py --out app/tomorrow.html
 
+      # اگر دو Secret تنظیم نشده باشند، zones.py خودش پیام می‌دهد و
+      # بی‌صدا رد می‌شود — پس اینجا شرطی لازم نیست.
       - name: آلارمِ تلگرام
-        if: ${{ env.TELEGRAM_BOT_TOKEN != '' }}
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
