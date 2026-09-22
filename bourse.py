@@ -241,6 +241,104 @@ def load(sym):
     return out
 
 
+# ══ ۱.۵ کاوشِ منابعِ درون‌روزی ═══════════════════════════════════════
+# چرا لازم است: باکسِ هفتگی روی ۵ کندلِ روزانه، در ۴۰٪ نمادها اصلاً
+# دره‌ای پیدا نمی‌کند (۵۴ از ۱۳۴). بالا بردنِ تعداد ردیف فقط ۴۰٪ را به
+# ۳۳٪ می‌آورد و همان‌جا می‌ماند — یعنی مسئله رزولوشنِ **داده** است نه
+# پروفایل. با H1 یک هفته ~۱۲۰ کندل دارد به‌جای ۵ تا.
+#
+# گرفتنِ دستیِ ۱۳۴ اکسپورت از چارتیکس عملی نیست. پس دنبالِ منبعی
+# می‌گردیم که خودش بدهد. من از اینجا نمی‌توانم تستش کنم — شبکهٔ این
+# کانتینر به هر چهار میزبان ۴۰۳ می‌دهد — ولی ماشینِ تو می‌تواند.
+#
+#     python bourse.py --probe
+#
+# هر نامزد را روی یک نماد امتحان می‌کند و می‌گوید کدام جواب داد.
+PROBE_INS = "34144395039913458"          # عیار
+
+def _probe_urls(day):
+    k = os.environ.get("BRSAPI_KEY", "").strip()
+    out = [
+        ("TSETMC معاملات روز (cdn)",
+         f"{BASE}/Trade/GetTradeHistory/{PROBE_INS}/{day}/false"),
+        ("TSETMC معاملات روز (true)",
+         f"{BASE}/Trade/GetTradeHistory/{PROBE_INS}/{day}/true"),
+        ("TSETMC ریزمعاملات (old)",
+         f"http://old.tsetmc.com/tsev2/data/TradeDetail.aspx"
+         f"?i={PROBE_INS}&d={day}"),
+        ("TSETMC سابقهٔ روزانه (old)",
+         f"http://old.tsetmc.com/tsev2/data/InstTradeHistory.aspx"
+         f"?i={PROBE_INS}&Top=10&A=0"),
+        ("TSETMC سابقهٔ قیمت لحظه‌ای",
+         f"{BASE}/ClosingPrice/GetClosingPriceDailyListZ/{PROBE_INS}/0"),
+    ]
+    if k:
+        out += [
+            ("BrsApi همهٔ نمادها",
+             f"https://BrsApi.ir/Api/Tsetmc/AllSymbols.php?key={k}"),
+            ("BrsApi تاریخچه",
+             f"https://BrsApi.ir/Api/Tsetmc/History.php"
+             f"?key={k}&symbol=عیار"),
+        ]
+    return out, bool(k)
+
+
+def probe():
+    """هر منبع را امتحان کن و بگو کدام جواب داد. کلید چاپ **نمی‌شود**."""
+    from datetime import timedelta
+    d = date.today()
+    while d.weekday() in (3, 4):        # پنجشنبه و جمعه بازار بسته
+        d -= timedelta(days=1)
+    day = d.strftime("%Y%m%d")
+    urls, has_key = _probe_urls(day)
+
+    print("=" * 68)
+    print(f"  کاوشِ منابع — روزِ آزمون {d} · نماد عیار")
+    print("=" * 68)
+    if not has_key:
+        print("\n  BRSAPI_KEY در محیط نیست، پس BrsApi امتحان نشد.")
+        print("  اگر کلید داری، در همان پنجره بزن (PowerShell):")
+        print('     $env:BRSAPI_KEY="کلیدت"')
+        print("  کلید را در چت نفرست — فقط همین‌جا بگذار.")
+    print()
+    ok_any = False
+    for name, url in urls:
+        shown = url.split("key=")[0] + "key=***" if "key=" in url else url
+        try:
+            req = urllib.request.Request(url, headers={
+                "User-Agent": UA, "Accept": "*/*",
+                "Referer": "https://www.tsetmc.com/"})
+            with urllib.request.urlopen(req, timeout=25) as r:
+                raw = r.read()
+                if r.headers.get("Content-Encoding") == "gzip":
+                    raw = gzip.GzipFile(fileobj=io.BytesIO(raw)).read()
+                txt = raw.decode("utf-8", "replace")
+                head = txt[:220].replace("\n", " ")
+                empty = len(txt.strip()) < 12 or txt.strip() in (
+                    "[]", "{}", '{"tradeHistory":[]}')
+                mark = "خالی" if empty else "دارد"
+                ok_any = ok_any or not empty
+                print(f"  [{r.status}] {mark:<5} {len(raw):>9,} بایت  {name}")
+                print(f"        {head}")
+        except urllib.error.HTTPError as e:      # noqa: PERF203
+            print(f"  [{e.code}] ——                      {name}")
+        except Exception as e:                   # noqa: BLE001
+            print(f"  [---] {type(e).__name__:<18} {name}")
+            print(f"        {str(e)[:90]}")
+        print()
+
+    print("=" * 68)
+    if ok_any:
+        print("  دستِ‌کم یکی داده برگرداند. کلِ این خروجی را برای من")
+        print("  بفرست تا پارسرش را بنویسم و باکسِ هفتگی روی کندلِ")
+        print("  ساعتی ساخته شود — آن‌وقت آن ۴۰٪ حل می‌شود.")
+    else:
+        print("  هیچ‌کدام داده نداد. باز هم کلِ خروجی را بفرست؛ از خودِ")
+        print("  پیام‌های خطا معلوم می‌شود کدام راه باز است.")
+    print("=" * 68)
+    return 0
+
+
 # ══ ۲. باکس حجمی ════════════════════════════════════════════════════
 def make_box(bars, min_rows=3, max_rows=20):
     """باکس = **اولین درهٔ حجمی از پایین**. بند ۱ راهنما.
@@ -791,11 +889,15 @@ def main():
                     help="سرمایه به ریال؛ ۰ یعنی از data_bourse/capital.txt")
     ap.add_argument("--telegram", action="store_true")
     ap.add_argument("--no-open", dest="open", action="store_false")
+    ap.add_argument("--probe", action="store_true",
+                    help="منابعِ درون‌روزی را امتحان کن و گزارش بده")
     ap.add_argument("--no-curmonth", dest="curmonth", action="store_false",
                     help="شرطِ «ماه جاری هم بالا باشد» را خاموش کن")
     ap.add_argument("--offline", action="store_true",
                     help="دانلود نکن، از دادهٔ ذخیره‌شده استفاده کن")
     args = ap.parse_args()
+    if args.probe:
+        return probe()
     global REQUIRE_CUR_MONTH
     REQUIRE_CUR_MONTH = args.curmonth
 
