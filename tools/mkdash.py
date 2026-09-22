@@ -15,6 +15,17 @@ out["month"]  = json.loads(Path("data/evidence_month.json").read_text(encoding="
 out["week"]   = json.loads(Path("data/evidence_week.json").read_text(encoding="utf-8"))
 out["combo"]  = json.loads(Path("data/evidence_combo.json").read_text(encoding="utf-8"))
 out["tom"]    = json.loads(Path("data/tomorrow.json").read_text(encoding="utf-8"))
+wf = Path("data/walkforward.json")
+if wf.exists():
+    w = json.loads(wf.read_text(encoding="utf-8"))
+    out["wf"] = {k: w.get(k) for k in
+                 ("fee", "n", "span", "weekly", "monthly", "weekly_sticky",
+                  "monthly_sticky", "base_weekly", "base_monthly",
+                  "turn_weekly", "turn_monthly", "turn_weekly_sticky",
+                  "turn_monthly_sticky")}
+at = Path("data/attribution.json")
+if at.exists():
+    out["attr"] = json.loads(at.read_text(encoding="utf-8"))
 
 # وضعیت باکس نمادهای پرتفوی فعلی
 holds = read_holdings("data/holdings.txt")
@@ -37,7 +48,7 @@ out["current"] = cur
 
 # محرک‌ها — با تعداد کندلِ پشتِ باکس هفتگی
 drv = []
-for did, fn in DRIVER_FILE.items():
+for did, fn in list(DRIVER_FILE.items()) + [("xau", "اونس_طلا")]:
     p = Path("data/drivers_daily") / f"{fn}_daily.csv"
     if not p.exists():
         drv.append({"id": did, "name": NAME.get(did, did), "missing": True}); continue
@@ -46,8 +57,7 @@ for did, fn in DRIVER_FILE.items():
     drv.append({"id": did, "name": NAME.get(did, did), "close": st["close"],
                 "mst": st["mst"], "wst": st["wst"], "wbars": st["wbars"],
                 "wok": st["wok"], "mrisk": round(st["mrisk"],1),
-                "wrisk": round(st["wrisk"],1)})
-drv.append({"id":"xau","name":"اونس طلا","missing":True})
+                "wrisk": round(st["wrisk"],1), "anchor": st.get("anchor")})
 out["drivers"] = drv
 
 Path("data/dash.json").write_text(json.dumps(out, ensure_ascii=False,

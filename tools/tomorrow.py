@@ -67,6 +67,14 @@ def main():
                          "است، نه پیشرو. ۰ یعنی این قید خاموش")
     ap.add_argument("--require-driver", action="store_true",
                     help="محرکِ اصلیِ گروه هم باید بالای باکس هفتگی باشد")
+    ap.add_argument("--sticky", action="store_true", default=True,
+                    help="نمادی که همین حالا داریم و هنوز واجد شرط است "
+                         "سر جایش می‌ماند، حتی اگر رتبه‌اش پایین باشد. "
+                         "`tools/walkforward.py` نشان داد چسبندگی گردش را "
+                         "از ۱۱۱٪ به ۷۸٪ می‌آورد و بازده سالانه را از "
+                         "+۲۸٫۴٪ به +۳۸٫۵٪ می‌برد — چون کارمزد بزرگ‌ترین "
+                         "هزینهٔ این سیستم است. با --no-sticky خاموش")
+    ap.add_argument("--no-sticky", dest="sticky", action="store_false")
     ap.add_argument("--keep-bonus", type=float, default=1.6,
                     help="امتیازِ ماندنِ نمادی که همین حالا در پرتفو هست و "
                          "هنوز واجد شرط است، برحسب واحدِ ریسک (درصد فاصله "
@@ -192,7 +200,9 @@ def main():
             if st:
                 drv[did] = st
 
-    def driver_ok(g):
+    from drivers import OVERRIDE
+
+    def driver_ok(g, sym=None):
         """محرکِ با بیشترین وزن در این گروه — بالای باکس هفتگی است؟
 
         اگر باکسِ هفتگیِ محرک از کمتر از ۲۰ کندل ساخته شده باشد **حکم
@@ -200,7 +210,8 @@ def main():
         شده: با کندل روزانه یک هفته ۵ تا ۷ کندل دارد و آن پروفایل
         قابل‌اتکا نیست. تا وقتی H1 نرسیده، این ستون فقط خبر است نه حکم.
         """
-        for did in sorted(EXPOSURE.get(g, {}), key=lambda k: -EXPOSURE[g][k]):
+        exp = OVERRIDE.get(sym) or EXPOSURE.get(g, {})
+        for did in sorted(exp, key=lambda k: -exp[k]):
             if did in drv:
                 d = drv[did]
                 if not d.get("wok"):
@@ -221,7 +232,7 @@ def main():
         if not r["med_vol"]:
             continue
         r["breadth"] = breadth.get(r["group"], 0.0)
-        ok, did, dst = driver_ok(r["group"])
+        ok, did, dst = driver_ok(r["group"], r["sym"])
         r["driver"], r["driver_st"], r["driver_ok"] = did, dst, ok
         if args.min_breadth > 0 and r["breadth"] < args.min_breadth:
             continue
@@ -266,6 +277,12 @@ def main():
     # (بند ۹ CLAUDE.md).
     order = sorted(elig, key=lambda r: r["risk"]
                    - (args.keep_bonus if r["sym"] in holds else 0.0))
+    if args.sticky:
+        # نمادهایی که داریم و هنوز واجد شرط‌اند اول صف. تعویضِ یک صندوق
+        # طلا با صندوق طلای دیگر ۰٫۵۵٪ خرج دارد و صفر چیز عوض می‌کند —
+        # همبستگی روزانه‌شان با گواهی شمش طلا ۰٫۸۹ تا ۰٫۹۲ است.
+        order = ([r for r in order if r["sym"] in holds]
+                 + [r for r in order if r["sym"] not in holds])
     for fac, bud in budgets.items():
         want = max(1, round(args.n * bud / 100))
         taken = 0
