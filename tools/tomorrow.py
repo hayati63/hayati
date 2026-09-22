@@ -67,6 +67,15 @@ def main():
                          "است، نه پیشرو. ۰ یعنی این قید خاموش")
     ap.add_argument("--require-driver", action="store_true",
                     help="محرکِ اصلیِ گروه هم باید بالای باکس هفتگی باشد")
+    ap.add_argument("--require-cur-month", action="store_true", default=True,
+                    help="باکسِ ماهِ **جاری** (اول ماه میلادی تا امروز) هم "
+                         "باید بالا باشد. قاعدهٔ مصطفی روی نقران. "
+                         "اندازه‌گیری (tools/curmonth_filter.py): مزیت از "
+                         "+۰٫۳۹۹ به +۰٫۴۶۷ می‌رود ولی t از ۰٫۹۷ به ۰٫۸۴ "
+                         "می‌افتد و ۲۱٪ سیگنال حذف می‌شود — شاهدِ محکمی "
+                         "نیست، قاعدهٔ اوست. با --no-cur-month خاموش")
+    ap.add_argument("--no-cur-month", dest="require_cur_month",
+                    action="store_false")
     ap.add_argument("--one-per-group", action="store_true", default=True,
                     help="از هر گروه فقط **یک** نماد، و آن بزرگ‌ترین بر "
                          "اساس ارزشِ معاملاتِ روزانه. قاعدهٔ مصطفی: «اینا "
@@ -170,6 +179,13 @@ def main():
             "mrisk": (close - mbox[0]) / close * 100,
             "wrisk": (close - wbox[0]) / close * 100,
             "mbox": mbox, "wbox": wbox,
+            # باکسِ ماهِ **جاری** — از اول ماه میلادی تا امروز. مصطفی
+            # روی نقران گرفت که این می‌تواند مقاومتِ بالای سر بسازد در
+            # حالی که ماهِ قبل و هفتگی هر دو مثبت‌اند.
+            "cur_box": (make_box(args.kind, [x for _, x in by_m[ms[-1]]],
+                                 by_m[ms[-1]][-1][1].c)
+                        if len(by_m[ms[-1]]) >= 3 else None),
+            "cur_days": len(by_m[ms[-1]]),
             "n": len(hist),
             "avg": statistics.mean(hist) if hist else None,
             "win": (sum(1 for x in hist if x > 0) / len(hist) * 100)
@@ -245,6 +261,15 @@ def main():
             continue
         if not r["med_vol"]:
             continue
+        # ── شرطِ ماهِ جاری ──
+        # باکسِ ماه میلادیِ جاری، فقط از کندل‌های تا امروز. اگر قیمت
+        # زیرش باشد یعنی از اولِ ماه مقاومتی بالای سرش ساخته شده.
+        # مصطفی روی نقران گرفت: ماه قبل بالا، هفتگی بالا، ولی ماه جاری
+        # ۱۲٬۷۳۵–۱۲٬۸۹۹ و قیمت ۱۲٬۴۴۱ — زیرِ مقاومت.
+        if args.require_cur_month:
+            cb = r.get("cur_box")
+            if cb is not None and state(r["close"], cb) != "بالا":
+                continue
         r["breadth"] = breadth.get(r["group"], 0.0)
         ok, did, dst = driver_ok(r["group"], r["sym"])
         r["driver"], r["driver_st"], r["driver_ok"] = did, dst, ok

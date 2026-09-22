@@ -65,6 +65,20 @@ MAX_WEIGHT = 20.0         # سقف وزن هر نماد
 # سقفِ کلِ سرمایهٔ در بازار. بک‌تستِ رو به جلو نشان داد تمرکز در این
 # ۱۱ ماه ضرر داشت، و نقد گزینهٔ واقعی است — نه باقی‌ماندهٔ محاسبه.
 MAX_INVESTED = 60.0
+# شرطِ سوم: باکسِ ماهِ **جاری** (از اول ماه میلادی تا امروز) هم باید
+# مثبت باشد. قاعدهٔ مصطفی، روی نقران گرفتش: «از ابتدای ماه فعلی یک
+# مقاومت ایجاد کرده بالای عدد، ولی هفته‌اش مثبت است... باید جفتش مثبت
+# باشد.» و خودش قید را هم گفت: «صد در صد نیست تا وقتی ماه بسته بشه.»
+#
+# اندازه‌گیری (`tools/curmonth_filter.py`، ۲٬۴۵۷ مشاهده، ۴۲ هفته):
+#   ماه قبل + هفتگی          n=۱۲۴۸  مزیت +۰٫۳۹۹  t=۰٫۹۷
+#   + ماه جاری بالا          n=۹۸۴   مزیت +۰٫۴۶۷  t=۰٫۸۴
+#   + ماه جاری زیر           n=۲۴    — هیچ هفته‌ای ۳ عضو ندارد
+#
+# مزیت +۰٫۰۶۷ واحد بالا می‌رود ولی t **پایین** می‌آید و ۲۱٪ سیگنال
+# حذف می‌شود. یعنی شاهدِ محکمی نیست. روشن است چون قاعدهٔ خودِ اوست و
+# ریسکِ مقاومتِ بالای سر را حذف می‌کند؛ با --no-curmonth خاموش.
+REQUIRE_CUR_MONTH = True
 MIN_DAYS = 40
 
 CATEGORY = {
@@ -424,6 +438,7 @@ def build_book(rows, capital):
     elig = [r for r in rows
             if r["mst"] == "بالا" and r["wst"] == "بالا"
             and r["value_bn"] >= MIN_VALUE_BN
+            and (not REQUIRE_CUR_MONTH or r["cur_st"] in ("بالا", "؟"))
             and (r["cat"] in wide or norm(r["sym"]) in NORM_EXEMPT)]
     best = {}
     for r in elig:
@@ -523,7 +538,10 @@ def html(rows, book, capital, stamp, last_date):
     bk = "".join(
         f'<tr><td class="s">{r["sym"]}</td>'
         f'<td>{"هفتگی" if r["band"]=="week" else "ماهانه"}</td>'
-        f'<td>{r["cat"]}</td><td class="n">{n(r["close"])}</td>'
+        f'<td>{r["cat"]}</td>'
+        f'<td><span class="p {PILL.get(r["cur_st"],"warn")}">'
+        f'{r["cur_st"]}</span></td>'
+        f'<td class="n">{n(r["close"])}</td>'
         f'<td class="n"><b>{n(r["z"]["aim"])}</b></td>'
         f'<td class="n">{n(r["z"]["stop"])}</td>'
         f'<td class="n">{n(r["z"]["target"])}</td>'
@@ -534,7 +552,7 @@ def html(rows, book, capital, stamp, last_date):
         f'<td class="n">{n(r["value_bn"])}</td>'
         f'<td><span class="p {ZP.get(r["z"]["state"],"flat")}">'
         f'{r["z"]["state"]}</span></td></tr>' for r in book)
-    bk += (f'<tr class="dim"><td class="s">نقد</td><td colspan="7"></td>'
+    bk += (f'<tr class="dim"><td class="s">نقد</td><td colspan="8"></td>'
            f'<td class="n"><b>{100-inv:.0f}٪</b></td>'
            f'<td class="n">{n(capital*(100-inv)/100/1e6)}</td>'
            f'<td colspan="3"></td></tr>')
@@ -605,7 +623,7 @@ font-size:12px;color:var(--mut);max-width:70ch}}
 معاملاتِ روزانه — اعضای یک دسته همگرایی بالایی دارند، پس دو تا برداشتن
 ریسک را پخش نمی‌کند و فقط نقدشوندگی را بدتر می‌کند. نمادهای زیر
 {MIN_VALUE_BN:.0f} میلیارد در روز حذف شده‌اند.</p>
-<div class="tb"><table><thead><tr><th>نماد</th><th>باند</th><th>دسته</th>
+<div class="tb"><table><thead><tr><th>نماد</th><th>باند</th><th>دسته</th><th>ماه جاری</th>
 <th class="n">کلوز</th><th class="n">ورود</th><th class="n">استاپ</th>
 <th class="n">تارگت</th><th class="n">ریسک</th><th class="n">وزن</th>
 <th class="n">مبلغ (م.ر)</th><th class="n">تعداد واحد</th>
@@ -659,9 +677,13 @@ def main():
                     help="سرمایه به ریال؛ ۰ یعنی از data_bourse/capital.txt")
     ap.add_argument("--telegram", action="store_true")
     ap.add_argument("--no-open", dest="open", action="store_false")
+    ap.add_argument("--no-curmonth", dest="curmonth", action="store_false",
+                    help="شرطِ «ماه جاری هم بالا باشد» را خاموش کن")
     ap.add_argument("--offline", action="store_true",
                     help="دانلود نکن، از دادهٔ ذخیره‌شده استفاده کن")
     args = ap.parse_args()
+    global REQUIRE_CUR_MONTH
+    REQUIRE_CUR_MONTH = args.curmonth
 
     print("=" * 64)
     print("  بورس — تک‌فایل")

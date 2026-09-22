@@ -65,6 +65,12 @@ def box_states(rows, kind, anchor=None):
     if len(by_m[ms[-2]]) < 5:
         return None
     mb = make_box(kind, [x for _, x in by_m[ms[-2]]], by_m[ms[-2]][-1][1].c)
+    # باکسِ ماهِ **جاری** — از اول ماه میلادی تا آخرین کندل. مصطفی روی
+    # نقران گرفت که این می‌تواند مقاومتِ بالای سر بسازد در حالی که ماهِ
+    # قبل و هفتگی هر دو مثبت‌اند.
+    cm = by_m[ms[-1]]
+    cb = (make_box(kind, [x for _, x in cm], cm[-1][1].c)
+          if len(cm) >= 3 else None)
     wp = by_w[ws[-2]]
     wb = make_box(kind, [x for _, x in wp], wp[-1][1].c) if len(wp) >= 3 else None
     if not mb or not wb:
@@ -80,7 +86,9 @@ def box_states(rows, kind, anchor=None):
             # **مرزِ هفته** بود نه تعداد کندل، و `anchor` حلش کرد.
             # این آستانه حالا فقط جلوی پروفایلِ ۳کندلی را می‌گیرد.
             "wbars": len(wp), "wok": len(wp) >= 4,
-            "anchor": anchor}
+            "anchor": anchor, "cur_box": cb,
+            "cur_st": state(close, cb) if cb else "؟",
+            "cur_days": len(cm)}
 
 
 def main():
