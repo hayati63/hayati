@@ -92,6 +92,11 @@ SYM_CAT = {s: c for c, ss in CATEGORY.items() for s in ss.split()}
 # سینرژی ضدِ گروهش حرکت می‌کند، پس «هشت تا از ده تا منفی‌اند» دربارهٔ
 # او چیزی نمی‌گوید.
 BREADTH_EXEMPT = {"سینرژی", "نقران"}
+# ⚠️ TSETMC نام‌ها را با حروف **عربی** می‌دهد: «سينرژي» با ي و ك عربی.
+# مقایسهٔ خام با این مجموعه هیچ‌وقت نمی‌گیرد و سینرژی بی‌صدا از دفتر
+# می‌افتد — همین اتفاق در اولین اجرای مصطفی افتاد. پس نرمال‌شده مقایسه
+# می‌شود، مثل CATEGORY.
+NORM_EXEMPT = set()          # بعد از تعریفِ norm پر می‌شود
 
 FIXED_INCOME = ("یاقوت کارا اعتماد همای آوند کمند فیروزا ثابت گنجینه "
                 "افران آرامش پاداش بلوط زمرد سپر کیان نسیم")
@@ -105,6 +110,9 @@ def norm(s):
 
 NORM_CAT = {norm(k): v for k, v in SYM_CAT.items()}
 NORM_FIXED = {norm(x) for x in FIXED_INCOME.split()}
+NORM_EXEMPT.update(norm(x) for x in BREADTH_EXEMPT)
+# نامِ نمایشیِ فارسی، تا «عيار» و «زيتون» عربی در خروجی نیفتد
+DISPLAY = {norm(k): k for k in SYM_CAT}
 
 
 # ══ ۱. دانلود ═══════════════════════════════════════════════════════
@@ -287,6 +295,49 @@ def week_key(d):
     return d.fromordinal(d.toordinal() - back)
 
 
+# ── تقویمِ تصمیم ────────────────────────────────────────────────────
+# مصطفی: «صندوق‌های بورسی شنبه بسته می‌شود، ناحیه مشخص می‌شود، و کلوزِ
+# یکشنبه جهت را تعیین می‌کند. تتر و دلار یکشنبه بسته می‌شوند و کلوزِ
+# دوشنبه تصمیم‌گیرنده است.»
+#
+# اندازه‌گیری شد (`tools/decision_day.py`، مزیتِ درون‌هفته‌ای):
+#
+#   صندوق‌های بورسی، لنگرِ شنبه
+#     روز ۱ شنبه      +۰٫۲۸۹ واحد   p=۰٫۰۰۰۳
+#     روز ۲ یکشنبه    +۰٫۳۸۸ واحد   p=۰٫۰۰۰۳   ← بهترین
+#     روز ۳ دوشنبه    +۰٫۲۹۵ واحد   p=۰٫۰۰۰۳
+#
+#   محرک‌ها (دلار، تتر، طلای ۱۸)، لنگرِ دوشنبه
+#     روز ۱ دوشنبه    +۰٫۲۹۴ واحد   t=۳٫۸۲   p=۰٫۰۰۰۳   ← بهترین
+#     روز ۲ سه‌شنبه   +۰٫۱۲۱ واحد   t=۱٫۸۰
+#
+# هر دو حرفش درست بود. تفاوتِ یکشنبه با شنبه کوچک است (+۰٫۰۹۹ واحد)
+# ولی در همان جهتی است که او گفت.
+DECIDE_FUND = 6      # یکشنبه — روز دومِ هفتهٔ بورس
+DECIDE_DRIVER = 0    # دوشنبه — روز اولِ هفتهٔ جهانی
+WD = ("دوشنبه", "سه‌شنبه", "چهارشنبه", "پنجشنبه", "جمعه", "شنبه", "یکشنبه")
+
+
+def today_says(last_date):
+    """کلوزِ این روز چه تصمیمی را می‌سازد؟"""
+    wd = last_date.weekday()
+    out = []
+    if wd == DECIDE_FUND:
+        out.append(("صندوق‌های بورسی", "کلوزِ امروز تصمیم‌گیرنده است",
+                    "فردا (دوشنبه) خرید و فروش کن"))
+    if wd == DECIDE_DRIVER:
+        out.append(("تتر و دلار و طلای ۱۸",
+                    "کلوزِ امروز تصمیم‌گیرنده است",
+                    "امروز آخر وقت یا فردا صبح"))
+    if not out:
+        nf = (DECIDE_FUND - wd) % 7 or 7
+        nd = (DECIDE_DRIVER - wd) % 7 or 7
+        out.append(("—", "امروز روزِ تصمیم نیست",
+                    f"صندوق‌ها {nf} روز دیگر (یکشنبه) · "
+                    f"محرک‌ها {nd} روز دیگر (دوشنبه)"))
+    return out
+
+
 def zone(box, px, band):
     lo, hi = box
     z_lo = hi
@@ -316,11 +367,19 @@ def analyse(sym, rows):
     wb = make_box(by_w[ws[-2]])
     if mb is None or wb is None:
         return None
+    # باکسِ ماهِ **جاری** (تا امروز). مصطفی این ستون را در داشبورد قبلی
+    # داشت و می‌خواهدش. ولی یک قید دارد که باید دیده شود: این باکس روی
+    # دوره‌ای ساخته می‌شود که حجمش هنوز کامل نشده، و وقتی اندازه گرفتیم
+    # (کنترلِ ماه × روزِ ماه) مزیتش +۰٫۰۱ واحد با t=+۰٫۰۶ درآمد — یعنی
+    # از تصادف جدا نمی‌شود. پس **خبر** است، نه سیگنال.
+    cur = make_box(by_m[ms[-1]]) if len(by_m[ms[-1]]) >= 3 else None
     vols = sorted(b["v"] for b in rows[-20:])
     mv = vols[len(vols) // 2] if vols else 0
-    return {"sym": sym, "cat": NORM_CAT.get(norm(sym), "؟"),
+    return {"sym": DISPLAY.get(norm(sym), sym),
+            "cat": NORM_CAT.get(norm(sym), "؟"),
             "close": px, "date": rows[-1]["d"].isoformat(),
             "mst": state(px, mb), "wst": state(px, wb),
+            "cur_box": cur, "cur_st": state(px, cur),
             "month": zone(mb, px, BAND["month"]),
             "week": zone(wb, px, BAND["week"]),
             "med_vol": mv, "value_bn": mv * px / 1e9}
@@ -343,7 +402,7 @@ def build_book(rows, capital):
     elig = [r for r in rows
             if r["mst"] == "بالا" and r["wst"] == "بالا"
             and r["value_bn"] >= MIN_VALUE_BN
-            and (r["cat"] in wide or r["sym"] in BREADTH_EXEMPT)]
+            and (r["cat"] in wide or norm(r["sym"]) in NORM_EXEMPT)]
     best = {}
     for r in elig:
         c = r["cat"]
@@ -389,7 +448,20 @@ def telegram(text):
 
 
 # ══ ۵. صفحه ═════════════════════════════════════════════════════════
-def html(rows, book, capital, stamp):
+def html(rows, book, capital, stamp, last_date):
+    last_wd = last_date.weekday()
+    says = today_says(last_date)
+    cal_html = "".join(
+        f'<div class="t">{"🔔 " if who != "—" else ""}{who}'
+        f'{" — " + what if who != "—" else what}</div>'
+        f'<div class="d">{act}</div>' for who, what, act in says)
+    cal_html += (
+        '<div class="q"><b>تقویمِ تصمیم، اندازه‌گیری‌شده:</b> '
+        'صندوق‌های بورسی هفته‌شان شنبه تا چهارشنبه است و '
+        '<b>کلوزِ یکشنبه</b> تصمیم‌گیرنده — مزیت ‎+۰٫۳۸۸ واحد در برابر '
+        '‎+۰٫۲۸۹ برای شنبه. تتر و دلار و طلای ۱۸ هفته‌شان دوشنبه تا '
+        'یکشنبه است و <b>کلوزِ دوشنبه</b> تصمیم‌گیرنده — ‎+۰٫۲۹۴ واحد '
+        'با t=۳٫۸۲، در برابر ‎+۰٫۱۲۱ برای سه‌شنبه.</div>')
     def n(x, d=0):
         return f"{x:,.{d}f}" if x == x else "—"
 
@@ -401,10 +473,18 @@ def html(rows, book, capital, stamp):
     def zrow(r, key):
         z, st = r[key], (r["mst"] if key == "month" else r["wst"])
         live = z["state"] == "در نوار"
+        cur = ""
+        if key == "month":
+            cb = r["cur_box"]
+            cur = (f'<td class="n">{n(cb[0])}–{n(cb[1])}</td>'
+                   f'<td><span class="p {PILL.get(r["cur_st"],"warn")}">'
+                   f'{r["cur_st"]}</span></td>') if cb else \
+                  '<td class="n">—</td><td>—</td>'
         return (f'<tr class="{"" if live else "dim"}"><td class="s">{r["sym"]}</td>'
                 f'<td class="n">{n(r["close"])}</td>'
                 f'<td><span class="p {PILL.get(st,"warn")}">{st}</span></td>'
-                f'<td class="n">{n(z["lo"])}–{n(z["hi"])}</td>'
+                + cur
+                + f'<td class="n">{n(z["lo"])}–{n(z["hi"])}</td>'
                 f'<td class="n"><b>{n(z["aim"])}</b></td>'
                 f'<td class="n">{n(z["stop"])}</td>'
                 f'<td class="n">{n(z["target"])}</td>'
@@ -481,13 +561,21 @@ font-size:11px;font-weight:700}}
 padding:12px 15px;border-radius:0 8px 8px 0;margin:14px 0;
 font-size:13px;color:var(--mut)}}
 .box b{{color:var(--ink)}}
+.cal{{margin-top:18px;border:2px solid var(--br);border-radius:10px;
+background:var(--sf);padding:14px 18px}}
+.cal .t{{font-size:17px;font-weight:900}}
+.cal .d{{font-size:13px;color:var(--mut);margin-top:3px}}
+.cal .q{{font-size:12px;color:var(--mut);margin-top:9px;
+padding-top:9px;border-top:1px solid var(--ln)}}
 .ft{{margin-top:40px;padding-top:16px;border-top:1px solid var(--ln);
 font-size:12px;color:var(--mut);max-width:70ch}}
 </style></head><body><div class="w">
 
 <h1>سفارشِ امروز</h1>
-<div class="st">کلوز {stamp} · سرمایه {n(capital/1e9,1)} میلیارد ریال ·
-{len(rows)} نماد بررسی شد</div>
+<div class="st">کلوز {stamp} ({WD[last_wd]}) · سرمایه
+{n(capital/1e9,1)} میلیارد ریال · {len(rows)} نماد بررسی شد</div>
+
+<div class="cal">{cal_html}</div>
 
 <section><div class="hd"><h2>دفتر</h2>
 <span class="x">{len(book)} نماد · {inv:.0f}٪ در بازار</span></div>
@@ -509,10 +597,15 @@ font-size:12px;color:var(--mut);max-width:70ch}}
 
 <section><div class="hd"><h2>داشبورد ماهانه</h2>
 <span class="x">نوار: سقفِ باکس تا +۴٪ · هدف +۳٪</span></div>
-<p class="nt">باکس از ماه میلادیِ کامل‌شدهٔ قبل. ورود روی خودِ سقفِ باکس
-در بک‌تست t=۱٫۳۵ داد (از تصادف جدا نشد)؛ ورودِ ۳٪ بالاتر t=۵٫۴۱.</p>
+<p class="nt">ستونِ «ماه قبل» باکسِ ماه میلادیِ کامل‌شده است — همان که
+تصمیم رویش گرفته می‌شود. ستونِ «ماهِ جاری» چراغِ زندهٔ ماهِ در جریان است:
+<b>خبر است، نه سیگنال</b> — وقتی با کنترلِ ماه × روزِ ماه اندازه گرفته
+شد، مزیتش ‎+۰٫۰۱ واحد با t=+۰٫۰۶ درآمد، یعنی از تصادف جدا نشد. حجم تا
+پایان دوره کامل نمی‌شود، پس باکسِ وسطِ دوره معتبر نیست.<br>
+ورود روی خودِ سقفِ باکس t=۱٫۳۵ داد؛ ورودِ ۳٪ بالاتر t=۵٫۴۱.</p>
 <div class="tb"><table><thead><tr><th>نماد</th><th class="n">کلوز</th>
-<th>باکس</th><th class="n">نوار</th><th class="n">ورود</th>
+<th>ماه قبل</th><th class="n">باکسِ ماهِ جاری</th><th>جاری</th>
+<th class="n">نوار</th><th class="n">ورود</th>
 <th class="n">استاپ</th><th class="n">تارگت</th><th class="n">ریسک</th>
 <th>وضعیت</th></tr></thead><tbody>
 {"".join(zrow(r, "month") for r in sorter("month"))}
@@ -621,8 +714,22 @@ def main():
            if r["week"]["state"] == "در نوار" or r["month"]["state"] == "در نوار"]
 
     print("\n[۴/۴] ساخت صفحه...")
-    OUT.write_text(html(rows, book, capital, stamp), encoding="utf-8")
+    y, mo, dd = (int(x) for x in stamp.split("-"))
+    last_date = date(y, mo, dd)
+    OUT.write_text(html(rows, book, capital, stamp, last_date),
+                   encoding="utf-8")
     print(f"      {OUT}")
+
+    print("\n" + "=" * 64)
+    print(f"  امروز {stamp} است — {WD[last_date.weekday()]}")
+    print("=" * 64)
+    for who, what, act in today_says(last_date):
+        if who == "—":
+            print(f"\n  {what}")
+            print(f"  {act}")
+        else:
+            print(f"\n  🔔 {who}: {what}")
+            print(f"     {act}")
 
     print("\n" + "=" * 64)
     print("  سفارشِ امروز")
