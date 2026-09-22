@@ -80,6 +80,50 @@ MAX_INVESTED = 60.0
 # حذف می‌شود. یعنی شاهدِ محکمی نیست. روشن است چون قاعدهٔ خودِ اوست و
 # ریسکِ مقاومتِ بالای سر را حذف می‌کند؛ با --no-curmonth خاموش.
 REQUIRE_CUR_MONTH = True
+
+# ── نرخِ بردِ تاریخی، از بک‌تست ─────────────────────────────────────
+# `tools/fund_vs_driver.py` روی ۱۲۱ نماد. هر حالتِ باکس، چند درصد
+# دوره‌های بعدش مثبت بوده و میانگینش چه بوده. این‌ها **توصیف** است نه
+# پیش‌بینی: دورهٔ اندازه‌گیری ۱۱ ماه و ۴۲ هفته بوده و رژیمش صعودی.
+#
+#   هفتگی  ۲٬۴۵۷ مشاهده · ۴۲ هفته · پایه +۱٫۳۳٪ و ۶۱٪ مثبت
+#   ماهانه   ۵۶۴ مشاهده · ۱۱ ماه  · پایه +۸٫۲۷٪ و ۶۸٪ مثبت
+WINRATE = {
+    "week": {
+        "هر سه بالا":       (984, 71, 2.48),
+        "ماه قبل + هفتگی": (1248, 69, 2.52),
+        "فقط هفتگی":       (1461, 65, 2.14),
+        "فقط ماه قبل":     (1743, 66, 1.96),
+        "هفتگی زیر":        (706, 52, -0.21),
+        "هر سه زیر":        (242, 43, -1.07),
+        "_base":           (2457, 61, 1.33),
+    },
+    "month": {
+        "ماه قبل + هفتگی":  (300, 85, 12.40),
+        "فقط هفتگی":        (339, 81, 11.31),
+        "فقط ماه قبل":      (397, 79, 10.67),
+        "هفتگی زیر":        (162, 36, 2.14),
+        "_base":            (564, 68, 8.27),
+    },
+}
+
+
+def wr_key(r):
+    """نمادِ امروز در کدام سطرِ جدولِ بک‌تست می‌نشیند."""
+    m, c, w = r.get("mst"), r.get("cur_st"), r.get("wst")
+    if m == "بالا" and c == "بالا" and w == "بالا":
+        return "هر سه بالا"
+    if m == "بالا" and w == "بالا":
+        return "ماه قبل + هفتگی"
+    if m == "زیر" and c == "زیر" and w == "زیر":
+        return "هر سه زیر"
+    if w == "زیر":
+        return "هفتگی زیر"
+    if w == "بالا":
+        return "فقط هفتگی"
+    if m == "بالا":
+        return "فقط ماه قبل"
+    return None
 MIN_DAYS = 40
 
 CATEGORY = {
@@ -883,6 +927,41 @@ def html(rows, book, capital, stamp, last_date):
     inv = sum(r["w"] for r in book)
     risk = sum(r["loss"] for r in book)
 
+    def wr_cell(r):
+        k = wr_key(r)
+        if not k:
+            return "—"
+        hz = "week" if r.get("band") == "week" else "month"
+        v = WINRATE[hz].get(k) or WINRATE["week"].get(k)
+        if not v:
+            return "—"
+        n, win, avg = v
+        cls = "up" if win >= 70 else "flat" if win >= 55 else "down"
+        return (f'<span class="p {cls}">{win}٪</span> '
+                f'<span style="color:var(--mut);font-size:11px">'
+                f'{avg:+.1f}٪ · n={n:,}</span>')
+
+    def bt_table(hz, title, note):
+        w = WINRATE[hz]
+        bn, bwin, bavg = w["_base"]
+        rows_h = "".join(
+            f'<tr><td class="s">{k}</td><td class="n">{v[0]:,}</td>'
+            f'<td class="n"><span class="p '
+            f'{"up" if v[1] >= 70 else "flat" if v[1] >= 55 else "down"}">'
+            f'{v[1]}٪</span></td>'
+            f'<td class="n">{v[2]:+.2f}٪</td>'
+            f'<td class="n">{v[1]-bwin:+d} واحد</td></tr>'
+            for k, v in w.items() if k != "_base")
+        return (f'<section><div class="hd"><h2>{title}</h2>'
+                f'<span class="x">پایه: {bwin}٪ مثبت · {bavg:+.2f}٪'
+                f' · n={bn:,}</span></div>'
+                f'<p class="nt">{note}</p>'
+                f'<div class="tb"><table><thead><tr><th>وضعیتِ باکس</th>'
+                f'<th class="n">n</th><th class="n">مثبت</th>'
+                f'<th class="n">میانگین</th>'
+                f'<th class="n">نسبت به پایه</th></tr></thead>'
+                f'<tbody>{rows_h}</tbody></table></div></section>')
+
     def zrow(r, key):
         z, st = r[key], (r["mst"] if key == "month" else r["wst"])
         live = z["state"] == "در نوار"
@@ -924,6 +1003,7 @@ def html(rows, book, capital, stamp, last_date):
         f'<td class="n">{n(r["z"]["stop"])}</td>'
         f'<td class="n">{n(r["z"]["target"])}</td>'
         f'<td class="n">{r["z"]["risk_pct"]:.1f}٪</td>'
+        f'<td class="n">{wr_cell(r)}</td>'
         f'<td class="n">{r["w"]:.0f}٪</td>'
         f'<td class="n">{n(r["amt"]/1e6)}</td>'
         f'<td class="n">{n(r["units"])}</td>'
@@ -964,7 +1044,7 @@ def html(rows, book, capital, stamp, last_date):
             ((why(r)[0], why(r)[1], r) for r in rows),
             key=lambda x: (order[x[0]], -x[2]["value_bn"])))
 
-    bk += (f'<tr class="dim"><td class="s">نقد</td><td colspan="8"></td>'
+    bk += (f'<tr class="dim"><td class="s">نقد</td><td colspan="9"></td>'
            f'<td class="n"><b>{100-inv:.0f}٪</b></td>'
            f'<td class="n">{n(capital*(100-inv)/100/1e6)}</td>'
            f'<td colspan="3"></td></tr>')
@@ -1044,7 +1124,8 @@ font-size:12px;color:var(--mut);max-width:70ch}}
 {MIN_VALUE_BN:.0f} میلیارد در روز حذف شده‌اند.</p>
 <div class="tb"><table><thead><tr><th>نماد</th><th>باند</th><th>دسته</th><th>ماه جاری</th>
 <th class="n">کلوز</th><th class="n">ورود</th><th class="n">استاپ</th>
-<th class="n">تارگت</th><th class="n">ریسک</th><th class="n">وزن</th>
+<th class="n">تارگت</th><th class="n">ریسک</th>
+<th class="n">نرخ برد تاریخی</th><th class="n">وزن</th>
 <th class="n">مبلغ (م.ر)</th><th class="n">تعداد واحد</th>
 <th class="n">حجم (میلیارد/روز)</th><th>وضعیت</th></tr></thead>
 <tbody>{bk}</tbody></table></div>
@@ -1081,6 +1162,15 @@ font-size:12px;color:var(--mut);max-width:70ch}}
 <th>وضعیت</th></tr></thead><tbody>
 {"".join(zrow(r, "week") for r in sorter("week"))}
 </tbody></table></div></section>
+
+{bt_table("month", "بک‌تست ماهانه",
+  "بازدهِ <b>ماهِ پیشِ رو</b> بر اساس وضعیتِ باکس در روزِ تصمیم. "
+  "۱۲۱ نماد، ۱۱ ماه. جداییِ «ماه قبل + هفتگی بالا» تا «هفتگی زیر»: "
+  "<b>۸۵٪ در برابر ۳۶٪</b> نرخ برد.")}
+
+{bt_table("week", "بک‌تست هفتگی",
+  "همان، با افقِ <b>هفتهٔ پیشِ رو</b>. ۱۲۱ نماد، ۴۲ هفته. "
+  "جدایی کمتر است چون افق کوتاه‌تر است، ولی جهتش همان است.")}
 
 <section><div class="hd"><h2>جدولِ کامل — همهٔ نمادها</h2>
 <span class="x">{len(rows)} نماد · هیچ‌کدام حذف نشده</span></div>

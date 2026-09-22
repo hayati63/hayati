@@ -34,12 +34,14 @@ DRIVERS = [("دلار", "دلار", 0), ("تتر", "تتر", 0),
            ("طلای ۱۸", "طلای_۱۸_عیار", 0)]
 
 
-def fund_obs(data_dir, kind, cats):
+def fund_obs(data_dir, kind, cats, horizon="week", all_cats=False):
     """هر مشاهده: صندوق × هفته، با سه وضعیتش و بازدهِ هفتهٔ بعد."""
     out, seen, fps = [], set(), {}
     for p in sorted(Path(data_dir).glob("*.csv")):
         sym = p.stem.replace("_daily", "").replace("_", " ")
-        if cats.get(norm(sym)) not in LINKED or is_fixed_income(sym):
+        if is_fixed_income(sym):
+            continue
+        if not all_cats and cats.get(norm(sym)) not in LINKED:
             continue
         rows = load_daily(p)
         if len(rows) < 40:
@@ -53,15 +55,35 @@ def fund_obs(data_dir, kind, cats):
         for d, b in rows:
             by_m[(d.year, d.month)].append((d, b))
             by_w[fund_week(d)].append((d, b))
-        ks = sorted(by_w)
-        for i in range(len(ks) - 1):
-            wa, wb = ks[i], ks[i + 1]
-            if (wb - wa).days != 7:
-                continue
-            prev, fwd = by_w[wa], by_w[wb]
-            if len(prev) < 3 or len(fwd) < 2:
-                continue
+        # افقِ سنجش: هفته یا ماه. باکس‌ها در هر دو حالت یکی‌اند —
+        # فقط «بازدهِ پیشِ رو» عوض می‌شود. مصطفی هر دو را خواست.
+        if horizon == "month":
+            ks = sorted(by_m)
+            spans = []
+            for i in range(len(ks) - 1):
+                a, b = ks[i], ks[i + 1]
+                nxt = (a[0] + 1, 1) if a[1] == 12 else (a[0], a[1] + 1)
+                if b == nxt and len(by_m[b]) >= 3:
+                    spans.append((b, by_m[b]))
+        else:
+            ks = sorted(by_w)
+            spans = []
+            for i in range(len(ks) - 1):
+                wa, wb = ks[i], ks[i + 1]
+                if (wb - wa).days == 7 and len(by_w[wb]) >= 2:
+                    spans.append((wb, by_w[wb]))
+        for key, fwd in spans:
+            wa = key
             dd, bar = fwd[0]
+            prev = [x for x in by_w.get(fund_week(dd), []) if x[0] < dd]
+            if len(prev) < 3:
+                pw = sorted(k for k in by_w if k < fund_week(dd))
+                if not pw:
+                    continue
+                prev = by_w[pw[-1]]
+            if len(prev) < 3:
+                continue
+            wb = key
             px = bar.c
             if px <= 0:
                 continue
@@ -155,6 +177,9 @@ def main():
     ap.add_argument("--data", default="data_auto")
     ap.add_argument("--drivers", default="data/drivers_daily")
     ap.add_argument("--kind", default="valley_first")
+    ap.add_argument("--horizon", choices=("week", "month"), default="week")
+    ap.add_argument("--all-cats", action="store_true",
+                    help="همهٔ دسته‌ها، نه فقط طلا/نقره/کالا")
     ap.add_argument("--json", dest="json_out", default=None)
     args = ap.parse_args()
 
@@ -165,7 +190,8 @@ def main():
         for r in json.loads(tp.read_text(encoding="utf-8")):
             cats[norm(r["نماد"])] = r["دسته"]
 
-    obs, nsym = fund_obs(args.data, args.kind, cats)
+    obs, nsym = fund_obs(args.data, args.kind, cats,
+                         args.horizon, args.all_cats)
     if not obs:
         print("مشاهده‌ای ساخته نشد.")
         return 1
@@ -178,8 +204,10 @@ def main():
     HDR = (f"  {'':<30}{'n':>7}{'مثبت':>8}{'میانگین':>10}"
            f"{'مزیت':>8}{'t':>6}")
     print("=" * 82)
-    print(f"صندوق‌های دلاری (طلا، نقره، کالا) — {len(obs):,} مشاهده"
-          f" · {len(by_w)} هفته · {nsym} نماد")
+    hz = "ماه" if args.horizon == "month" else "هفته"
+    scope = "همهٔ دسته‌ها" if args.all_cats else "طلا، نقره، کالا"
+    print(f"{scope} — {len(obs):,} مشاهده · {len(by_w)} {hz}"
+          f" · {nsym} نماد · افقِ سنجش: **{hz}ِ پیشِ رو**")
     print(f"نرخ پایه: {base:+.2f}٪ · {bwin:.0f}٪ مثبت")
     print("=" * 82)
 
