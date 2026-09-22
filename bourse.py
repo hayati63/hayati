@@ -293,6 +293,43 @@ def make_box(bars, min_rows=3, max_rows=20):
     return None
 
 
+def value_area_box(bars):
+    """جایگزین وقتی هیچ دره‌ای نیست: سه بینِ پرحجم‌ترین، روی Close.
+
+    **چرا لازم شد.** مصطفی پرسید «الان نهال کجاست؟ نهال نیست.» و راست
+    می‌گفت — نهال بی‌صدا افتاده بود چون در هفتهٔ قبلش هیچ درهٔ حجمی
+    نبود. وقتی همه را شمردیم، **۵۴ نماد از ۱۳۴ (۴۰٪)** همین حال را
+    داشتند، و هر ۵۴ تا دقیقاً ۵ کندل در هفته داشتند.
+
+    علتش ریاضی است: پروفایلِ تطبیقی از ۳ ردیف شروع می‌کند و دنبالِ
+    کمینهٔ **میانی** می‌گردد. با ۵ کندلِ روزانه اغلب هیچ ردیفِ میانی‌ای
+    از هر دو همسایه‌اش کمتر نیست، پس دره پیدا نمی‌شود. همان چیزی که
+    بند ۱ راهنما از اول گفته بود: پروفایلِ هفتگی باید روی **H1** ساخته
+    شود، نه روزانه — آنجا ~۱۲۰ کندل هست، نه ۵ تا.
+
+    تا رسیدنِ H1، به‌جای انداختنِ نماد، از تعریفِ «ناحیهٔ ارزش» استفاده
+    می‌کنیم — این همیشه تعریف‌شدنی است. ولی **علامت می‌خورد**، چون
+    تعریفِ دیگری است: در بک‌تستِ ماهانه دره p=۰٫۰۰۰۴ داد و ناحیهٔ ارزش
+    p=۰٫۱۱ (از تصادف جدا نشد). پس این «بهتر از هیچ» است، نه هم‌ارز.
+    """
+    if len(bars) < 3:
+        return None
+    if sum(b["v"] for b in bars) <= 0:
+        return None
+    lo = min(b["c"] for b in bars)
+    hi = max(b["c"] for b in bars)
+    if hi <= lo:
+        return (lo, hi)
+    nb = min(20, max(5, len(bars) // 2))
+    w = (hi - lo) / nb
+    vol = [0.0] * nb
+    for b in bars:
+        k = max(0, min(nb - 1, int((b["c"] - lo) / w)))
+        vol[k] += b["v"]
+    order = sorted(range(nb), key=lambda j: (-vol[j], j))[:min(3, nb)]
+    return (lo + min(order) * w, lo + (max(order) + 1) * w)
+
+
 def state(px, box):
     if box is None:
         return "؟"
@@ -389,36 +426,61 @@ def zone(box, px, band):
 
 # ══ ۳. تحلیل ════════════════════════════════════════════════════════
 def analyse(sym, rows):
+    """هیچ نمادی **بی‌صدا حذف نمی‌شود.**
+
+    قبلاً هر جا باکس ساخته نمی‌شد `None` برمی‌گشت و نماد از جدول غیب
+    می‌شد. مصطفی روی نهال گرفتش: «الان نهال کجاست؟ نهال نیست. من باید
+    دونه دونه بگم؟» حق داشت — نهال در هفتهٔ قبلش هیچ درهٔ حجمی نداشت،
+    پس `make_box` هیچ داد و کد بی‌صدا انداختش بیرون.
+    حالا هر نماد یک ردیف دارد، با `reason` که می‌گوید چرا هست یا نیست.
+    """
+    name = DISPLAY.get(norm(sym), sym)
+    base = {"sym": name, "cat": NORM_CAT.get(norm(sym), "؟"),
+            "close": rows[-1]["c"] if rows else 0,
+            "date": rows[-1]["d"].isoformat() if rows else "",
+            "mst": "—", "wst": "—", "cur_st": "—",
+            "cur_box": None, "month": None, "week": None,
+            "med_vol": 0, "value_bn": 0, "ok": False}
     if len(rows) < MIN_DAYS:
-        return None
+        return {**base, "reason": f"تاریخچهٔ کم ({len(rows)} روز)"}
     by_m, by_w = defaultdict(list), defaultdict(list)
     for b in rows:
         by_m[(b["d"].year, b["d"].month)].append(b)
         by_w[week_key(b["d"])].append(b)
     ms, ws = sorted(by_m), sorted(by_w)
     if len(ms) < 2 or len(ws) < 2:
-        return None
+        return {**base, "reason": "کمتر از دو ماه یا دو هفته داده"}
     px = rows[-1]["c"]
-    mb = make_box(by_m[ms[-2]])
-    wb = make_box(by_w[ws[-2]])
+    vols = sorted(b["v"] for b in rows[-20:])
+    mv = vols[len(vols) // 2] if vols else 0
+    base.update({"med_vol": mv, "value_bn": mv * px / 1e9,
+                 "wbars": len(by_w[ws[-2]]), "mbars": len(by_m[ms[-2]])})
+    mb, wb = make_box(by_m[ms[-2]]), make_box(by_w[ws[-2]])
+    fb = []                                  # کدام باکس با جایگزین ساخته شد
+    if mb is None:
+        mb = value_area_box(by_m[ms[-2]])
+        if mb:
+            fb.append("ماهانه")
+    if wb is None:
+        wb = value_area_box(by_w[ws[-2]])
+        if wb:
+            fb.append("هفتگی")
+    base["fallback"] = fb
     if mb is None or wb is None:
-        return None
+        miss = "ماهانه" if mb is None else "هفتگی"
+        return {**base, "reason": f"باکسِ {miss} به هیچ روشی ساخته نشد"}
     # باکسِ ماهِ **جاری** (تا امروز). مصطفی این ستون را در داشبورد قبلی
     # داشت و می‌خواهدش. ولی یک قید دارد که باید دیده شود: این باکس روی
     # دوره‌ای ساخته می‌شود که حجمش هنوز کامل نشده، و وقتی اندازه گرفتیم
     # (کنترلِ ماه × روزِ ماه) مزیتش +۰٫۰۱ واحد با t=+۰٫۰۶ درآمد — یعنی
     # از تصادف جدا نمی‌شود. پس **خبر** است، نه سیگنال.
-    cur = make_box(by_m[ms[-1]]) if len(by_m[ms[-1]]) >= 3 else None
-    vols = sorted(b["v"] for b in rows[-20:])
-    mv = vols[len(vols) // 2] if vols else 0
-    return {"sym": DISPLAY.get(norm(sym), sym),
-            "cat": NORM_CAT.get(norm(sym), "؟"),
-            "close": px, "date": rows[-1]["d"].isoformat(),
+    cm = by_m[ms[-1]]
+    cur = (make_box(cm) or value_area_box(cm)) if len(cm) >= 3 else None
+    return {**base, "ok": True, "reason": "",
             "mst": state(px, mb), "wst": state(px, wb),
-            "cur_box": cur, "cur_st": state(px, cur),
+            "cur_box": cur, "cur_st": state(px, cur) if cur else "؟",
             "month": zone(mb, px, BAND["month"]),
-            "week": zone(wb, px, BAND["week"]),
-            "med_vol": mv, "value_bn": mv * px / 1e9}
+            "week": zone(wb, px, BAND["week"])}
 
 
 def build_book(rows, capital):
@@ -428,6 +490,7 @@ def build_book(rows, capital):
     آن دو تای دیگر سیگنال نیستند — عقب‌افتاده‌اند. پس دسته‌ای که کمتر
     از نصفِ اعضایش بالای باکس هفتگی است کنار گذاشته می‌شود.
     """
+    rows = [r for r in rows if r.get("ok")]
     breadth = {}
     for r in rows:
         c = r["cat"]
@@ -529,8 +592,10 @@ def html(rows, book, capital, stamp, last_date):
                 f'<td><span class="p {ZP.get(z["state"],"flat")}">'
                 f'{z["state"]}</span></td></tr>')
 
+    ok_rows = [r for r in rows if r.get("ok")]
+
     def sorter(key):
-        return sorted(rows, key=lambda r: (
+        return sorted(ok_rows, key=lambda r: (
             0 if r[key]["state"] == "در نوار" else
             1 if r[key]["state"] == "زیر نوار" else 2,
             r[key]["risk_pct"]))
@@ -552,6 +617,40 @@ def html(rows, book, capital, stamp, last_date):
         f'<td class="n">{n(r["value_bn"])}</td>'
         f'<td><span class="p {ZP.get(r["z"]["state"],"flat")}">'
         f'{r["z"]["state"]}</span></td></tr>' for r in book)
+    # ── جدولِ کامل ──
+    book_syms = {r["sym"] for r in book}
+    def why(r):
+        if not r.get("ok"):
+            return ("warn", r.get("reason", "؟"))
+        fb = r.get("fallback") or []
+        tag = f" (باکسِ {'/'.join(fb)} جایگزین)" if fb else ""
+        if r["sym"] in book_syms:
+            return ("up", "در دفتر" + tag)
+        if r["mst"] != "بالا":
+            return ("down", "زیرِ باکسِ ماه قبل")
+        if r["wst"] != "بالا":
+            return ("down", "زیرِ باکسِ هفتگی")
+        if REQUIRE_CUR_MONTH and r["cur_st"] not in ("بالا", "؟"):
+            return ("down", "زیرِ باکسِ ماهِ جاری")
+        if r["value_bn"] < MIN_VALUE_BN:
+            return ("flat", f"حجمِ کم ({r['value_bn']:,.0f} م‌ر)")
+        return ("flat", "واجد شرط، ولی بزرگ‌ترینِ دسته‌اش نیست" + tag)
+
+    order = {"up": 0, "down": 1, "flat": 2, "warn": 3}
+    all_rows = "".join(
+        f'<tr class="{"" if k == "up" else "dim"}">'
+        f'<td class="s">{r["sym"]}</td><td>{r["cat"]}</td>'
+        f'<td class="n">{n(r["close"])}</td>'
+        f'<td><span class="p {PILL.get(r["mst"],"warn")}">{r["mst"]}</span></td>'
+        f'<td><span class="p {PILL.get(r["cur_st"],"warn")}">{r["cur_st"]}</span></td>'
+        f'<td><span class="p {PILL.get(r["wst"],"warn")}">{r["wst"]}</span></td>'
+        f'<td class="n">{r.get("wbars","—")}</td>'
+        f'<td class="n">{n(r["value_bn"])}</td>'
+        f'<td><span class="p {k}">{txt}</span></td></tr>'
+        for k, txt, r in sorted(
+            ((why(r)[0], why(r)[1], r) for r in rows),
+            key=lambda x: (order[x[0]], -x[2]["value_bn"])))
+
     bk += (f'<tr class="dim"><td class="s">نقد</td><td colspan="8"></td>'
            f'<td class="n"><b>{100-inv:.0f}٪</b></td>'
            f'<td class="n">{n(capital*(100-inv)/100/1e6)}</td>'
@@ -663,6 +762,21 @@ font-size:12px;color:var(--mut);max-width:70ch}}
 {"".join(zrow(r, "week") for r in sorter("week"))}
 </tbody></table></div></section>
 
+<section><div class="hd"><h2>جدولِ کامل — همهٔ نمادها</h2>
+<span class="x">{len(rows)} نماد · هیچ‌کدام حذف نشده</span></div>
+<p class="nt">ستونِ <b>وضعیت</b> می‌گوید هر نماد چرا در دفتر هست یا نیست.
+هیچ نمادی بی‌صدا نمی‌افتد.<br>
+«<b>باکسِ جایگزین</b>» یعنی در آن هفته هیچ درهٔ حجمی پیدا نشد و از
+تعریفِ ناحیهٔ ارزش استفاده شد. با کندلِ روزانه یک هفته فقط ۵ کندل دارد
+و اغلب دره ندارد — بند ۱ راهنما از اول گفته بود پروفایلِ هفتگی باید
+روی <b>H1</b> باشد. تا آن‌وقت این «بهتر از هیچ» است، نه هم‌ارز: در
+بک‌تستِ ماهانه دره p=۰٫۰۰۰۴ داد و ناحیهٔ ارزش p=۰٫۱۱.</p>
+<div class="tb"><table><thead><tr><th>نماد</th><th>دسته</th>
+<th class="n">کلوز</th><th>ماه قبل</th><th>ماه جاری</th><th>هفتگی</th>
+<th class="n">کندلِ هفته</th><th class="n">حجم (م‌ر/روز)</th>
+<th>وضعیت</th></tr></thead><tbody>{all_rows}</tbody></table></div>
+</section>
+
 <p class="ft"><b>این توصیهٔ مالی نیست.</b> خوانشِ قاعده‌های خودت روی
 داده است. اعدادِ بک‌تست از ۱۱ ماهی می‌آیند که رژیمِ معمولی نبوده —
 میانگین ماهانهٔ اهرم ‎+۱۲٫۸۹٪ در برابر ‎+۲٫۸۷٪ در ۱۹ ماه قبلش. و
@@ -754,8 +868,9 @@ def main():
         print(f"      عدد واقعی را در {capfile} بنویس.")
 
     elig, book = build_book(rows, capital)
-    hot = [r for r in rows
-           if r["week"]["state"] == "در نوار" or r["month"]["state"] == "در نوار"]
+    hot = [r for r in rows if r.get("ok")
+           and (r["week"]["state"] == "در نوار"
+                or r["month"]["state"] == "در نوار")]
 
     print("\n[۴/۴] ساخت صفحه...")
     y, mo, dd = (int(x) for x in stamp.split("-"))
@@ -793,6 +908,24 @@ def main():
     else:
         print("\n  امروز هیچ نمادی واجد شرط نیست — همه نقد.")
 
+    from collections import Counter
+    why = Counter()
+    for r in rows:
+        if not r.get("ok"):
+            why["باکس ساخته نشد"] += 1
+        elif r["mst"] != "بالا":
+            why["زیرِ ماه قبل"] += 1
+        elif r["wst"] != "بالا":
+            why["زیرِ هفتگی"] += 1
+        elif REQUIRE_CUR_MONTH and r["cur_st"] not in ("بالا", "؟"):
+            why["زیرِ ماهِ جاری"] += 1
+        elif r["value_bn"] < MIN_VALUE_BN:
+            why["حجمِ کم"] += 1
+        else:
+            why["واجد شرط"] += 1
+    print(f"\n  {len(rows)} نماد بررسی شد — هیچ‌کدام بی‌صدا حذف نشد:")
+    for k, v in why.most_common():
+        print(f"     {k:<20} {v:>4}")
     print(f"\n  {len(hot)} نماد در نوار خرید · {len(elig)} واجد شرط")
 
     if args.telegram:
