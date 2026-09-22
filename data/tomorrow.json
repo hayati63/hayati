@@ -2,7 +2,7 @@
  "date": "2026-09-20",
  "capital": 120541106844.0,
  "universe": 93,
- "eligible": 24,
+ "eligible": 25,
  "picks": [
   {
    "sym": "زیتون",
@@ -25,6 +25,7 @@
    "driver": "tedpix",
    "driver_st": "زیر",
    "driver_ok": false,
+   "breadth_exempt": false,
    "risk": 0.22888532845044635,
    "raw_w": 0.9996167814118563,
    "w": 12.0
@@ -50,6 +51,7 @@
    "driver": "tedpix",
    "driver_st": "زیر",
    "driver_ok": false,
+   "breadth_exempt": false,
    "risk": 1.7435897435897436,
    "raw_w": 1.4209380621570262,
    "w": 12.0
@@ -75,9 +77,36 @@
    "driver": "tedpix",
    "driver_st": "زیر",
    "driver_ok": false,
+   "breadth_exempt": false,
    "risk": 1.9680970568411629,
    "raw_w": 5.288823201071145,
    "w": 6.208057773755612
+  },
+  {
+   "sym": "سینرژی",
+   "cat": "سهامی",
+   "group": "سهامی",
+   "factor": "سهام‌محور",
+   "close": 66926.0,
+   "date": "2026-09-20",
+   "mst": "بالا",
+   "wst": "بالا",
+   "mrisk": 23.068975969194117,
+   "wrisk": 2.4295490541792426,
+   "n": 5,
+   "avg": 5.496818631906254,
+   "win": 80.0,
+   "med_vol": 85289122.5,
+   "value": 5161301339123.5,
+   "score": -1.74767871955029,
+   "breadth": 11.11111111111111,
+   "driver": "dollar",
+   "driver_st": "بالا",
+   "driver_ok": true,
+   "breadth_exempt": true,
+   "risk": 2.4295490541792426,
+   "raw_w": 2.5734492866874374,
+   "w": 12.0
   },
   {
    "sym": "پتروآبان",
@@ -100,6 +129,7 @@
    "driver": "tedpix",
    "driver_st": "زیر",
    "driver_ok": false,
+   "breadth_exempt": false,
    "risk": 3.1801792401423676,
    "raw_w": 2.254890758835645,
    "w": 12.0
@@ -125,6 +155,7 @@
    "driver": "dollar",
    "driver_st": "بالا",
    "driver_ok": true,
+   "breadth_exempt": false,
    "risk": 3.900412024624943,
    "raw_w": 1.2527490973432136,
    "w": 12.0
@@ -150,6 +181,7 @@
    "driver": "dollar",
    "driver_st": "بالا",
    "driver_ok": true,
+   "breadth_exempt": false,
    "risk": 1.7774351316364987,
    "raw_w": 2.619140669510272,
    "w": 12.0
@@ -175,6 +207,7 @@
    "driver": "dollar",
    "driver_st": "بالا",
    "driver_ok": true,
+   "breadth_exempt": false,
    "risk": 2.191550065256321,
    "raw_w": 0.9552802682253055,
    "w": 12.0
@@ -188,6 +221,7 @@
   "عیار",
   "طلا",
   "نفیس",
+  "سینرژی",
   "گلدا",
   "قیراط",
   "مثقال",

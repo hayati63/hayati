@@ -22,7 +22,7 @@ from pathlib import Path
 from monthly_backtest import load_daily, is_fixed_income, norm
 from vp_box import make_box, state
 from weekly_backtest import week_key
-from drivers import group_of, EXPOSURE
+from drivers import group_of, EXPOSURE, OVERRIDE
 from target_portfolio import FACTOR, factor_of, _fill
 from breadth import box_states, DRIVER_FILE
 
@@ -200,8 +200,6 @@ def main():
             if st:
                 drv[did] = st
 
-    from drivers import OVERRIDE
-
     def driver_ok(g, sym=None):
         """محرکِ با بیشترین وزن در این گروه — بالای باکس هفتگی است؟
 
@@ -234,7 +232,14 @@ def main():
         r["breadth"] = breadth.get(r["group"], 0.0)
         ok, did, dst = driver_ok(r["group"], r["sym"])
         r["driver"], r["driver_st"], r["driver_ok"] = did, dst, ok
-        if args.min_breadth > 0 and r["breadth"] < args.min_breadth:
+        # قید پهنای گروه فقط وقتی معنا دارد که نماد واقعاً با گروهش
+        # حرکت کند. سینرژی برچسب «سهامی» دارد ولی همبستگی‌اش با شاخص کل
+        # **−۰٫۱۷** است — یعنی ضدِ گروهش حرکت می‌کند. پهنای «سهامی» را
+        # به آن تحمیل کردن همان اشتباهی است که مصطفی روی محرکش گرفت، یک
+        # پله جلوتر. نمادی که در OVERRIDE هست، از این قید معاف است.
+        r["breadth_exempt"] = r["sym"] in OVERRIDE
+        if (args.min_breadth > 0 and r["breadth"] < args.min_breadth
+                and not r["breadth_exempt"]):
             continue
         if args.require_driver and ok is not True:
             continue

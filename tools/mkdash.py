@@ -23,6 +23,25 @@ if wf.exists():
                   "monthly_sticky", "base_weekly", "base_monthly",
                   "turn_weekly", "turn_monthly", "turn_weekly_sticky",
                   "turn_monthly_sticky")}
+zp = Path("data/zones.json")
+if zp.exists():
+    out["zones"] = json.loads(zp.read_text(encoding="utf-8"))
+# سوییپِ سطحِ ورود — از scratch/roff محاسبه شد، اینجا ثابت ثبت می‌شود
+# تا داشبورد بتواند نشانش بدهد بدون اجرای دوبارهٔ یک بک‌تستِ سنگین.
+out["offsets"] = [
+    {"label": "سقف باکس",  "mR": 0.088, "mT": 1.35, "mFill": 35.5,
+     "wR": 0.121, "wT": 3.01, "wFill": 26.6},
+    {"label": "سقف +۰٫۵٪", "mR": 0.121, "mT": 1.91, "mFill": 38.3,
+     "wR": 0.170, "wT": 4.71, "wFill": 34.8, "best": True},
+    {"label": "سقف +۱٪",   "mR": 0.163, "mT": 2.75, "mFill": 43.3,
+     "wR": 0.116, "wT": 3.51, "wFill": 42.3},
+    {"label": "سقف +۲٪",   "mR": 0.234, "mT": 4.54, "mFill": 53.4,
+     "wR": 0.104, "wT": 3.69, "wFill": 55.8},
+    {"label": "سقف +۳٪",   "mR": 0.247, "mT": 5.41, "mFill": 62.1,
+     "wR": 0.033, "wT": 1.34, "wFill": 66.2, "best": True},
+    {"label": "سقف +۴٪",   "mR": 0.241, "mT": 5.66, "mFill": 69.2,
+     "wR": -0.053, "wT": -2.54, "wFill": 73.9},
+]
 at = Path("data/attribution.json")
 if at.exists():
     out["attr"] = json.loads(at.read_text(encoding="utf-8"))
