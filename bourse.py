@@ -665,6 +665,29 @@ DECIDE_DRIVER = 0    # دوشنبه — روز اولِ هفتهٔ جهانی
 WD = ("دوشنبه", "سه‌شنبه", "چهارشنبه", "پنجشنبه", "جمعه", "شنبه", "یکشنبه")
 
 
+# تقویمِ ثابتِ هفته — همیشه نشان داده می‌شود، نه فقط روزِ تصمیم.
+# ستونِ «چه خبر» از اندازه‌گیریِ tools/decision_day.py می‌آید.
+WEEK_PLAN = [
+    (5, "شنبه", "هفتهٔ صندوق‌ها بسته می‌شود",
+     "باکس قفل شد — فردا تکلیف روشن می‌شود"),
+    (6, "یکشنبه", "🔔 سیگنالِ صندوق‌های بورسی",
+     "کلوزِ امروز بالای نوار → در پولبک بخر · زیرِ نوار → در پولبک بفروش"),
+    (0, "دوشنبه", "🔔 سیگنالِ تتر و دلار و طلای ۱۸  +  اجرای صندوق‌ها",
+     "هفتهٔ ارزی دیشب بست؛ کلوزِ امروز تکلیفش را روشن می‌کند"),
+    (1, "سه‌شنبه", "اجرای تتر و دلار و طلای ۱۸", "روزِ سفارشِ ارزی"),
+    (2, "چهارشنبه", "—", "آخرین روزِ معاملاتیِ بورس"),
+    (3, "پنجشنبه", "بازار بسته", "فقط ارز و طلا باز است"),
+    (4, "جمعه", "بازار بسته", "فقط ارز و طلا باز است"),
+]
+
+
+def month_note(d):
+    """اولین روزِ معاملاتیِ ماه میلادی = روزِ تصمیمِ ماهانه."""
+    return ("🔔 **اولین روزِ ماه میلادی** — باکسِ ماه قبل قفل شد، "
+            "تصمیمِ ماهانه امروز است" if d.day <= 3 else
+            f"تصمیمِ ماهانهٔ بعد: اولِ ماه میلادیِ آینده")
+
+
 def today_says(last_date):
     """کلوزِ این روز چه تصمیمی را می‌سازد؟"""
     wd = last_date.weekday()
@@ -839,10 +862,12 @@ def telegram(text):
 def html(rows, book, capital, stamp, last_date):
     last_wd = last_date.weekday()
     says = today_says(last_date)
-    cal_html = "".join(
-        f'<div class="t">{"🔔 " if who != "—" else ""}{who}'
-        f'{" — " + what if who != "—" else what}</div>'
-        f'<div class="d">{act}</div>' for who, what, act in says)
+    cal_html = '<table class="cal2"><tbody>' + "".join(
+        f'<tr class="{"now" if k == last_wd else ""}">'
+        f'<td class="dy">{"►" if k == last_wd else ""} {nm}</td>'
+        f'<td>{ev}</td><td class="nt2">{note if k == last_wd else ""}</td>'
+        f'</tr>' for k, nm, ev, note in WEEK_PLAN) + '</tbody></table>'
+    cal_html += f'<div class="d">ماهانه: {month_note(last_date)}</div>'
     cal_html += (
         '<div class="q"><b>تقویمِ تصمیم، اندازه‌گیری‌شده:</b> '
         'صندوق‌های بورسی هفته‌شان شنبه تا چهارشنبه است و '
@@ -991,6 +1016,13 @@ font-size:13px;color:var(--mut)}}
 .cal{{margin-top:18px;border:2px solid var(--br);border-radius:10px;
 background:var(--sf);padding:14px 18px}}
 .cal .t{{font-size:17px;font-weight:900}}
+.cal2{{width:100%;border-collapse:collapse;font-size:13px}}
+.cal2 td{{padding:5px 8px;border:none;border-bottom:1px solid var(--ln)}}
+.cal2 tr:last-child td{{border-bottom:none}}
+.cal2 tr.now td{{background:var(--upb);font-weight:700}}
+.cal2 td.dy{{width:90px;color:var(--mut)}}
+.cal2 tr.now td.dy{{color:var(--up)}}
+.cal2 td.nt2{{color:var(--mut);font-weight:400;font-size:12px}}
 .cal .d{{font-size:13px;color:var(--mut);margin-top:3px}}
 .cal .q{{font-size:12px;color:var(--mut);margin-top:9px;
 padding-top:9px;border-top:1px solid var(--ln)}}
@@ -1194,13 +1226,14 @@ def main():
     print("\n" + "=" * 64)
     print(f"  امروز {stamp} است — {WD[last_date.weekday()]}")
     print("=" * 64)
-    for who, what, act in today_says(last_date):
-        if who == "—":
-            print(f"\n  {what}")
-            print(f"  {act}")
-        else:
-            print(f"\n  🔔 {who}: {what}")
-            print(f"     {act}")
+    wd = last_date.weekday()
+    print()
+    for k, nm, ev, note in WEEK_PLAN:
+        mark = "►" if k == wd else " "
+        print(f"  {mark} {nm:<10} {ev}")
+        if k == wd and note:
+            print(f"    {'':<11}{note}")
+    print(f"\n  ماهانه: {month_note(last_date)}")
 
     print("\n" + "=" * 64)
     print("  سفارشِ امروز")
