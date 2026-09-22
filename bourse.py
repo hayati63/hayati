@@ -27,6 +27,7 @@ import io
 import json
 import math
 import os
+import re
 import ssl
 import statistics
 import sys
@@ -305,7 +306,11 @@ def probe():
     for name, url in urls:
         shown = url.split("key=")[0] + "key=***" if "key=" in url else url
         try:
-            req = urllib.request.Request(url, headers={
+            # URL ممکن است حروف فارسی داشته باشد (symbol=عیار) و
+            # urllib آن را ASCII می‌خواهد. بدونِ quote خطای یونیکد
+            # می‌دهد — همان که مصطفی روی BrsApi دید.
+            safe = urllib.parse.quote(url, safe=":/?&=%")
+            req = urllib.request.Request(safe, headers={
                 "User-Agent": UA, "Accept": "*/*",
                 "Referer": "https://www.tsetmc.com/"})
             with urllib.request.urlopen(req, timeout=25) as r:
@@ -336,6 +341,161 @@ def probe():
         print("  هیچ‌کدام داده نداد. باز هم کلِ خروجی را بفرست؛ از خودِ")
         print("  پیام‌های خطا معلوم می‌شود کدام راه باز است.")
     print("=" * 68)
+    return 0
+
+
+# ══ ۱.۷ کندلِ درون‌روزی از ریزمعاملاتِ TSETMC ════════════════════════
+# کاوش جواب داد: `old.tsetmc.com/tsev2/data/TradeDetail.aspx?i=..&d=..`
+# با کدِ ۲۰۰ و ۹ مگابایت XML برمی‌گردد — تیک‌به‌تیکِ یک روز. از همان
+# می‌شود پروفایلِ حجمیِ واقعی ساخت، که حتی از H1 هم ریزتر است.
+#
+# حجمش زیاد است، پس:
+#   • فقط برای نمادهایی گرفته می‌شود که باکسِ روزانه‌شان دره ندارد
+#   • فقط برای ۵ روزِ هفتهٔ باکس
+#   • بعد از تبدیل به کندلِ ساعتی، خامش دور ریخته و کندل‌ها کش می‌شوند
+#     پس اجرای بعدی دوباره دانلود نمی‌کند
+TICK_URL = ("http://old.tsetmc.com/tsev2/data/TradeDetail.aspx"
+            "?i={ins}&d={day}")
+H1DIR = DATA / "h1"
+
+
+def parse_ticks(xml):
+    """(ساعت، حجم، قیمت) از XML ریزمعاملات.
+
+    ستون‌ها بر اساس **شکلشان** شناسایی می‌شوند نه جایگاهشان: هر ردیف
+    یک مقدارِ «HH:MM:SS» دارد و دو عددِ دیگر. بزرگ‌ترِشان قیمت است و
+    کوچک‌ترش حجم؟ نه — این حدس خطرناک است. TSETMC ترتیبِ
+    (ردیف، زمان، حجم، قیمت) می‌دهد، پس بعد از زمان، **اولی حجم و دومی
+    قیمت** است. اگر روزی برعکس شد، `--sample` خامش را ذخیره می‌کند.
+    """
+    out = []
+    for row in re.findall(r"<Row>(.*?)</Row>", xml, re.S):
+        vals = re.findall(r"<Data[^>]*>(.*?)</Data>", row, re.S)
+        vals = [v.strip() for v in vals if v.strip()]
+        ti = next((i for i, v in enumerate(vals)
+                   if re.fullmatch(r"\d{1,2}:\d{2}:\d{2}", v)), None)
+        if ti is None:
+            continue
+        nums = []
+        for v in vals[ti + 1:]:
+            try:
+                nums.append(float(v.replace(",", "")))
+            except ValueError:
+                pass
+        if len(nums) < 2:
+            continue
+        hh = int(vals[ti].split(":")[0])
+        out.append((hh, nums[0], nums[1]))        # ساعت، حجم، قیمت
+    return out
+
+
+def ticks_to_h1(ticks):
+    """تیک‌ها → کندلِ ساعتی."""
+    by_h = OrderedDict()
+    for hh, vol, px in ticks:
+        if px <= 0 or vol <= 0:
+            continue
+        e = by_h.get(hh)
+        if e is None:
+            by_h[hh] = {"h": px, "l": px, "c": px, "v": vol}
+        else:
+            e["h"] = max(e["h"], px)
+            e["l"] = min(e["l"], px)
+            e["c"] = px
+            e["v"] += vol
+    return list(by_h.values())
+
+
+def get_h1(sym, ins, d, quiet=False):
+    """کندلِ ساعتیِ یک روز — از کش، وگرنه دانلود و کش کن."""
+    H1DIR.mkdir(parents=True, exist_ok=True)
+    day = d.strftime("%Y%m%d")
+    cache = H1DIR / f"{sym}_{day}.csv"
+    if cache.exists():
+        out = []
+        with cache.open(encoding="utf-8-sig", newline="") as fh:
+            for r in csv.DictReader(fh):
+                try:
+                    out.append({"h": float(r["high"]), "l": float(r["low"]),
+                                "c": float(r["close"]),
+                                "v": float(r["volume"])})
+                except (KeyError, ValueError):
+                    pass
+        return out
+    try:
+        req = urllib.request.Request(
+            TICK_URL.format(ins=ins, day=day),
+            headers={"User-Agent": UA, "Accept": "*/*",
+                     "Referer": "http://www.tsetmc.com/"})
+        with urllib.request.urlopen(req, timeout=90) as r:
+            raw = r.read()
+            if r.headers.get("Content-Encoding") == "gzip":
+                raw = gzip.GzipFile(fileobj=io.BytesIO(raw)).read()
+        bars = ticks_to_h1(parse_ticks(raw.decode("utf-8", "replace")))
+    except Exception as e:                       # noqa: BLE001
+        if not quiet:
+            print(f"      {sym} {day}: {type(e).__name__}")
+        bars = []
+    # حتی خالی هم کش می‌شود، تا هر اجرا دوباره ۹ مگابایت نگیرد
+    with cache.open("w", encoding="utf-8-sig", newline="") as fh:
+        w = csv.writer(fh)
+        w.writerow(["high", "low", "close", "volume"])
+        for b in bars:
+            w.writerow([b["h"], b["l"], b["c"], b["v"]])
+    return bars
+
+
+def sample():
+    """یک روزِ ریزمعاملات را خام ذخیره کن و بگو پارسر چه دید.
+
+    پارسرِ `parse_ticks` را نتوانستم از اینجا تست کنم — شبکهٔ این
+    کانتینر به old.tsetmc.com ۴۰۳ می‌دهد. اگر شمارشِ زیر صفر بود،
+    فایلِ ذخیره‌شده را بفرست تا با شکلِ واقعی بازنویسی‌اش کنم.
+    """
+    from datetime import timedelta
+    d = date.today() - timedelta(days=1)
+    while d.weekday() in (3, 4):
+        d -= timedelta(days=1)
+    day = d.strftime("%Y%m%d")
+    url = TICK_URL.format(ins=PROBE_INS, day=day)
+    print("=" * 68)
+    print(f"  نمونهٔ ریزمعاملات — عیار · {d}")
+    print("=" * 68)
+    try:
+        req = urllib.request.Request(url, headers={
+            "User-Agent": UA, "Accept": "*/*",
+            "Referer": "http://www.tsetmc.com/"})
+        with urllib.request.urlopen(req, timeout=120) as r:
+            raw = r.read()
+            if r.headers.get("Content-Encoding") == "gzip":
+                raw = gzip.GzipFile(fileobj=io.BytesIO(raw)).read()
+    except Exception as e:                       # noqa: BLE001
+        print(f"\n  دانلود نشد: {type(e).__name__}: {e}")
+        return 1
+    txt = raw.decode("utf-8", "replace")
+    out = HERE / f"sample_ticks_{day}.xml"
+    out.write_text(txt[:400_000], encoding="utf-8")
+    ticks = parse_ticks(txt)
+    bars = ticks_to_h1(ticks)
+    print(f"\n  دانلود: {len(raw):,} بایت")
+    print(f"  تیکِ خوانده‌شده: {len(ticks):,}")
+    print(f"  کندلِ ساعتی: {len(bars)}")
+    if bars:
+        print(f"\n  {'ساعت':<6}{'های':>12}{'لو':>12}{'کلوز':>12}{'حجم':>14}")
+        for i, b in enumerate(bars):
+            print(f"  {i:<6}{b['h']:>12,.0f}{b['l']:>12,.0f}"
+                  f"{b['c']:>12,.0f}{b['v']:>14,.0f}")
+        bx = make_box(bars)
+        print(f"\n  باکس از کندلِ ساعتی: "
+              f"{bx[0]:,.0f} – {bx[1]:,.0f}" if bx else
+              "\n  باکس ساخته نشد (حتی با ساعتی)")
+        print("\n  ✓ پارسر کار می‌کند. `python bourse.py` را بزن.")
+    else:
+        print("\n  ✗ پارسر هیچ تیکی نخواند.")
+        print(f"  خامش ذخیره شد: {out}")
+        print("  آن فایل را برای من بفرست تا با شکلِ واقعی بازنویسی کنم.")
+        print(f"\n  ۴۰۰ کاراکترِ اول:\n{txt[:400]}")
+    print("\n" + "=" * 68)
     return 0
 
 
@@ -523,7 +683,7 @@ def zone(box, px, band):
 
 
 # ══ ۳. تحلیل ════════════════════════════════════════════════════════
-def analyse(sym, rows):
+def analyse(sym, rows, ins=None, allow_ticks=False):
     """هیچ نمادی **بی‌صدا حذف نمی‌شود.**
 
     قبلاً هر جا باکس ساخته نمی‌شد `None` برمی‌گشت و نماد از جدول غیب
@@ -555,6 +715,19 @@ def analyse(sym, rows):
                  "wbars": len(by_w[ws[-2]]), "mbars": len(by_m[ms[-2]])})
     mb, wb = make_box(by_m[ms[-2]]), make_box(by_w[ws[-2]])
     fb = []                                  # کدام باکس با جایگزین ساخته شد
+    # ── پلهٔ اول: اگر باکسِ هفتگی نشد، با کندلِ **ساعتی** دوباره بساز ──
+    # ۵ کندلِ روزانه اغلب دره ندارد؛ ~۱۲۰ کندلِ ساعتی دارد. این همان
+    # چیزی است که بند ۱ راهنما از اول خواسته بود.
+    if wb is None and allow_ticks and ins:
+        wdays = sorted({b["d"] for b in by_w[ws[-2]]})
+        h1 = []
+        for d in wdays:
+            h1.extend(get_h1(sym, ins, d, quiet=True))
+        if len(h1) >= 8:
+            wb = make_box(h1)
+            if wb is not None:
+                fb.append("هفتگی←ساعتی")
+                base["h1bars"] = len(h1)
     if mb is None:
         mb = value_area_box(by_m[ms[-2]])
         if mb:
@@ -721,7 +894,7 @@ def html(rows, book, capital, stamp, last_date):
         if not r.get("ok"):
             return ("warn", r.get("reason", "؟"))
         fb = r.get("fallback") or []
-        tag = f" (باکسِ {'/'.join(fb)} جایگزین)" if fb else ""
+        tag = (f" (باکسِ {'/'.join(fb)})" if fb else "")
         if r["sym"] in book_syms:
             return ("up", "در دفتر" + tag)
         if r["mst"] != "بالا":
@@ -889,6 +1062,13 @@ def main():
                     help="سرمایه به ریال؛ ۰ یعنی از data_bourse/capital.txt")
     ap.add_argument("--telegram", action="store_true")
     ap.add_argument("--no-open", dest="open", action="store_false")
+    ap.add_argument("--no-ticks", dest="ticks", action="store_false",
+                    help="برای نمادهایی که باکسِ هفتگی‌شان دره ندارد، "
+                         "ریزمعاملات را نگیر (سریع‌تر ولی ۴۰٪ نماد با "
+                         "باکسِ جایگزینِ ضعیف‌تر می‌مانند)")
+    ap.add_argument("--sample", action="store_true",
+                    help="یک روزِ ریزمعاملات را خام ذخیره کن، برای وقتی "
+                         "که پارسر جواب نمی‌دهد")
     ap.add_argument("--probe", action="store_true",
                     help="منابعِ درون‌روزی را امتحان کن و گزارش بده")
     ap.add_argument("--no-curmonth", dest="curmonth", action="store_false",
@@ -898,6 +1078,8 @@ def main():
     args = ap.parse_args()
     if args.probe:
         return probe()
+    if args.sample:
+        return sample()
     global REQUIRE_CUR_MONTH
     REQUIRE_CUR_MONTH = args.curmonth
 
@@ -917,6 +1099,9 @@ def main():
             print("\n  فعلاً با --offline روی دادهٔ قبلی کار کن.")
             return 1
         print(f"      {len(ins)} نماد شناخته شد")
+        DATA.mkdir(exist_ok=True)
+        (DATA / "inscodes.json").write_text(
+            json.dumps(ins, ensure_ascii=False), encoding="utf-8")
 
         print(f"\n[۲/۴] دانلود تاریخچه...")
         ok = fail = 0
@@ -940,12 +1125,20 @@ def main():
         print("\n[۱-۲/۴] حالت آفلاین — از دادهٔ ذخیره‌شده")
 
     print("\n[۳/۴] محاسبهٔ باکس‌ها و نوارها...")
+    ins_map = {}
+    imf = DATA / "inscodes.json"
+    if imf.exists():
+        try:
+            ins_map = json.loads(imf.read_text(encoding="utf-8"))
+        except ValueError:
+            ins_map = {}
     rows = []
     for p in sorted(DATA.glob("*.csv")):
         sym = p.stem
-        if norm(sym) in NORM_FIXED:
+        if sym == "capital" or norm(sym) in NORM_FIXED:
             continue
-        r = analyse(sym, load(sym))
+        r = analyse(sym, load(sym), ins_map.get(sym),
+                    allow_ticks=not args.offline and args.ticks)
         if r:
             rows.append(r)
     if not rows:
