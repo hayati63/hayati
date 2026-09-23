@@ -81,6 +81,7 @@ MIN_VALUE_BN = 500.0      # کمینه ارزشِ معاملاتِ روزانه�
 #    «بدون دسته» می‌شدند. گروهِ صنعت از دیدبان خوانده می‌شود و اگر
 #    نبود، ردهٔ ارزشِ معاملات جایش می‌نشیند.
 STOCK = False             # با --stocks روشن می‌شود
+LIVE_STATE = False        # با --now: وضعیت روی آخرین کلوز، نه روزِ تصمیم
 COST_FUND = 0.55
 COST_STOCK = 1.20
 # اوراقِ بدهی که در دیدبان می‌آیند ولی سهم نیستند. عمداً **کوتاه**
@@ -1330,6 +1331,31 @@ def analyse(sym, rows, ins=None, allow_ticks=False):
     if len(ms) < 2 or len(ws) < 2:
         return {**base, "reason": "کمتر از دو ماه یا دو هفته داده"}
     px = rows[-1]["c"]
+    # ── کلوزِ **روزِ تصمیم**، نه آخرین کلوز ────────────────────────
+    # مصطفی، چند بار: «گفتیم روز بعدش مهمه — کلوزِ یکشنبه. نه آن روزی
+    # که باکس تشکیل می‌شود. ما کلوزِ روزِ تصمیم برایمان مهم است.»
+    #
+    # و روی سینرژی گرفتش. باکسِ هفتگی ۶۴٬۷۱۹–۶۷٬۳۲۰ بود:
+    #   کلوزِ یکشنبه ۲۰ سپتامبر  ۶۶٬۹۲۶ → داخلِ باکس  → سیگنال
+    #   کلوزِ سه‌شنبه ۲۲ سپتامبر ۶۴٬۵۵۴ → زیرِ باکس   → حذف
+    # یعنی اجرای سه‌شنبه سیگنالی را که یکشنبه صادر شده بود گم می‌کرد.
+    #
+    # `DECIDE_FUND` اندازه‌گیری شده (+۰٫۶۵۲ واحد، p=۰٫۰۰۰۳) و ثبت شده
+    # بود، ولی فقط در **تقویمِ نمایشی** استفاده می‌شد — محاسبه همچنان
+    # روی `rows[-1]` بود. این همان باگ است.
+    #
+    # روزِ تصمیم = **اولین جلسهٔ دورهٔ جاری**. برای هفته یکشنبه است
+    # (week_key لنگرِ یکشنبه دارد)، برای ماه اولین روزِ معاملاتیِ ماه.
+    # اگر آن روز تعطیل بود، اولین جلسه‌ای که باز بوده.
+    dec_w = by_w[ws[-1]][0]["c"] if by_w[ws[-1]] else px
+    dec_m = by_m[ms[-1]][0]["c"] if by_m[ms[-1]] else px
+    dec_wd = by_w[ws[-1]][0]["d"] if by_w[ws[-1]] else rows[-1]["d"]
+    dec_md = by_m[ms[-1]][0]["d"] if by_m[ms[-1]] else rows[-1]["d"]
+    if LIVE_STATE:                       # با --now به رفتارِ قبلی برگرد
+        dec_w = dec_m = px
+        dec_wd = dec_md = rows[-1]["d"]
+    base.update({"dec_w": dec_w, "dec_m": dec_m,
+                 "dec_wd": dec_wd.isoformat(), "dec_md": dec_md.isoformat()})
     vols = sorted(b["v"] for b in rows[-20:])
     mv = vols[len(vols) // 2] if vols else 0
     base.update({"med_vol": mv, "value_bn": mv * px / 1e9,
@@ -1371,12 +1397,21 @@ def analyse(sym, rows, ins=None, allow_ticks=False):
     # از تصادف جدا نمی‌شود. پس **خبر** است، نه سیگنال.
     cm = by_m[ms[-1]]
     cur = (make_box(cm) or value_area_box(cm)) if len(cm) >= 3 else None
+    # وضعیت و نوار روی کلوزِ **روزِ تصمیم**؛ ستونِ آلارم همچنان
+    # فاصلهٔ **امروز** تا نوار را می‌گوید (zone خودش با px حساب می‌کند).
     return {**base, "ok": True, "reason": "",
             "flags": flag_targets(rows, px),
-            "w4": state4(px, wb), "m4": state4(px, mb),
+            "w4": state4(dec_w, wb), "m4": state4(px, mb),
             "vgap": vgap_state(rows, px),
             "vlev": vgap_levels(rows, px),
-            "mst": state(px, mb), "wst": state(px, wb),
+            # فقط **هفتگی** روی کلوزِ روزِ تصمیم است. دو تای دیگر نه:
+            #  · باکسِ ماهِ جاری اگر با کلوزِ اولِ ماه سنجیده شود بی‌معنی
+            #    است — آن باکس هنوز تقریباً خالی است. کارش دیدنِ مقاومتی
+            #    است که **از اول ماه تا حالا** ساخته شده.
+            #  · وضعیتِ ماهانه هم تا آخرِ ماه تصمیمی ندارد (بند ۲: «فقط
+            #    پایان ماه»)، و فریز کردنش یعنی سه هفته عددِ کهنه.
+            # اندازه‌گیریِ `decision_day.py` هم فقط دربارهٔ هفته بود.
+            "mst": state(px, mb), "wst": state(dec_w, wb),
             "cur_box": cur, "cur_st": state(px, cur) if cur else "؟",
             "cur4": state4(px, cur) if cur else "؟",
             "month": zone(mb, px, BAND["month"]),
@@ -1616,8 +1651,22 @@ def html(rows, book, capital, stamp, last_date, buy=(), sell=()):
                 f'style="width:{w:.0f}%"></div></div>')
 
     def wr(r, hz):
+        """⚠️ افق‌ها **قاطی نمی‌شوند.**
+
+        قبلاً این بود:
+            v = WINRATE[hz].get(k) or WINRATE["week"].get(k)
+        یعنی اگر جدولِ ماهانه سطری برای این وضعیت نداشت، بی‌صدا از
+        جدولِ **هفتگی** پر می‌شد. در خروجیِ ۲۲ سپتامبرِ مصطفی همین
+        افتاده بود: در پنلِ ماهانه n=۹۸۴ و n=۲۴۲ دیده می‌شد که هر دو
+        عددِ جدولِ هفتگی‌اند («هر سه بالا» و «هر سه زیر» در جدولِ
+        ماهانه اصلاً سطر ندارند).
+
+        عددِ هفتگی زیرِ عنوانِ «بک‌تستِ ماهانه» یعنی افقِ اشتباه به
+        نمادِ درست نسبت داده شود. حالا اگر سطر نیست، **هیچ** نشان
+        داده می‌شود.
+        """
         k = wr_key(r)
-        v = (WINRATE[hz].get(k) or WINRATE["week"].get(k)) if k else None
+        v = WINRATE.get(hz, {}).get(k) if k else None
         return v or (0, 0, 0.0)
 
     def btcell(nn, win, avg):
@@ -1628,7 +1677,9 @@ def html(rows, book, capital, stamp, last_date, buy=(), sell=()):
         سطرِ جدولِ بک‌تست می‌آیند، پس کنار هم درست‌ترند.
         """
         if not nn:
-            return '<span class="sub">—</span>'
+            return ('<span class="sub" title="جدولِ بک‌تستِ این افق '
+                    'سطری برای وضعیتِ امروزِ این نماد ندارد. عمداً از '
+                    'جدولِ افقِ دیگر پر نمی‌شود.">—</span>')
         cls = "g" if avg > 0 else "r"
         return (f'<span class="bt" title="n={nn:,} مشاهده در همین وضعیت">'
                 f'{win}٪ {bar(win)} '
@@ -1655,15 +1706,22 @@ def html(rows, book, capital, stamp, last_date, buy=(), sell=()):
         """
         lv = r.get("vlev") or {}
         if not lv:
-            return '<span class="sub">—</span>'
+            return '<span class="sub">— — —</span>'
+
         def pc(x):
             # «−۰٪» شبیهِ باگ است. زیرِ ۱۰٪ یک رقمِ اعشار بده.
             return f"{x:.1f}" if abs(x) < 10 else f"{x:.0f}"
 
+        # مصطفی: «ترتیبش درست نیست — اول باید مانت باشه، بعد هفته،
+        # بعد دی.» و: «سه تا ستون سبز یا دو تا قرمز یا یه دونه سبز، به
+        # این حالت نمایش داده بشه.» پس جای هر تایم‌فریم **ثابت** است و
+        # اگر باکسی نبود جایش خالی می‌ماند — وگرنه شمردنِ سبزها از روی
+        # نگاه ممکن نیست.
         out = []
-        for fa in ("هفتگی", "ماهانه", "دیلی"):
+        for fa in ("ماهانه", "هفتگی", "دیلی"):
             v = lv.get(fa)
             if not v:
+                out.append('<span class="vl vl-n">—</span>')
                 continue
             if v["st"] == "داخل":
                 # بارِ چندم بودنِ لمس، تنها چیزی است که اندازه‌گیری
@@ -1683,7 +1741,7 @@ def html(rows, book, capital, stamp, last_date, buy=(), sell=()):
                 out.append(f'<span class="vl vl-d" title="{fa}: مقاومت '
                            f'{n(v["lo"])}">{fa[0]} +{pc(-v["dist"])}٪'
                            f'</span>')
-        return " ".join(out)
+        return "".join(out)
 
     def thin(r):
         """نمادِ کم‌حجم در جدول می‌ماند ولی علامت می‌خورد — در دفتر
@@ -2004,8 +2062,10 @@ background:rgba(245,101,101,.08);border:1px solid var(--red);
 font-size:.88rem;line-height:1.9;color:var(--text)}}
 .bt{{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}}
 .bt i{{font-style:normal;font-size:.72rem}}
-.vl{{display:inline-block;margin-inline-end:4px;padding:1px 5px;
-border-radius:5px;font-size:.66rem;font-weight:600;white-space:nowrap}}
+.vl{{display:inline-block;margin-inline-end:3px;padding:2px 5px;
+border-radius:5px;font-size:.66rem;font-weight:600;white-space:nowrap;
+min-width:46px;text-align:center}}
+.vl-n{{background:#1d2637;color:#3d4a60}}
 .vl-u{{background:rgba(61,214,140,.15);color:var(--green)}}
 .vl-i{{background:rgba(236,201,75,.18);color:var(--yellow)}}
 .vl-d{{background:rgba(245,101,101,.15);color:var(--red)}}
@@ -2180,7 +2240,7 @@ font-size:.78rem;color:var(--muted);max-width:72ch}}
 # ══ ۶. اجرا ═════════════════════════════════════════════════════════
 def main():
     global REQUIRE_CUR_MONTH, MAX_INVESTED, MAX_WEIGHT
-    global STOCK, DATA, OUT, MIN_VALUE_BN, WINRATE
+    global STOCK, DATA, OUT, MIN_VALUE_BN, WINRATE, LIVE_STATE
     ap = argparse.ArgumentParser()
     ap.add_argument("--capital", type=float, default=0,
                     help="سرمایه به ریال؛ ۰ یعنی از data_bourse/capital.txt")
@@ -2211,6 +2271,9 @@ def main():
                          f"پیش‌فرض {MIN_VALUE_BN:.0f}")
     ap.add_argument("--iters", type=int, default=2000,
                     help="تکرارِ آزمونِ جایگشت در حالتِ سهام")
+    ap.add_argument("--now", action="store_true",
+                    help="وضعیت را روی **آخرین** کلوز حساب کن، نه روی "
+                         "کلوزِ روزِ تصمیم (رفتارِ قبلی)")
     ap.add_argument("--offline", action="store_true",
                     help="دانلود نکن، از دادهٔ ذخیره‌شده استفاده کن")
     args = ap.parse_args()
@@ -2225,6 +2288,7 @@ def main():
     REQUIRE_CUR_MONTH = args.curmonth
 
     STOCK = args.stocks
+    LIVE_STATE = args.now
     if args.min_value is not None:
         MIN_VALUE_BN = args.min_value
     if STOCK:
