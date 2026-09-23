@@ -27,6 +27,7 @@ import io
 import json
 import math
 import os
+import random
 import re
 import ssl
 import statistics
@@ -62,6 +63,32 @@ UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
 # در برابر خودِ سقفِ باکس (+۰٫۰۸۸R، t=۱٫۳۵). هفتگی +۰٫۵٪ بهترین بود.
 BAND = {"month": {"aim": 3.0, "hi": 4.0}, "week": {"aim": 0.5, "hi": 2.0}}
 MIN_VALUE_BN = 500.0      # کمینه ارزشِ معاملاتِ روزانه، میلیارد ریال
+
+# ── حالتِ سهام ──────────────────────────────────────────────────────
+# مصطفی: «اگر بتونی برای کل سهام‌هایی که تو بورس هست و حجم می‌خورند،
+# مثل وبملت و سهم‌های بزرگ، این استراتژی را هم بک‌تست بگیری و یک
+# داشبوردِ جدا بسازی.»
+#
+# سه چیز **باید** فرق کند وگرنه عددها غلط‌اند:
+#
+# ۱. **کارمزد.** بند ۹ راهنما: صندوق ۰٫۵۵٪ رفت‌وبرگشت، سهام ~۱٫۲٪ —
+#    و همان‌جا نوشته «با کارمزدِ واقعیِ سهام شاراک و سقاین هم منفی
+#    می‌شوند. مزیت روی صندوقِ اهرمی محکم است و روی سهام نازک.»
+# ۲. **جدولِ نرخِ برد.** WINRATE پایین از بک‌تستِ ۱۲۱ **صندوق** آمده.
+#    گذاشتنش کنارِ یک سهم یعنی نشان دادنِ آمارِ یک جهان به جهانِ دیگر.
+#    در حالتِ سهام، جدول از خودِ دادهٔ سهام ساخته می‌شود.
+# ۳. **دسته‌بندی.** جدولِ CATEGORY همه‌اش صندوق است، پس همهٔ سهام‌ها
+#    «بدون دسته» می‌شدند. گروهِ صنعت از دیدبان خوانده می‌شود و اگر
+#    نبود، ردهٔ ارزشِ معاملات جایش می‌نشیند.
+STOCK = False             # با --stocks روشن می‌شود
+COST_FUND = 0.55
+COST_STOCK = 1.20
+# اوراقِ بدهی که در دیدبان می‌آیند ولی سهم نیستند. عمداً **کوتاه**
+# است: هر پیشوندی که اضافه کنم ممکن است سهمِ واقعی را بی‌صدا بیندازد
+# بیرون، و بی‌صدا افتادن دقیقاً همان چیزی است که مصطفی روی نهال گرفت.
+# فیلترِ اصلی ارزشِ معاملات است، و اجرا فهرستِ نهایی را چاپ می‌کند تا
+# اگر چیزِ عجیبی تویش بود با چشم دیده شود.
+NOT_STOCK_PREFIX = ("اخزا", "اراد", "افاد", "مرابحه", "سلف", "مشارکت")
 # سقفِ وزنِ هر نماد. **۲۰ بود، ۳۴ شد** — و این مهم‌ترین عددِ اینجاست.
 #
 # سقفِ تمرکز خودش نقد می‌سازد: وقتی فقط ۲ نماد واجد شرط‌اند و سقف ۲۰٪
@@ -143,6 +170,129 @@ WINRATE = {
         "_base":            (564, 68, 8.27),
     },
 }
+
+
+def backtest_universe(data, iters=2000, seed=7):
+    """جدولِ نرخِ برد را **از خودِ داده** بساز — برای جهانی که
+    WINRATE دربارهٔ آن حرفی ندارد (سهام).
+
+    گذاشتنِ جدولِ صندوق‌ها کنارِ یک سهم، عددِ یک جهان را به جهانِ
+    دیگر نسبت می‌دهد. پس در حالتِ سهام جدول دوباره ساخته می‌شود، با
+    **همان** تعریف‌های `analyse()` (همان make_box، همان state، همان
+    wr_key) تا قابلِ مقایسه بماند.
+
+    و مثل همیشه (بند ۰ قانون ۲): کنارِ هر سطر **نرخ پایهٔ همان دوره**
+    و p از آزمونِ جایگشتِ درون‌دوره‌ای می‌آید. جایگشت برچسبِ وضعیت را
+    داخلِ هر هفته/ماه به‌هم می‌ریزد، پس حرکتِ کلِ بازار در آن دوره
+    ثابت می‌ماند و سؤال فقط این است: «آیا باکس نمادهای بهتری از
+    تصادف انتخاب می‌کند؟»
+
+    خروجی: {"week": {...}, "month": {...}} هم‌شکلِ WINRATE، به‌علاوهٔ
+    کلیدِ "_p" با p هر سطر.
+    """
+    rnd = random.Random(seed)
+    out = {}
+    for hz in ("week", "month"):
+        per = defaultdict(list)          # {دوره: [(برچسب، بازده)]}
+        for sym, rows in data.items():
+            if len(rows) < MIN_DAYS:
+                continue
+            by_m, by_w = defaultdict(list), defaultdict(list)
+            for b in rows:
+                by_m[(b["d"].year, b["d"].month)].append(b)
+                by_w[week_key(b["d"])].append(b)
+            ms, ws = sorted(by_m), sorted(by_w)
+            ks = ws if hz == "week" else ms
+            by = by_w if hz == "week" else by_m
+            if len(ks) < 4 or len(ms) < 3:
+                continue
+            for i in range(2, len(ks) - 1):
+                cur = by[ks[i]]
+                if not cur:
+                    continue
+                d, px = cur[-1]["d"], cur[-1]["c"]
+                if px <= 0:
+                    continue
+                # ── باکسِ هفتگی: هفتهٔ کاملِ قبل ──────────────────
+                pw = None
+                for j in range(len(ws) - 1, -1, -1):
+                    if by_w[ws[j]] and by_w[ws[j]][-1]["d"] < d:
+                        pw = by_w[ws[j]]
+                        break
+                # ── باکسِ ماهانه: ماهِ کاملِ قبل ────────────────────
+                mk = (d.year, d.month)
+                pm = None
+                if mk in by_m:
+                    idx = ms.index(mk)
+                    if idx > 0:
+                        pm = by_m[ms[idx - 1]]
+                if not pw or not pm or len(pw) < 3 or len(pm) < 3:
+                    continue
+                wb = make_box(pw) or value_area_box(pw)
+                mb = make_box(pm) or value_area_box(pm)
+                if wb is None or mb is None:
+                    continue
+                cmb = [b for b in by_m[mk] if b["d"] <= d]
+                cb = ((make_box(cmb) or value_area_box(cmb))
+                      if len(cmb) >= 3 else None)
+                key = wr_key({"mst": state(px, mb), "wst": state(px, wb),
+                              "cur_st": state(px, cb) if cb else "؟"})
+                if key is None:
+                    continue
+                nxt = by[ks[i + 1]]
+                if not nxt:
+                    continue
+                per[ks[i]].append((key, (nxt[-1]["c"] / px - 1) * 100))
+
+        allr = [r for xs in per.values() for _k, r in xs]
+        if not allr:
+            out[hz] = {}
+            continue
+        tab = {"_base": (len(allr),
+                         round(sum(1 for x in allr if x > 0) / len(allr) * 100),
+                         round(statistics.mean(allr), 2))}
+        # ساختارِ فشرده برای جایگشت — یک بار، نه در هر تکرار
+        packed = []
+        for _k, xs in per.items():
+            if len(xs) < 3:
+                continue
+            rs = [r for _s, r in xs]
+            cnt = defaultdict(int)
+            for st_, _r in xs:
+                cnt[st_] += 1
+            packed.append((rs, statistics.mean(rs), dict(cnt)))
+        ps = {}
+        for key in {k for xs in per.values() for k, _r in xs}:
+            v = [r for xs in per.values() for k, r in xs if k == key]
+            if len(v) < 20:
+                continue
+            tab[key] = (len(v),
+                        round(sum(1 for x in v if x > 0) / len(v) * 100),
+                        round(statistics.mean(v), 2))
+            es = []
+            for _k2, xs in per.items():
+                sel = [r for k, r in xs if k == key]
+                if not sel or len(xs) < 3:
+                    continue
+                es.append(statistics.mean(sel)
+                          - statistics.mean([r for _s, r in xs]))
+            if not es:
+                continue
+            real = statistics.mean(es)
+            ge = 0
+            for _ in range(iters):
+                fake = []
+                for rs, mu, cnt in packed:
+                    k2 = cnt.get(key, 0)
+                    if not k2:
+                        continue
+                    fake.append(sum(rnd.sample(rs, k2)) / k2 - mu)
+                if fake and statistics.mean(fake) >= real:
+                    ge += 1
+            ps[key] = round((ge + 1) / (iters + 1), 4)
+        tab["_p"] = ps
+        out[hz] = tab
+    return out
 
 
 def wr_key(r):
@@ -288,6 +438,91 @@ def discover():
             f"  کلیدهای واقعیِ پاسخ: {', '.join(keys[:30])}\n"
             "  این متن را برای من بفرست تا پارسر را درست کنم.")
     return out
+
+
+def discover_stocks(min_value_bn=None):
+    """نمادهای **سهام** از دیدبان: (نام → insCode، نام → گروهِ صنعت).
+
+    `discover()` فقط چیزهایی را نگه می‌دارد که در جدولِ CATEGORY
+    باشند — و آن جدول همه‌اش صندوق است. اینجا برعکس: هر چیزی که
+    صندوقِ شناخته‌شده و اوراق نیست، و حجم می‌خورد.
+
+    ⚠️ این تابع از این کانتینر **تست نشده** — TSETMC اینجا ۴۰۳ می‌دهد.
+    پس مثل `discover()` خودتشخیص است: اگر هیچ نمادی درنیامد، کلیدهای
+    واقعیِ پاسخ را چاپ می‌کند به‌جای اینکه خالی برگردد.
+    """
+    d = get(WATCH)
+    rows = d if isinstance(d, list) else (
+        d.get("marketwatch") or d.get("MarketWatch") or [])
+    SYM_KEYS = ("lva", "lVal18AFC", "symbol", "Symbol", "lva18", "l18")
+    INS_KEYS = ("insCode", "InsCode", "inscode", "insCode18")
+    # گروهِ صنعت. TSETMC بینِ نسخه‌ها اسمش را عوض کرده و از اینجا
+    # نمی‌شود دید کدامش زنده است، پس چندتا امتحان می‌شود.
+    SEC_KEYS = ("lSecVal", "LSecVal", "lsecval", "sector",
+                "Sector", "cs", "CS")
+    PX_KEYS = ("pcl", "pClosing", "pdv", "pDrCotVal")
+    VOL_KEYS = ("qtj", "qTotTran5J", "vol", "zTotTran")
+    mv = MIN_VALUE_BN if min_value_bn is None else min_value_bn
+
+    def pick(r, keys):
+        for k in keys:
+            v = r.get(k)
+            if v not in (None, "", 0):
+                return v
+        return None
+
+    allsym = set()
+    cand = []
+    for r in rows:
+        sym = pick(r, SYM_KEYS)
+        ins = pick(r, INS_KEYS)
+        if not sym or not ins:
+            continue
+        sym = str(sym).strip()
+        allsym.add(sym)
+        cand.append((sym, str(ins).strip(), pick(r, SEC_KEYS),
+                     pick(r, PX_KEYS), pick(r, VOL_KEYS)))
+
+    out, sec, thin, dropped = {}, {}, 0, 0
+    for sym, ins, sc, px, vol in cand:
+        k = norm(sym)
+        if k in NORM_CAT or k in NORM_FIXED:      # صندوق یا درآمد ثابت
+            dropped += 1
+            continue
+        if any(sym.startswith(x) for x in NOT_STOCK_PREFIX):
+            dropped += 1
+            continue
+        # حقِ تقدم: «وبملتح» وقتی «وبملت» هم در فهرست است
+        if sym.endswith("ح") and sym[:-1] in allsym:
+            dropped += 1
+            continue
+        try:
+            v_bn = float(px) * float(vol) / 1e9
+        except (TypeError, ValueError):
+            v_bn = 0.0
+        if v_bn < mv:
+            thin += 1
+            continue
+        out[sym] = ins
+        if sc:
+            sec[sym] = str(sc).strip()
+
+    if not out:
+        keys = sorted(rows[0].keys()) if rows else []
+        raise RuntimeError(
+            f"از {len(rows)} ردیفِ دیدبان هیچ سهمی درنیامد "
+            f"(حدِ ارزش {mv:.0f} م.ر).\n"
+            f"  کلیدهای واقعیِ پاسخ: {', '.join(keys[:30])}\n"
+            "  این متن را بفرست تا پارسر را درست کنم، یا "
+            "--min-value را کم کن.")
+    print(f"      {len(out)} سهم · {dropped} صندوق/اوراق کنار رفت · "
+          f"{thin} زیرِ {mv:.0f} م.ر")
+    if sec:
+        print(f"      گروهِ صنعت خوانده شد ({len(set(sec.values()))} گروه)")
+    else:
+        print("      ⚠️  گروهِ صنعت در پاسخ نبود — "
+              "دسته‌بندی با ردهٔ ارزشِ معاملات")
+    return out, sec
 
 
 def fetch_symbol(sym, ins):
@@ -1011,9 +1246,9 @@ WD = ("دوشنبه", "سه‌شنبه", "چهارشنبه", "پنجشنبه", "
 # تقویمِ ثابتِ هفته — همیشه نشان داده می‌شود، نه فقط روزِ تصمیم.
 # ستونِ «چه خبر» از اندازه‌گیریِ tools/decision_day.py می‌آید.
 WEEK_PLAN = [
-    (5, "شنبه", "هفتهٔ صندوق‌ها بسته می‌شود",
+    (5, "شنبه", "هفتهٔ بورس بسته می‌شود",
      "باکس قفل شد — فردا تکلیف روشن می‌شود"),
-    (6, "یکشنبه", "🔔 سیگنالِ صندوق‌های بورسی",
+    (6, "یکشنبه", "🔔 سیگنالِ نمادهای بورسی",
      "کلوزِ امروز بالای نوار → در پولبک بخر · زیرِ نوار → در پولبک بفروش"),
     (0, "دوشنبه", "🔔 سیگنالِ تتر و دلار و طلای ۱۸  +  اجرای صندوق‌ها",
      "هفتهٔ ارزی دیشب بست؛ کلوزِ امروز تکلیفش را روشن می‌کند"),
@@ -1545,6 +1780,27 @@ def html(rows, book, capital, stamp, last_date, buy=(), sell=()):
 
     alarm_box = _albox()
 
+    UNIV = "سهامِ بورس" if STOCK else "صندوق‌های ETF"
+    BTSRC = (f"از خودِ همین {len(ok_rows)} سهم ساخته شد، در همین اجرا."
+             if STOCK else "۱۲۱ صندوق، ۴۲ هفته و ۱۱ ماه.")
+    SRC = ("<b>در این صفحه جدول از خودِ همین سهام ساخته شده</b>، "
+           "نه از صندوق‌ها — وگرنه آمارِ یک جهان کنارِ جهانِ دیگر "
+           "می‌نشست. p هر سطر در خروجیِ ترمینال چاپ می‌شود."
+           if STOCK else
+           "منبعش بک‌تستِ ۱۲۱ صندوق روی ۴۲ هفته و ۱۱ ماه است.")
+    # ⚠️ مهم‌ترین جملهٔ این صفحه در حالتِ سهام. بند ۹ راهنما:
+    # «اعداد بازده سالانه با ۰٫۵۵٪ رفت‌وبرگشت حساب شده‌اند. با کارمزد
+    # واقعی سهام (~۱٫۲٪) شاراک و سقاین هم منفی می‌شوند. مزیت روی
+    # صندوق اهرمی محکم است و روی سهام نازک.»
+    FEEBOX = ("" if not STOCK else
+              '<div class="feebox">⚠️ <b>کارمزدِ سهام ~۱٫۲٪ '
+              'رفت‌وبرگشت است، بیش از دو برابرِ صندوق (۰٫۵۵٪).</b> '
+              'مزیتِ این استراتژی روی سهام <b>نازک</b> است و این '
+              'کارمزد می‌تواند کلش را بخورد — بند ۹ راهنما. '
+              'ستونِ «بک‌تستِ وضعیت» بازدهِ <b>ناخالص</b> است؛ برای '
+              'هر رفت‌وبرگشت ۱٫۲ واحد از آن کم کن. سطری که مزیتش '
+              'زیرِ ۱٫۲ واحد است، بعد از کارمزد چیزی نمی‌ماند.</div>')
+
     SIGH = ("رتبه|نماد|آلارم|کلوز|نقطهٔ ورود|حدضرر|حدسود|ریسک|"
             "بک‌تستِ وضعیت|ماهانه|هفتگی|"
             "حمایتِ خلای حجمی|تارگتِ میله و پرچم")
@@ -1603,23 +1859,43 @@ def html(rows, book, capital, stamp, last_date, buy=(), sell=()):
 
     # ── تبِ ۵: بک‌تست ──
     def bt(hz, title, note):
-        w = WINRATE[hz]
+        w = WINRATE.get(hz) or {}
+        if "_base" not in w:
+            return (f'<h3>{title}</h3><div class="sub">جدولِ بک‌تست برای '
+                    f'این جهان ساخته نشد (دادهٔ کم). عمداً جدولِ جهانِ '
+                    f'دیگری نشان داده نمی‌شود.</div>')
         bn, bwin, bavg = w["_base"]
+        ps = w.get("_p") or {}
+        # ستونِ p: بدونِ آن، «۷۵٪ برد» در بازاری که ۶۴٪ روزها مثبت است
+        # شبیهِ سیگنال به نظر می‌رسد. بند ۰ قانون ۲.
         rr = "".join(
             f'<tr><td class="td sym">{k}</td><td class="td n">{v[0]:,}</td>'
             f'<td class="td n">{v[1]}٪ {bar(v[1])}</td>'
             f'<td class="td n {"g" if v[2] > 0 else "r"}">{v[2]:+.2f}٪</td>'
             f'<td class="td n {"g" if v[1] - bwin > 0 else "r"}">'
-            f'{v[1] - bwin:+d} واحد</td></tr>'
-            for k, v in w.items() if k != "_base")
+            f'{v[1] - bwin:+d} واحد</td>'
+            f'<td class="td n">'
+            + (f'<b class="g">{ps[k]:.4f} ★</b>' if k in ps and ps[k] < 0.05
+               else f'{ps[k]:.4f}' if k in ps else '—')
+            + '</td></tr>'
+            for k, v in sorted(w.items(),
+                               key=lambda kv: -kv[1][1]
+                               if isinstance(kv[1], tuple) else 0)
+            if not k.startswith("_"))
+        tail = ("" if not ps else
+                '<div class="sub">★ یعنی از نرخ پایهٔ همان دوره جدا شد '
+                '(آزمونِ جایگشتِ درون‌دوره‌ای). بدونِ ★، عددِ برد '
+                '<b>سیگنال نیست</b> — در بازاری که '
+                f'{bwin}٪ دوره‌ها مثبت است، برد بالا خودبه‌خود '
+                'می‌آید.</div>')
         return (f'<h3>{title}</h3><div class="sub">{note} — پایه: '
                 f'{bwin}٪ مثبت · {bavg:+.2f}٪ · n={bn:,}</div>'
                 f'<div class="wrap"><table class="table"><thead><tr>'
                 + "".join(f'<th class="th{" n" if i else ""}">{c}</th>'
                           for i, c in enumerate(
                               ["وضعیتِ باکس", "n", "موفقیت",
-                               "میانگین بازده", "نسبت به پایه"]))
-                + f'</tr></thead><tbody>{rr}</tbody></table></div>')
+                               "میانگین بازده", "نسبت به پایه", "p"]))
+                + f'</tr></thead><tbody>{rr}</tbody></table></div>{tail}')
 
     cats = sorted({r["cat"] for r in rows})
     chips = ('<span class="chip on" data-c="*">همه</span>'
@@ -1723,6 +1999,9 @@ flex-wrap:wrap}}
 .al-b{{border:1px solid var(--green);
 box-shadow:inset 3px 0 0 var(--green)}}
 .al-s{{border:1px solid var(--red);box-shadow:inset 3px 0 0 var(--red)}}
+.feebox{{margin:14px 0;padding:13px 16px;border-radius:12px;
+background:rgba(245,101,101,.08);border:1px solid var(--red);
+font-size:.88rem;line-height:1.9;color:var(--text)}}
 .bt{{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}}
 .bt i{{font-style:normal;font-size:.72rem}}
 .vl{{display:inline-block;margin-inline-end:4px;padding:1px 5px;
@@ -1758,7 +2037,7 @@ font-size:.78rem;color:var(--muted);max-width:72ch}}
 #q{{margin-inline-start:0;width:100%}}}}
 </style></head><body><div class="page">
 
-<h1>داشبورد ریسک و بازده — صندوق‌های ETF</h1>
+<h1>داشبورد ریسک و بازده — {UNIV}</h1>{FEEBOX}
 <div class="sub">کلوز {stamp} ({WD[last_wd]}) · {len(rows)} نماد بررسی شد
 · {len(ok_rows)} نماد با باکسِ معتبر</div>
 
@@ -1786,7 +2065,7 @@ font-size:.78rem;color:var(--muted);max-width:72ch}}
   ۳٪ بالاتر t=۵٫۴۱. ستونِ آلارم می‌گوید قیمت الان چقدر تا آن فاصله دارد.
   <br><b>بک‌تستِ وضعیت</b> عددِ خودِ نماد نیست — بک‌تست روی
   <i>سطلِ وضعیت</i> بسته شده (هر سه بالا · فقط هفتگی · هفتگی زیر …)، پس
-  هر نمادی که امروز در همان وضعیت است همان عدد را می‌گیرد.
+  هر نمادی که امروز در همان وضعیت است همان عدد را می‌گیرد. {SRC}
   <br><b>حمایتِ خلای حجمی</b> استراتژیِ دوم است: کندلی که حجمش از دو
   کندلِ کنارش کمتر بوده باکس می‌شود. <span class="vl vl-u">ه −۴٪</span>
   یعنی در تایمِ هفتگی بالای آن باکسیم و ۴٪ پایین‌تر حمایت است؛
@@ -1838,9 +2117,9 @@ font-size:.78rem;color:var(--muted);max-width:72ch}}
 
 <div class="panel" id="p5">
   {bt("month", "بک‌تست ماهانه",
-      "بازدهِ ماهِ پیشِ رو بر اساس وضعیتِ باکس در روزِ تصمیم. ۱۲۱ نماد، ۱۱ ماه")}
+      "بازدهِ ماهِ پیشِ رو بر اساس وضعیتِ باکس در روزِ تصمیم. " + BTSRC)}
   {bt("week", "بک‌تست هفتگی",
-      "همان با افقِ هفتهٔ پیشِ رو. ۱۲۱ نماد، ۴۲ هفته")}
+      "همان با افقِ هفتهٔ پیشِ رو. " + BTSRC)}
   <div class="note"><b>این اعداد توصیف‌اند، نه پیش‌بینی.</b> دورهٔ
   اندازه‌گیری ۱۱ ماه بوده و رژیمش صعودی — میانگین ماهانهٔ اهرم +۱۲٫۸۹٪
   در برابر +۲٫۸۷٪ در ۱۹ ماه قبلش.</div>
@@ -1900,6 +2179,8 @@ font-size:.78rem;color:var(--muted);max-width:72ch}}
 
 # ══ ۶. اجرا ═════════════════════════════════════════════════════════
 def main():
+    global REQUIRE_CUR_MONTH, MAX_INVESTED, MAX_WEIGHT
+    global STOCK, DATA, OUT, MIN_VALUE_BN, WINRATE
     ap = argparse.ArgumentParser()
     ap.add_argument("--capital", type=float, default=0,
                     help="سرمایه به ریال؛ ۰ یعنی از data_bourse/capital.txt")
@@ -1920,6 +2201,16 @@ def main():
                     help="سقفِ سرمایهٔ در بازار؛ پیش‌فرض ۱۰۰")
     ap.add_argument("--no-curmonth", dest="curmonth", action="store_false",
                     help="شرطِ «ماه جاری هم بالا باشد» را خاموش کن")
+    ap.add_argument("--stocks", action="store_true",
+                    help="به‌جای صندوق‌ها، **سهام** را بگیر؛ دادهٔ جدا "
+                         "(data_stocks/)، خروجیِ جدا "
+                         "(dashboard_stocks.html)، و جدولِ نرخِ برد از "
+                         "خودِ سهام ساخته می‌شود نه از صندوق‌ها")
+    ap.add_argument("--min-value", type=float, default=None,
+                    help=f"کمینهٔ ارزشِ معاملاتِ روزانه به میلیارد ریال؛ "
+                         f"پیش‌فرض {MIN_VALUE_BN:.0f}")
+    ap.add_argument("--iters", type=int, default=2000,
+                    help="تکرارِ آزمونِ جایگشت در حالتِ سهام")
     ap.add_argument("--offline", action="store_true",
                     help="دانلود نکن، از دادهٔ ذخیره‌شده استفاده کن")
     args = ap.parse_args()
@@ -1927,21 +2218,31 @@ def main():
         return probe()
     if args.sample:
         return sample()
-    global REQUIRE_CUR_MONTH, MAX_INVESTED, MAX_WEIGHT
     if args.max_invested is not None:
         MAX_INVESTED = args.max_invested
     if args.max_weight is not None:
         MAX_WEIGHT = args.max_weight
     REQUIRE_CUR_MONTH = args.curmonth
 
+    STOCK = args.stocks
+    if args.min_value is not None:
+        MIN_VALUE_BN = args.min_value
+    if STOCK:
+        # جهانِ جدا، دادهٔ جدا، خروجیِ جدا. قاطی شدنشان یعنی جدولِ
+        # صندوق‌ها کنارِ سهم بنشیند — همان چیزی که نباید بشود.
+        DATA = HERE / "data_stocks"
+        OUT = HERE / "dashboard_stocks.html"
+
     print("=" * 64)
-    print("  بورس — تک‌فایل")
+    print("  بورس — تک‌فایل" + ("  ·  حالتِ سهام" if STOCK else ""))
     print("=" * 64)
 
     if not args.offline:
         print("\n[۱/۴] پیدا کردن نمادها از دیدبان بازار...")
+        sectors = {}
         try:
-            ins = discover()
+            ins, sectors = (discover_stocks(MIN_VALUE_BN) if STOCK
+                            else (discover(), {}))
         except Exception as e:                       # noqa: BLE001
             print(f"\n  ✗ {e}")
             print("\n  اگر پیام بالا دربارهٔ شبکه است، اینترنت یا فیلترشکن")
@@ -1953,6 +2254,12 @@ def main():
         DATA.mkdir(exist_ok=True)
         (DATA / "inscodes.json").write_text(
             json.dumps(ins, ensure_ascii=False), encoding="utf-8")
+        if STOCK:
+            (DATA / "sectors.json").write_text(
+                json.dumps(sectors, ensure_ascii=False), encoding="utf-8")
+            print("      فهرستِ سهام: "
+                  + "، ".join(sorted(ins)[:25])
+                  + (f" … (+{len(ins) - 25})" if len(ins) > 25 else ""))
 
         print(f"\n[۲/۴] دانلود تاریخچه...")
         ok = fail = 0
@@ -2005,15 +2312,25 @@ def main():
     # در جدول می‌آمد. کلیدِ یکتا نامِ نرمال‌شده است؛ از میانِ فایل‌های
     # هم‌نام آن که تاریخچهٔ بلندتری دارد می‌ماند.
     best = {}
+    wrong = 0
     for p in sorted(DATA.glob("*.csv")):
         sym = p.stem
         if sym == "capital" or norm(sym) in NORM_FIXED:
+            continue
+        # نگهبانِ اختلاطِ دو جهان: اگر فایلِ صندوقی در پوشهٔ سهام
+        # جا مانده باشد (یا برعکس)، بی‌صدا به‌عنوانِ عضوِ آن جهان
+        # تحلیل می‌شد و جدولِ بک‌تست هم آلوده می‌شد.
+        if STOCK and norm(sym) in NORM_CAT:
+            wrong += 1
             continue
         k = norm(sym)
         cur = best.get(k)
         if cur is None or p.stat().st_size > cur.stat().st_size:
             best[k] = p
 
+    if wrong:
+        print(f"      {wrong} فایلِ صندوقی در {DATA.name} نادیده گرفته شد "
+              f"(جهانِ سهام است).")
     rows = []
     for p in sorted(best.values()):
         sym = p.stem
@@ -2024,6 +2341,75 @@ def main():
     if not rows:
         print("      هیچ نمادی دادهٔ کافی نداشت.")
         return 1
+
+    # ── دستهٔ سهام: گروهِ صنعت، وگرنه ردهٔ ارزشِ معاملات ────────────
+    # جدولِ CATEGORY همه‌اش صندوق است، پس بدونِ این همهٔ سهام‌ها در یک
+    # گروهِ «بدون دسته» می‌افتادند و تفکیکی که مصطفی خواسته بود از بین
+    # می‌رفت («صندوق‌ها تفکیک شده باشن، این‌جوری ردیفی‌ان»).
+    if STOCK:
+        sf = DATA / "sectors.json"
+        sec = {}
+        if sf.exists():
+            try:
+                sec = {norm(k): v for k, v in
+                       json.loads(sf.read_text(encoding="utf-8")).items()}
+            except ValueError:
+                sec = {}
+        if sec:
+            for r in rows:
+                r["cat"] = sec.get(norm(r["sym"]), "سایر")
+        else:
+            vals = sorted((r["value_bn"] for r in rows if r["value_bn"]),
+                          reverse=True)
+            if vals:
+                t1 = vals[len(vals) // 3]
+                t2 = vals[2 * len(vals) // 3]
+                for r in rows:
+                    v = r["value_bn"]
+                    r["cat"] = ("درشت" if v >= t1 else
+                                "متوسط" if v >= t2 else "کوچک")
+
+    # ── در حالتِ سهام، جدولِ نرخِ برد را از خودِ سهام بساز ───────────
+    # WINRATE از بک‌تستِ ۱۲۱ **صندوق** آمده. نشان دادنش کنارِ وبملت
+    # یعنی آمارِ یک جهان را به جهانِ دیگر نسبت دادن. پس دوباره ساخته
+    # می‌شود، با همان تعریف‌ها، و p هر سطر هم چاپ می‌شود.
+    if STOCK:
+        print("\n      بک‌تستِ سهام (ممکن است چند دقیقه طول بکشد)...")
+        hist = {r["sym"]: load(r["sym"]) for r in rows if r.get("ok")}
+        hist = {k: v for k, v in hist.items() if len(v) >= MIN_DAYS}
+        tab = backtest_universe(hist, iters=args.iters)
+        if tab.get("week") and tab.get("month"):
+            WINRATE = tab
+            print(f"      جدول از {len(hist)} سهم ساخته شد.")
+            for hz, fa in (("week", "هفتگی"), ("month", "ماهانه")):
+                t = tab[hz]
+                b = t.get("_base")
+                if not b:
+                    continue
+                print(f"\n      ── {fa} · نرخ پایه {b[2]:+.2f}٪ · "
+                      f"{b[1]}٪ مثبت · n={b[0]:,} ──")
+                print(f"      {'وضعیت':<18}{'n':>7}{'برد':>7}"
+                      f"{'میانگین':>10}{'مزیت':>9}{'p':>9}")
+                for k, v in sorted(t.items(),
+                                   key=lambda kv: -(kv[1][1]
+                                                    if isinstance(kv[1], tuple)
+                                                    else 0)):
+                    if k.startswith("_"):
+                        continue
+                    pv = t.get("_p", {}).get(k)
+                    star = " ★" if pv is not None and pv < 0.05 else ""
+                    print(f"      {k:<18}{v[0]:>7,}{v[1]:>6}٪"
+                          f"{v[2]:>+9.2f}٪{v[2] - b[2]:>+9.2f}"
+                          f"{(f'{pv:.4f}' if pv is not None else '—'):>9}"
+                          f"{star}")
+            print("\n      ★ = از نرخ پایهٔ همان دوره جدا شد "
+                  "(آزمونِ جایگشتِ درون‌دوره‌ای).")
+            print("      بدونِ ★ یعنی از تصادف جدا نشد — "
+                  "عددِ برد به‌تنهایی سیگنال نیست.")
+        else:
+            print("      ⚠️  بک‌تست نشد (دادهٔ کم). "
+                  "جدولِ صندوق‌ها **استفاده نمی‌شود**.")
+            WINRATE = {"week": {}, "month": {}}
     # ── صندوقِ «پارکِ پول» را از سیگنال‌ها بیرون بگذار ──────────────
     # مصطفی: «صندوق درآمد ثابت به درد نمی‌خوره، تو سیگنال‌ها نیارش…
     # زیتون، شیلد و اینا بازدهی‌هاشون کمه، فقط به درد پارکِ پول
