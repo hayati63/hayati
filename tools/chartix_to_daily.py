@@ -27,6 +27,7 @@ NAME = {
     "nhal": "نهال", "nqran": "نقران", "ahrm": "اهرم",
     "mwj": "موج", "narnj": "نارنج", "dwayks": "دوایکس",
     "twan": "توان", "bidar": "بیدار", "tmshk": "تمشک",
+    "doaiks": "دوایکس", "dwaiks": "دوایکس", "kahroba": "کهربا",
 }
 
 
