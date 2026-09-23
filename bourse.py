@@ -757,6 +757,44 @@ def flag_targets(bars, px, retrace_max=0.5, flag_max=6):
     return out
 
 
+# ── خلای حجمِ عمودی — استراتژیِ دومِ مصطفی ──────────────────────────
+# «هرگاه یک کندل حجمش از دو کندلِ کنارش کمتر باشد، آن می‌رود توی باکس.
+# بالای آن کلوز داد → روند شروع شده. زیرش کلوز داد → می‌فروشیم.»
+#
+# این با باکسِ POC فرق دارد: آنجا حجمِ **افقی** (پروفایل روی قیمت)،
+# اینجا حجمِ **عمودی** (میلهٔ حجمِ هر کندل).
+#
+# اندازه‌گیری روی ۲٬۸۵۷ مشاهدهٔ هفتگی، ۱۱۲ نماد:
+#
+#   POC      خلا      n     میانگین   مزیت
+#   بالا     بالا    ۸۵۱     +۳٫۴۱٪   +۱٫۱۵
+#   بالا     زیر      ۵۰     +۱٫۸۱٪   +۰٫۰۹   ← وتو، t=۲٫۱۴
+#   داخل     بالا    ۷۶۹     +۲٫۹۹٪   +۰٫۶۳   ← اینجا طلاست
+#   داخل     زیر     ۳۸۷     +۰٫۴۴٪   −۱٫۹۹
+#
+# سه نتیجه، و فقط یکی‌شان به درد می‌خورد:
+#
+# ❌ به‌عنوان **تأییدیه** روی سیگنالِ موجود: هیچ. POC بالا به‌تنهایی
+#    +۳٫۴۸٪ می‌دهد، با تأییدِ خلا +۳٫۴۱٪. تفاوتی نیست.
+# ⚠️ به‌عنوان **وتو**: واقعی ولی نازک — n=۵۰.
+# ✅ به‌عنوان **سیگنالِ مستقل آنجا که POC ساکت است**: قوی.
+#    وقتی POC «داخل» است، خلای حجمی جهت را می‌گوید: +۲٫۹۹٪ در برابر
+#    +۰٫۴۴٪، اختلاف +۲٫۵۵ واحد با t=+۶٫۵۵ روی n=۷۶۹ و ۳۸۷.
+#
+# و این ۴۰٪ مواردی است که سیستمِ فعلی هیچ حرفی ندارد.
+def vgap_state(rows, px):
+    """وضعیتِ کلوز نسبت به آخرین خلای حجمیِ تأییدشده."""
+    g = None
+    for i in range(1, len(rows) - 1):
+        if (rows[i]["v"] < rows[i - 1]["v"]
+                and rows[i]["v"] < rows[i + 1]["v"]):
+            g = i
+    if g is None or g + 1 >= len(rows) - 1:
+        return "؟"
+    lo, hi = rows[g]["l"], rows[g]["h"]
+    return "بالا" if px > hi else "زیر" if px < lo else "داخل"
+
+
 def value_area_box(bars):
     """جایگزین وقتی هیچ دره‌ای نیست: سه بینِ پرحجم‌ترین، روی Close.
 
@@ -1016,6 +1054,7 @@ def analyse(sym, rows, ins=None, allow_ticks=False):
     return {**base, "ok": True, "reason": "",
             "flags": flag_targets(rows, px),
             "w4": state4(px, wb), "m4": state4(px, mb),
+            "vgap": vgap_state(rows, px),
             "mst": state(px, mb), "wst": state(px, wb),
             "cur_box": cur, "cur_st": state(px, cur) if cur else "؟",
             "cur4": state4(px, cur) if cur else "؟",
@@ -1066,8 +1105,15 @@ def build_book(rows, capital):
         if r["mst"] != "بالا":
             return 0
         if r["wst"] == "بالا":
-            return 1
+            # وتوی خلای حجمی: بالای باکسِ POC ولی زیرِ خلای حجمی،
+            # مزیتش از +۱٫۱۵ به +۰٫۰۹ می‌افتد (t=۲٫۱۴). نازک است
+            # (n=۵۰) پس فقط از پلهٔ ۱ به ۲ می‌بردش، نه حذفِ کامل.
+            return 2 if r.get("vgap") == "زیر" else 1
         if r["w4"] == "نیمهٔ بالا":
+            return 2
+        # POC ساکت است ولی خلای حجمی بالاست → نیمه‌سیگنال.
+        # +۲٫۹۹٪ در برابر +۰٫۴۴٪، t=+۶٫۵۵ روی n=۷۶۹.
+        if r["wst"] == "داخل" and r.get("vgap") == "بالا":
             return 2
         return 0
 
@@ -1300,6 +1346,7 @@ def html(rows, book, capital, stamp, last_date, buy=(), sell=()):
                 f'<td class="td n {"g" if avg > 0 else "r"}">{avg:+.2f}٪</td>'
                 f'<td class="td">{bdg(r["mst"])}</td>'
                 f'<td class="td">{bdg(r["wst"])}</td>'
+                f'<td class="td">{bdg(r.get("vgap", "؟"))}</td>'
                 f'<td class="td">{flagcell(r)}</td></tr>')
 
     # مصطفی: «طراحی نمی‌کنی که صندوق‌ها تفکیک شده باشن، این‌جوری
@@ -1331,7 +1378,7 @@ def html(rows, book, capital, stamp, last_date, buy=(), sell=()):
             hot = sum(1 for r in rs if in_band(r, key))
             liq = sum(1 for r in rs if r["value_bn"] >= MIN_VALUE_BN)
             out.append(
-                f'<tr class="grp" data-c="{c}"><td class="td" colspan="14">'
+                f'<tr class="grp" data-c="{c}"><td class="td" colspan="15">'
                 f'<span class="gname">{"بدون دسته" if c == "؟" else c}</span>'
                 f'<span class="gmeta">{len(rs)} نماد · '
                 f'<b class="g">{hot}</b> در نوار · '
@@ -1347,9 +1394,10 @@ def html(rows, book, capital, stamp, last_date, buy=(), sell=()):
         rowsh = []
         for sym, px, which, units in sell:
             rowsh.append(
-                f'<div class="al al-s"><b>🔴 بفروش — {sym}</b>'
+                f'<div class="al al-s"><b>🔄 عوض کن — {sym}</b>'
                 f'<span>کلوز {n(px)} زیرِ باکسِ {which} · '
-                f'{units:,} واحد داری</span></div>')
+                f'{units:,} واحد داری — <b>نقد نشو</b>، ببر روی '
+                f'نمادی که بالای باکسش است</span></div>')
         for sym, aim, stop, risk, tier in buy:
             tag = "" if tier == 1 else " · نیمه‌سیگنال"
             rowsh.append(
@@ -1362,7 +1410,7 @@ def html(rows, book, capital, stamp, last_date, buy=(), sell=()):
 
     SIGH = ("رتبه|نماد|آلارم|کلوز|نقطهٔ ورود|حدضرر|حدسود|ریسک|"
             "n دسته|موفقیتِ دسته|میانگین بازده|ماهانه|هفتگی|"
-            "تارگتِ میله و پرچم")
+            "خلای حجمی|تارگتِ میله و پرچم")
 
     # ── تبِ ۲: دفتر ──
     bk = "".join(
