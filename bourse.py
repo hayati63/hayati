@@ -782,6 +782,64 @@ def flag_targets(bars, px, retrace_max=0.5, flag_max=6):
 #    +۰٫۴۴٪، اختلاف +۲٫۵۵ واحد با t=+۶٫۵۵ روی n=۷۶۹ و ۳۸۷.
 #
 # و این ۴۰٪ مواردی است که سیستمِ فعلی هیچ حرفی ندارد.
+VGAP_MAX_DIST = 25.0
+
+
+def vgap_levels(rows, px):
+    """حمایت/مقاومتِ خلای حجمی در سه تایم‌فریم.
+
+    مصطفی روی دوایکس گرفتش: «یک باکس در حجم عمودی تشکیل شده، به بالا
+    شکسته، و الان در حالِ پولبک زدن به باکس است. این می‌تواند به ما
+    قطعیت بدهد که چند درصد پایین‌تر یک حمایتِ قوی وجود دارد.»
+
+    برای هر تایم‌فریم، آخرین خلای حجمی و فاصلهٔ درصدیِ قیمت تا آن:
+      قیمت بالای باکس → سقفِ باکس **حمایت** است، فاصله مثبت
+      قیمت داخلِ باکس → در حالِ پولبک، همان‌جاست
+      قیمت زیرِ باکس  → کفِ باکس **مقاومت** است، فاصله منفی
+    """
+    out = {}
+    for tf, fa in (("d", "دیلی"), ("w", "هفتگی"), ("m", "ماهانه")):
+        if tf == "d":
+            bars = rows
+        else:
+            b = OrderedDict()
+            for r in rows:
+                d = r["d"]
+                k = ((d.year, d.month) if tf == "m" else week_key(d))
+                e = b.get(k)
+                if e is None:
+                    b[k] = {"h": r["h"], "l": r["l"],
+                            "c": r["c"], "v": r["v"]}
+                else:
+                    e["h"] = max(e["h"], r["h"])
+                    e["l"] = min(e["l"], r["l"])
+                    e["c"] = r["c"]
+                    e["v"] += r["v"]
+            # دورهٔ **جاری** ناقص است: حجمش هنوز کامل نشده و سقف/کفش
+            # می‌تواند تا آخرِ هفته جابه‌جا شود. باکسِ POC هم (بند ۲
+            # CLAUDE.md) فقط از دورهٔ کامل‌شده ساخته می‌شود؛ اینجا هم
+            # همان. سطلِ آخر را می‌اندازیم.
+            bars = list(b.values())[:-1]
+        g = None
+        for i in range(1, len(bars) - 1):
+            if (bars[i]["v"] < bars[i - 1]["v"]
+                    and bars[i]["v"] < bars[i + 1]["v"]):
+                g = i
+        if g is None:
+            continue
+        lo, hi = bars[g]["l"], bars[g]["h"]
+        st = "بالا" if px > hi else "زیر" if px < lo else "داخل"
+        dist = ((px / hi - 1) * 100 if st == "بالا"
+                else (px / lo - 1) * 100 if st == "زیر" else 0.0)
+        # حمایتی که ۹۷٪ پایین‌تر است حمایت نیست. سؤالِ مصطفی «چند درصد
+        # پایین‌تر حمایت هست» بود؛ عددِ بزرگ جوابِ آن سؤال نیست، فقط
+        # جدول را شلوغ می‌کند. از VGAP_MAX_DIST بیشتر → نشان نده.
+        if abs(dist) > VGAP_MAX_DIST:
+            continue
+        out[fa] = {"lo": lo, "hi": hi, "st": st, "dist": dist}
+    return out
+
+
 def vgap_state(rows, px):
     """وضعیتِ کلوز نسبت به آخرین خلای حجمیِ تأییدشده."""
     g = None
@@ -1055,6 +1113,7 @@ def analyse(sym, rows, ins=None, allow_ticks=False):
             "flags": flag_targets(rows, px),
             "w4": state4(px, wb), "m4": state4(px, mb),
             "vgap": vgap_state(rows, px),
+            "vlev": vgap_levels(rows, px),
             "mst": state(px, mb), "wst": state(px, wb),
             "cur_box": cur, "cur_st": state(px, cur) if cur else "؟",
             "cur4": state4(px, cur) if cur else "؟",
@@ -1299,6 +1358,21 @@ def html(rows, book, capital, stamp, last_date, buy=(), sell=()):
         v = (WINRATE[hz].get(k) or WINRATE["week"].get(k)) if k else None
         return v or (0, 0, 0.0)
 
+    def btcell(nn, win, avg):
+        """بک‌تستِ سطلِ وضعیت — سه عددِ یک واقعیت، در یک ستون.
+
+        قبلاً سه ستونِ جدا بود و با اضافه شدنِ «حمایتِ خلای حجمی»
+        جدول از صفحه بیرون می‌زد. n و نرخِ برد و میانگین هر سه از یک
+        سطرِ جدولِ بک‌تست می‌آیند، پس کنار هم درست‌ترند.
+        """
+        if not nn:
+            return '<span class="sub">—</span>'
+        cls = "g" if avg > 0 else "r"
+        return (f'<span class="bt" title="n={nn:,} مشاهده در همین وضعیت">'
+                f'{win}٪ {bar(win)} '
+                f'<b class="{cls}">{avg:+.2f}٪</b> '
+                f'<i class="sub">n={n(nn)}</i></span>')
+
     def flagcell(r):
         """سه تارگتِ میله و پرچم، هرکدام که هنوز نخورده."""
         fs = r.get("flags") or []
@@ -1310,6 +1384,38 @@ def html(rows, book, capital, stamp, last_date, buy=(), sell=()):
             f'{f["scale"]} {n(f["target"])} '
             f'<b class="g">+{f["up_pct"]:.0f}٪</b></span>'
             for f in fs)
+
+    def vlevcell(r):
+        """حمایتِ خلای حجمی — سه تایم‌فریم، فشرده.
+
+        مصطفی: «چند درصد پایین‌تر یک حمایتِ قوی وجود دارد.» همین را
+        نشان می‌دهد؛ هفتگی اول چون خودش گفت مهم‌ترین است.
+        """
+        lv = r.get("vlev") or {}
+        if not lv:
+            return '<span class="sub">—</span>'
+        def pc(x):
+            # «−۰٪» شبیهِ باگ است. زیرِ ۱۰٪ یک رقمِ اعشار بده.
+            return f"{x:.1f}" if abs(x) < 10 else f"{x:.0f}"
+
+        out = []
+        for fa in ("هفتگی", "ماهانه", "دیلی"):
+            v = lv.get(fa)
+            if not v:
+                continue
+            if v["st"] == "داخل":
+                out.append(f'<span class="vl vl-i" title="{fa}: '
+                           f'{n(v["lo"])}–{n(v["hi"])}">{fa[0]} پولبک'
+                           f'</span>')
+            elif v["st"] == "بالا":
+                out.append(f'<span class="vl vl-u" title="{fa}: حمایت '
+                           f'{n(v["hi"])}">{fa[0]} −{pc(v["dist"])}٪'
+                           f'</span>')
+            else:
+                out.append(f'<span class="vl vl-d" title="{fa}: مقاومت '
+                           f'{n(v["lo"])}">{fa[0]} +{pc(-v["dist"])}٪'
+                           f'</span>')
+        return " ".join(out)
 
     def thin(r):
         """نمادِ کم‌حجم در جدول می‌ماند ولی علامت می‌خورد — در دفتر
@@ -1341,12 +1447,10 @@ def html(rows, book, capital, stamp, last_date, buy=(), sell=()):
                 f'<td class="td n r">{n(z["stop"])}</td>'
                 f'<td class="td n g">{n(z["target"])}</td>'
                 f'<td class="td n">{z["risk_pct"]:.1f}٪</td>'
-                f'<td class="td n">{n(nn)}</td>'
-                f'<td class="td n">{win}٪ {bar(win)}</td>'
-                f'<td class="td n {"g" if avg > 0 else "r"}">{avg:+.2f}٪</td>'
+                f'<td class="td n">{btcell(nn, win, avg)}</td>'
                 f'<td class="td">{bdg(r["mst"])}</td>'
                 f'<td class="td">{bdg(r["wst"])}</td>'
-                f'<td class="td">{bdg(r.get("vgap", "؟"))}</td>'
+                f'<td class="td">{vlevcell(r)}</td>'
                 f'<td class="td">{flagcell(r)}</td></tr>')
 
     # مصطفی: «طراحی نمی‌کنی که صندوق‌ها تفکیک شده باشن، این‌جوری
@@ -1378,7 +1482,7 @@ def html(rows, book, capital, stamp, last_date, buy=(), sell=()):
             hot = sum(1 for r in rs if in_band(r, key))
             liq = sum(1 for r in rs if r["value_bn"] >= MIN_VALUE_BN)
             out.append(
-                f'<tr class="grp" data-c="{c}"><td class="td" colspan="15">'
+                f'<tr class="grp" data-c="{c}"><td class="td" colspan="13">'
                 f'<span class="gname">{"بدون دسته" if c == "؟" else c}</span>'
                 f'<span class="gmeta">{len(rs)} نماد · '
                 f'<b class="g">{hot}</b> در نوار · '
@@ -1409,8 +1513,8 @@ def html(rows, book, capital, stamp, last_date, buy=(), sell=()):
     alarm_box = _albox()
 
     SIGH = ("رتبه|نماد|آلارم|کلوز|نقطهٔ ورود|حدضرر|حدسود|ریسک|"
-            "n دسته|موفقیتِ دسته|میانگین بازده|ماهانه|هفتگی|"
-            "خلای حجمی|تارگتِ میله و پرچم")
+            "بک‌تستِ وضعیت|ماهانه|هفتگی|"
+            "حمایتِ خلای حجمی|تارگتِ میله و پرچم")
 
     # ── تبِ ۲: دفتر ──
     bk = "".join(
@@ -1586,6 +1690,13 @@ flex-wrap:wrap}}
 .al-b{{border:1px solid var(--green);
 box-shadow:inset 3px 0 0 var(--green)}}
 .al-s{{border:1px solid var(--red);box-shadow:inset 3px 0 0 var(--red)}}
+.bt{{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}}
+.bt i{{font-style:normal;font-size:.72rem}}
+.vl{{display:inline-block;margin-inline-end:4px;padding:1px 5px;
+border-radius:5px;font-size:.66rem;font-weight:600;white-space:nowrap}}
+.vl-u{{background:rgba(61,214,140,.15);color:var(--green)}}
+.vl-i{{background:rgba(236,201,75,.18);color:var(--yellow)}}
+.vl-d{{background:rgba(245,101,101,.15);color:var(--red)}}
 .flag{{display:inline-block;margin-inline-end:5px;padding:1px 6px;
 border-radius:6px;background:var(--th);font-size:.7rem;
 color:var(--muted);white-space:nowrap}}
@@ -1640,9 +1751,22 @@ font-size:.78rem;color:var(--muted);max-width:72ch}}
   <div class="sub">باکس از ماه میلادیِ کامل‌شدهٔ قبل. <b>نقطهٔ ورود</b>
   سقفِ باکس ‎+۳٪ است، نه خودِ سقف — در بک‌تست ورود روی سقف t=۱٫۳۵ داد و
   ۳٪ بالاتر t=۵٫۴۱. ستونِ آلارم می‌گوید قیمت الان چقدر تا آن فاصله دارد.
-  <br><b>n دسته</b> و <b>موفقیتِ دسته</b> عددِ خودِ نماد نیست — بک‌تست
-  روی کلِ دسته بسته شده، پس همهٔ نمادهای یک دسته یک عدد دارند.
-  نمادِ <span class="thin">کم‌حجم</span> در دفتر نمی‌آید: ارزشِ معاملاتش
+  <br><b>بک‌تستِ وضعیت</b> عددِ خودِ نماد نیست — بک‌تست روی
+  <i>سطلِ وضعیت</i> بسته شده (هر سه بالا · فقط هفتگی · هفتگی زیر …)، پس
+  هر نمادی که امروز در همان وضعیت است همان عدد را می‌گیرد.
+  <br><b>حمایتِ خلای حجمی</b> استراتژیِ دوم است: کندلی که حجمش از دو
+  کندلِ کنارش کمتر بوده باکس می‌شود. <span class="vl vl-u">ه −۴٪</span>
+  یعنی در تایمِ هفتگی بالای آن باکسیم و ۴٪ پایین‌تر حمایت است؛
+  <span class="vl vl-i">ه پولبک</span> یعنی همین حالا داخلِ باکس است —
+  <b>این سیگنالِ خرید نیست</b>: پولبک به باکسِ شکسته بک‌تست شد و از
+  «بالای باکس ولی بدونِ پولبک» ‎−۱٫۳۲ واحد هفتگی و ‎−۰٫۳۴ واحد دیلی
+  <i>بدتر</i> است (docs/24)؛
+  <span class="vl vl-d">ه +۲٪</span> یعنی زیرِ باکسیم و ۲٪ بالاتر مقاومت.
+  هفتگی اول می‌آید چون قابل‌اتکاترین است. باکس از دورهٔ
+  <b>کامل‌شدهٔ</b> قبل ساخته می‌شود و حمایتی که بیش از
+  {VGAP_MAX_DIST:.0f}٪ دور است نشان داده نمی‌شود — جوابِ «چند درصد
+  پایین‌تر؟» نیست.
+  <br>نمادِ <span class="thin">کم‌حجم</span> در دفتر نمی‌آید: ارزشِ معاملاتش
   زیرِ {MIN_VALUE_BN:.0f} میلیارد ریال است و پرشدنِ سفارش تضمین نیست.</div>
   <div class="wrap"><table class="table"><thead><tr>{thead(SIGH)}</tr>
   </thead><tbody>{sigtab("month")}</tbody></table></div>
