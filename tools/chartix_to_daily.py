@@ -29,6 +29,7 @@ NAME = {
     "twan": "توان", "bidar": "بیدار", "tmshk": "تمشک",
     "doaiks": "دوایکس", "dwaiks": "دوایکس", "kahroba": "کهربا",
     "moj": "موج", "khrb": "کهربا",
+    "coppercthd": "گواهی مس", "goldbar": "گواهی شمش طلا",
 }
 
 
