@@ -30,6 +30,7 @@ NAME = {
     "doaiks": "دوایکس", "dwaiks": "دوایکس", "kahroba": "کهربا",
     "moj": "موج", "khrb": "کهربا",
     "coppercthd": "گواهی مس", "goldbar": "گواهی شمش طلا",
+    "silverbar": "گواهی شمش نقره",
 }
 
 
