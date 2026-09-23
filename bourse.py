@@ -1864,8 +1864,17 @@ def html(rows, book, capital, stamp, last_date, buy=(), sell=()):
         elif not (r.get("cat_wide", True)
                   or norm(r["sym"]) in NORM_EXEMPT):
             why_ = "دسته‌اش منفی است"
-        if not why_:
-            return ""
+        else:
+            # ── واجد شرط ولی انتخاب نشده ──────────────────────────
+            # مصطفی روی نهال پرسید «چرا سیگنال نیست؟» و جواب این بود
+            # که هیچ شرطی را رد نکرده — فقط سینرژی با ۴٫۵ برابر حجم
+            # اسلاتِ «کالایی» را گرفته. ولی نهال هیچ نشانی نمی‌گرفت و
+            # از روی جدول با یک نمادِ داخلِ دفتر فرقی نداشت.
+            # همان درسِ نهال، بارِ سوم.
+            return ('<span class="gate gate-ok" title="همهٔ شرط‌ها را '
+                    'دارد ولی در دفتر نیامد: از هر دسته فقط پرحجم‌ترین '
+                    'برداشته می‌شود، و در این دسته نماد بزرگ‌تری هست.">'
+                    'واجد شرط، نه بزرگ‌ترینِ دسته</span>')
         return (f'<span class="gate" title="در دفترِ پیشنهادی نیامد: '
                 f'{why_}">{why_}</span>')
 
@@ -2217,6 +2226,7 @@ color:var(--muted);white-space:nowrap}}
 .gate{{display:inline-block;margin-inline-start:6px;padding:1px 6px;
 border-radius:6px;background:rgba(245,101,101,.13);color:var(--red);
 font-size:.66rem;font-weight:600;white-space:nowrap}}
+.gate-ok{{background:rgba(236,201,75,.15);color:var(--yellow)}}
 .thin{{display:inline-block;margin-inline-start:6px;padding:1px 6px;
 border-radius:6px;background:var(--th);color:var(--muted);
 font-size:.68rem;font-weight:600}}
