@@ -1436,9 +1436,31 @@ def analyse(sym, rows, ins=None, allow_ticks=False):
     # از تصادف جدا نمی‌شود. پس **خبر** است، نه سیگنال.
     cm = by_m[ms[-1]]
     cur = (make_box(cm) or value_area_box(cm)) if len(cm) >= 3 else None
-    # وضعیت و نوار روی کلوزِ **روزِ تصمیم**؛ ستونِ آلارم همچنان
-    # فاصلهٔ **امروز** تا نوار را می‌گوید (zone خودش با px حساب می‌کند).
+    # ── سیگنالی که استاپش **از قبل خورده** مرده است ────────────────
+    # این عیبِ مستقیمِ اصلاحِ «روزِ تصمیم» بود و مصطفی روی دفترِ سهام
+    # گرفتش: وبملت کلوز ۱٬۴۴۴ با استاپِ ۱٬۵۵۶، شپنا ۱۲٬۴۰۰ با استاپِ
+    # ۱۳٬۸۲۵، فملی ۲۴٬۳۱۰ با استاپِ ۲۶٬۳۱۰ — هر سه در دفترِ پیشنهادی،
+    # هر سه با قیمتی که همین حالا زیرِ حدضررشان است.
+    #
+    # علتش: وضعیت درست روی کلوزِ یکشنبه حساب می‌شد، ولی هیچ‌جا چک
+    # نمی‌شد که از یکشنبه تا امروز قیمت از کفِ باکس رد شده یا نه.
+    # سیگنال روی کاغذ زنده می‌ماند در حالی که در عمل مرده است.
+    #
+    # قاعده: **کفِ باکس همان استاپ است.** اگر کلوزِ امروز زیرِ آن است،
+    # آن سیگنال دیگر قابلِ اجرا نیست، هر چه کلوزِ روزِ تصمیم گفته باشد.
+    #
+    # ⚠️ «زیرِ استاپ» با «داخلِ باکس» فرق دارد و این تفکیک لازم است،
+    # وگرنه سینرژی دوباره حذف می‌شود: کلوزش ۶۴٬۵۵۴ بود و کفِ باکس
+    # ۶۳٬۸۵۲ — داخلِ باکس، پولبک، نه استاپ‌خورده.
+    # ⚠️ «زیرِ باکس» با «استاپ‌خورده» یکی نیست و قاطی کردنشان نصفِ
+    # جهان را بی‌خود علامت‌دار می‌کرد. نمادی که در روزِ تصمیم هم زیرِ
+    # باکس بوده اصلاً سیگنال نداده — وضعیتش در ستونِ «هفتگی» پیداست.
+    # مرده آن است که در روزِ تصمیم **سیگنال داده** و از آن موقع تا
+    # امروز از کفِ باکس رد شده.
+    w_dead = state(dec_w, wb) != "زیر" and px < wb[0]
+    m_dead = state(px, mb) != "زیر" and px < mb[0]
     return {**base, "ok": True, "reason": "",
+            "w_dead": w_dead, "m_dead": m_dead,
             "flags": flag_targets(rows, px),
             "w4": state4(dec_w, wb), "m4": state4(px, mb),
             "vgap": vgap_state(rows, px),
@@ -1471,6 +1493,10 @@ def build_book(rows, capital):
         a, t = breadth.get(c, (0, 0))
         breadth[c] = (a + (1 if r["wst"] == "بالا" else 0), t + 1)
     wide = {c for c, (a, t) in breadth.items() if t and a / t >= 0.5}
+    # تا داشبورد هم بتواند بگوید «دسته‌اش منفی است»، بدونِ بازسازیِ
+    # همین محاسبه در جای دوم.
+    for r in rows:
+        r["cat_wide"] = r["cat"] in wide
 
     def tier(r):
         """۱ = سیگنالِ کامل · ۲ = نیمه‌سیگنال · ۰ = هیچ.
@@ -1498,6 +1524,9 @@ def build_book(rows, capital):
         if not (r["cat"] in wide or norm(r["sym"]) in NORM_EXEMPT):
             return 0
         if r["mst"] != "بالا":
+            return 0
+        # استاپِ هر دو افق خورده → اصلاً قابلِ اجرا نیست
+        if r.get("w_dead") and r.get("m_dead"):
             return 0
         if r["wst"] == "بالا":
             # وتوی خلای حجمی: بالای باکسِ POC ولی زیرِ خلای حجمی،
@@ -1562,7 +1591,16 @@ def build_book(rows, capital):
         # میانهٔ پهنایش ۱٫۴۲٪ است و دامنهٔ یک روز ۲٫۶۲٪، پس استاپِ
         # هفتگیِ زیر ۱٪ عملاً داخلِ نویز می‌نشیند و باندِ ماهانه
         # برداشته می‌شود.
-        band = "week" if r["week"]["risk_pct"] >= 1.0 else "month"
+        # ── و باندی که استاپش **از قبل نخورده** ───────────────────
+        # بدونِ این، نمادی که افقِ هفتگی‌اش مرده ولی ماهانه‌اش زنده
+        # است، باز هم با نوارِ هفتگی وارد دفتر می‌شد و استاپی نشان
+        # می‌داد که قیمت از آن رد شده.
+        live = [b for b in ("week", "month") if not r.get(f"{b[0]}_dead")]
+        if not live:
+            continue
+        band = ("week" if ("week" in live
+                           and r["week"]["risk_pct"] >= 1.0)
+                else ("month" if "month" in live else "week"))
         z = r[band]
         amt = capital * w / 100
         book.append({**r, "band": band, "z": z, "w": w,
@@ -1799,6 +1837,38 @@ def html(rows, book, capital, stamp, last_date, buy=(), sell=()):
                            f'</span>')
         return "".join(out)
 
+    def gate(r):
+        """چرا این نماد در دفتر نیست — **داخلِ جدولِ سیگنال**.
+
+        مصطفی روی پالایش گرفتش: «چرا سیگنال شده؟ هم زیرِ حجمِ ماهانهٔ
+        فعلی‌اش است هم زیرِ هفتگی‌اش.» پالایش `cur_st = زیر` داشت و
+        از دفتر بیرون بود — ولی در جدولِ سیگنال رتبهٔ ۳ و ۵ نشسته بود
+        بدونِ هیچ علامتی. تبِ «وضعیت همهٔ نمادها» دلیلش را داشت، ولی
+        چیزی که خوانده می‌شود این جدول است.
+
+        همان درسِ نهال، از جهتِ عکس: آنجا بی‌صدا **حذف** می‌شد، اینجا
+        بی‌صدا **وارد** می‌شود.
+        """
+        if r["sym"] in book_syms:
+            return ""
+        why_ = None
+        if r["value_bn"] < MIN_VALUE_BN or r.get("park"):
+            why_ = None                      # نشانِ «کم‌حجم» خودش هست
+        elif (REQUIRE_CUR_MONTH
+              and r.get("cur4") not in ("بالا", "نیمهٔ بالا", "؟")):
+            why_ = "زیرِ ماهِ جاری"
+        elif r["mst"] != "بالا":
+            why_ = "زیرِ ماه قبل"
+        elif r["wst"] == "زیر":
+            why_ = "زیرِ هفتگی"
+        elif not (r.get("cat_wide", True)
+                  or norm(r["sym"]) in NORM_EXEMPT):
+            why_ = "دسته‌اش منفی است"
+        if not why_:
+            return ""
+        return (f'<span class="gate" title="در دفترِ پیشنهادی نیامد: '
+                f'{why_}">{why_}</span>')
+
     def thin(r):
         """نمادِ کم‌حجم در جدول می‌ماند ولی علامت می‌خورد — در دفتر
         نمی‌آید و مصطفی باید بداند چرا."""
@@ -1808,7 +1878,14 @@ def html(rows, book, capital, stamp, last_date, buy=(), sell=()):
                 f'{r["value_bn"]:.0f} م.ر — زیرِ {MIN_VALUE_BN:.0f}">'
                 f'کم‌حجم</span>')
 
-    def alarm(z):
+    def alarm(z, dead=False):
+        # سیگنالی که استاپش خورده باید **در خودِ جدول** علامت بخورد،
+        # نه فقط از دفتر بیرون برود. مصطفی جدول را می‌خواند، و یک ردیف
+        # با کلوزِ زیرِ استاپ و بدونِ علامت یعنی پیشنهادِ خرید.
+        if dead:
+            return ('<span class="badge b-r" title="کلوزِ امروز زیرِ '
+                    'حدضررِ این باند است — سیگنال دیگر قابلِ اجرا '
+                    'نیست">⛔ استاپ خورده</span>')
         if z["state"] == "در نوار":
             return '<span class="badge b-g">🔔 در نوار</span>'
         if z["state"] == "زیر نوار":
@@ -1822,8 +1899,8 @@ def html(rows, book, capital, stamp, last_date, buy=(), sell=()):
         nn, win, avg = wr(r, key)
         return (f'<tr data-s="{r["sym"]}" data-c="{r["cat"]}">'
                 f'<td class="td">{i}</td>'
-                f'<td class="td sym">{r["sym"]}{thin(r)}</td>'
-                f'<td class="td">{alarm(z)}</td>'
+                f'<td class="td sym">{r["sym"]}{thin(r)}{gate(r)}</td>'
+                f'<td class="td">{alarm(z, r.get(key[0] + "_dead"))}</td>'
                 f'<td class="td n">{n(r["close"])}</td>'
                 f'<td class="td n hi">{n(z["aim"])}</td>'
                 f'<td class="td n r">{n(z["stop"])}</td>'
@@ -1857,6 +1934,7 @@ def html(rows, book, capital, stamp, last_date, buy=(), sell=()):
         out = []
         for c in sorted(by, key=lambda c: (cat_rank(c), c)):
             rs = sorted(by[c], key=lambda r: (
+                1 if r.get(key[0] + "_dead") else 0,
                 0 if in_band(r, key) else
                 1 if r[key]["state"] == "زیر نوار" else 2,
                 0 if r["value_bn"] >= MIN_VALUE_BN else 1,
@@ -1933,7 +2011,7 @@ def html(rows, book, capital, stamp, last_date, buy=(), sell=()):
         f'<td class="td n">{n(r["amt"] / 1e6)}</td>'
         f'<td class="td n">{n(r["units"])}</td>'
         f'<td class="td n r">{n(r["loss"] / 1e6)}</td>'
-        f'<td class="td">{alarm(r["z"])}</td></tr>' for r in book)
+        f'<td class="td">{alarm(r["z"], r.get(r["band"][0] + "_dead"))}</td></tr>' for r in book)
     bk += (f'<tr class="dim"><td class="td sym">نقد</td>'
            f'<td class="td" colspan="7"></td>'
            f'<td class="td n"><b>{100 - inv:.0f}٪</b></td>'
@@ -1948,6 +2026,8 @@ def html(rows, book, capital, stamp, last_date, buy=(), sell=()):
             return ("b-y", r.get("reason", "؟"))
         if r["sym"] in book_syms:
             return ("b-g", "در دفتر" + tag)
+        if r.get("w_dead") and r.get("m_dead"):
+            return ("b-r", "استاپ خورده")
         if r["mst"] != "بالا":
             return ("b-r", "زیرِ ماه قبل")
         if r["wst"] != "بالا":
@@ -2134,6 +2214,9 @@ font-size:.78rem;vertical-align:middle}}
 .flag{{display:inline-block;margin-inline-end:5px;padding:1px 6px;
 border-radius:6px;background:var(--th);font-size:.7rem;
 color:var(--muted);white-space:nowrap}}
+.gate{{display:inline-block;margin-inline-start:6px;padding:1px 6px;
+border-radius:6px;background:rgba(245,101,101,.13);color:var(--red);
+font-size:.66rem;font-weight:600;white-space:nowrap}}
 .thin{{display:inline-block;margin-inline-start:6px;padding:1px 6px;
 border-radius:6px;background:var(--th);color:var(--muted);
 font-size:.68rem;font-weight:600}}
