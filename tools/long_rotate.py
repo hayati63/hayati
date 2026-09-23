@@ -92,7 +92,19 @@ def simulate(data, syms, ks, wk, mode, cost, wcap, gold=None, look=26):
                 up = [s for s in up
                       if d0 in data[s] and d1 in data[s]
                       and data[s][d1].c / data[s][d0].c > gr]
-        if mode == "هولد":
+        if mode == "چرخشِ پر":
+            # **هرگز نقد نشو.** تجزیهٔ بازده نشان داد در پنجرهٔ بلند
+            # هفته‌های «زیرِ باکس» هم **مثبت**اند (عیار +۰٫۴۵٪، اهرم
+            # +۱٫۹۴٪). پس نقد شدن یعنی از بازدهِ مثبت بیرون رفتن.
+            # اینجا اگر هیچ نمادی بالای باکس نبود، به‌جای نقد، سبدِ
+            # هم‌وزن نگه داشته می‌شود.
+            tgt = ({s: min(1.0 / len(up), wcap) for s in up} if up
+                   else {s: 1.0 / len(syms) for s in syms})
+            if sum(tgt.values()) < 0.999:      # سقفِ وزن جا گذاشته
+                rest = 1.0 - sum(tgt.values())
+                for s in syms:                 # باقی را پخش کن
+                    tgt[s] = tgt.get(s, 0) + rest / len(syms)
+        elif mode == "هولد":
             tgt = {s: 1.0 / len(syms) for s in syms}
         elif mode == "نقدشو":
             keep = [s for s in syms if st[s] != "زیر"]
@@ -135,8 +147,8 @@ def main():
 
     print(f"\n  کارمزد {args.cost}٪ روی گردش · سقفِ وزن {args.wcap:.0%}")
     print(f"\n  {'جهان':<6}{'از':<12}{'هفته':>6}{'هولد':>9}"
-          f"{'نقدشو':>9}{'چرخش':>9}{'کیفیت':>9}{'طلا':>8}"
-          f"   بهترین")
+          f"{'نقدشو':>8}{'چرخش':>8}{'کیفیت':>8}"
+          f"{'چرخشِ پر':>10}{'طلا':>7}   بهترین")
     print("  " + "─" * 74)
 
     for k in range(2, len(order) + 1):
@@ -156,7 +168,7 @@ def main():
             continue
         g = g1 / g0
         res = {}
-        for m in ("هولد", "نقدشو", "چرخش", "کیفیت"):
+        for m in ("هولد", "نقدشو", "چرخش", "کیفیت", "چرخشِ پر"):
             e, _sh, n = simulate(data, syms, ks, wk, m, args.cost,
                                  args.wcap, gold)
             res[m] = (e / g - 1) * 100
@@ -164,9 +176,9 @@ def main():
         if max(res.values()) < 0:
             best = "طلا"
         print(f"  {k:<6}{str(days[0]):<12}{len(ks):>6}"
-              f"{res['هولد']:>+8.0f}٪{res['نقدشو']:>+8.0f}٪"
-              f"{res['چرخش']:>+8.0f}٪{res['کیفیت']:>+8.0f}٪"
-              f"{0:>+7.0f}٪   {best}")
+              f"{res['هولد']:>+8.0f}٪{res['نقدشو']:>+7.0f}٪"
+              f"{res['چرخش']:>+7.0f}٪{res['کیفیت']:>+7.0f}٪"
+              f"{res['چرخشِ پر']:>+9.0f}٪{0:>+6.0f}٪   {best}")
         print(f"        ({'، '.join(syms)})")
     print("\n  همهٔ اعداد **بالای طلا**اند. صفر یعنی هم‌پای طلا.")
     return 0
