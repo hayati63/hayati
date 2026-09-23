@@ -130,13 +130,17 @@ CATEGORY = {
     "املاک": "ارزش مسکن امین شهر دانیک عمارت دی مالک آتیه کاخ کاشانه کلید",
     "اهرمی": "اهرم بیدار توان جهش دوآیکس دوایکس شتاب موج نارنج پیشران",
     "بخشی": "امگا بانکا بانکدار بانکو بانکیا بنکر بنکوداریوش بهین رو تخت گاز خودران دارا یکم دارایکم دارونو دلتا رسانا رویین سمان سورنافود سیمانا سیمانو پالایش پتروآبان پتروآگاه پتروسورین پتروصبا پتروفارس پتروما پتروپاداش پناه پولاد چاشنی چتر",
-    "سهامی": "آبنوس آتیمس آس آساس آمیتیس آوا آوان آوید آگاس ابتکار ارزش اطلس اعتبارسهام افق ملت الماس امتیاز انار اوج اکستریم اکسیژن بذر برلیان بزرگ تاراز ترمه تکپاد تیام ثروت ساز سینرژی پادا پرتو پرتوسا پیروز",
+    "سهامی": "آبنوس آتیمس آس آساس آمیتیس آوا آوان آوید آگاس ابتکار ارزش اطلس اعتبارسهام افق ملت الماس امتیاز انار اوج اکستریم اکسیژن بذر برلیان بزرگ تاراز ترمه تکپاد تیام ثروت ساز پادا پرتو پرتوسا پیروز",
     "شاخصی": "آرام فیروزه هم تراز هم وزن همسنگ هوشمند وبازار کاردان",
     "صندوق_در_صندوق": "تمشک خوشه صنم",
     "طلا": "ریتون زر زرفام زروان زرگر زریران زمرد طلا عیار قلک گلد قیراط لیان مثقال مهرگلد میراث ناب نفیس نگین فارس همیان کهربا گلدا گلدیس گنج گوهر",
     "مختلط": "آسام آفرین زیتون شیلد صنوین ضمان مختلط هیبرید گارانتی",
     "نقره": "سیلور سیمین سیگلو نقرابی نقران نقرسا نقرفام نقرین پلاتا",
-    "کالا_کشاورزی": "سافرون نهال",
+    # سینرژی صندوقِ **سپردهٔ کالایی** است، نه سهامی. مصطفی:
+    # «سینرژی یک صندوق سهامی نیست، بر اساس نفت و دلار است،
+    # به سهام ربطی ندارد.» و راهنما هم بند ۳ آن را کنارِ
+    # نهال و کهربا زیرِ «صندوق طلا/کالایی» آورده.
+    "کالایی": "سافرون نهال سینرژی",
 }
 SYM_CAT = {s: c for c, ss in CATEGORY.items() for s in ss.split()}
 
@@ -172,6 +176,13 @@ NORM_FIXED = {norm(x) for x in FIXED_INCOME.split()}
 NORM_EXEMPT.update(norm(x) for x in BREADTH_EXEMPT)
 # نامِ نمایشیِ فارسی، تا «عيار» و «زيتون» عربی در خروجی نیفتد
 DISPLAY = {norm(k): k for k in SYM_CAT}
+
+# پرتفوی، از بند ۷ راهنما. برای **آلارمِ خروج** لازم است: تا ندانیم
+# چه داریم، نمی‌شود گفت کِی بفروش.
+HOLDING = {"نقران": 4238989, "کهربا": 157741, "سمازن": 129712,
+           "دوایکس": 111801, "شاراک": 34835, "سقاین": 29021,
+           "فباهنر": 1}
+NORM_HOLD = {norm(k): v for k, v in HOLDING.items()}
 
 
 # ══ ۱. دانلود ═══════════════════════════════════════════════════════
@@ -756,6 +767,37 @@ def state(px, box):
     return "داخل"
 
 
+def state4(px, box):
+    """مثلِ state، ولی «داخل» را به نیمهٔ بالا و پایین می‌شکند.
+
+    **چرا لازم شد.** مصطفی: «سینرژی نیست. امروز باید سیگنال می‌شد،
+    بهترین ناحیه بود برای خرید… من جایی بودم نتونستم بخرم.»
+
+    حق داشت. سینرژی کلوزِ ۶٬۶۹۳ داشت داخلِ باکسِ ۶٬۴۷۲–۶٬۷۳۲ — یعنی
+    **نیمهٔ بالای** باکس، ولی قاعده فقط «بالای باکس» را سیگنال
+    می‌دانست و هیچ‌چیز نشان نداد.
+
+    اندازه گرفتیم (۲٬۸۷۸ مشاهده، ۴۰ هفته، باکسِ POC، مزیت نسبت به
+    نرخ پایهٔ همان هفته):
+
+        بالا              n=۱۰۱۲   +۳٫۴۵٪   مزیت +۱٫۰۶   ۷۲٪ مثبت
+        داخل — نیمهٔ بالا  n=۷۵۱    +۲٫۶۴٪   مزیت +۰٫۳۳   ۶۴٪ مثبت
+        داخل — نیمهٔ پایین n=۵۳۲    +۱٫۴۲٪   مزیت −۰٫۸۸   ۵۹٪ مثبت
+        زیر               n=۵۸۳    −۰٫۱۸٪   مزیت −۰٫۵۹   ۴۶٪ مثبت
+        (نرخ پایه +۲٫۱۳٪ و ۶۲٪ مثبت)
+
+    نیمهٔ بالا مزیتِ مثبت دارد، نیمهٔ پایین منفی. پس «داخل» را یکجا
+    دور ریختن، نصفِ یک سیگنالِ واقعی را دور می‌ریخت.
+    """
+    if box is None:
+        return "؟"
+    if px > box[1]:
+        return "بالا"
+    if px < box[0]:
+        return "زیر"
+    return "نیمهٔ بالا" if px >= (box[0] + box[1]) / 2 else "نیمهٔ پایین"
+
+
 # مرزِ هفتهٔ صندوق‌های بورسی: **یکشنبه تا شنبه**.
 #
 # این با بند ۰ قانون ۱ راهنما («هفته شنبه تا چهارشنبه») فرق دارد و
@@ -921,6 +963,9 @@ def analyse(sym, rows, ins=None, allow_ticks=False):
         if wb:
             fb.append("هفتگی")
     base["fallback"] = fb
+    rets = [(rows[i]["c"] / rows[i - 1]["c"] - 1) * 100
+            for i in range(1, len(rows)) if rows[i - 1]["c"] > 0]
+    base["vol"] = statistics.pstdev(rets) if len(rets) >= 30 else None
     if mb is None or wb is None:
         miss = "ماهانه" if mb is None else "هفتگی"
         return {**base, "reason": f"باکسِ {miss} به هیچ روشی ساخته نشد"}
@@ -933,8 +978,10 @@ def analyse(sym, rows, ins=None, allow_ticks=False):
     cur = (make_box(cm) or value_area_box(cm)) if len(cm) >= 3 else None
     return {**base, "ok": True, "reason": "",
             "flags": flag_targets(rows, px),
+            "w4": state4(px, wb), "m4": state4(px, mb),
             "mst": state(px, mb), "wst": state(px, wb),
             "cur_box": cur, "cur_st": state(px, cur) if cur else "؟",
+            "cur4": state4(px, cur) if cur else "؟",
             "month": zone(mb, px, BAND["month"]),
             "week": zone(wb, px, BAND["week"])}
 
@@ -954,22 +1001,64 @@ def build_book(rows, capital):
         breadth[c] = (a + (1 if r["wst"] == "بالا" else 0), t + 1)
     wide = {c for c, (a, t) in breadth.items() if t and a / t >= 0.5}
 
-    elig = [r for r in rows
-            if r["mst"] == "بالا" and r["wst"] == "بالا"
-            and r["value_bn"] >= MIN_VALUE_BN
-            and (not REQUIRE_CUR_MONTH or r["cur_st"] in ("بالا", "؟"))
-            and (r["cat"] in wide or norm(r["sym"]) in NORM_EXEMPT)]
+    def tier(r):
+        """۱ = سیگنالِ کامل · ۲ = نیمه‌سیگنال · ۰ = هیچ.
+
+        پلهٔ دوم را مصطفی خواست، و داده پشتش هست: کلوزِ **نیمهٔ بالای**
+        باکسِ هفتگی مزیتِ +۰٫۳۳ واحد و ۶۴٪ مثبت دارد (n=۷۵۱) — کمتر از
+        «بالای باکس» (+۱٫۰۶) ولی روشن بهتر از نیمهٔ پایین (−۰٫۸۸).
+        سینرژی دقیقاً همین‌جا بود و هیچ‌جا دیده نمی‌شد.
+        """
+        if r["value_bn"] < MIN_VALUE_BN or r.get("park"):
+            return 0
+        # فیلترِ ماهِ جاری: مقاومتی که از اولِ ماه ساخته شده.
+        # قاعدهٔ نقران بود — «از ابتدای ماه فعلی یک مقاومت ایجاد کرده
+        # بالای عدد». ولی «داخلِ باکس» یکجا رد کردن زیادی سخت‌گیر بود:
+        # سینرژی با کلوزِ **نیمهٔ بالای** باکسِ ماهِ جاری حذف می‌شد، در
+        # حالی که مقاومتی بالای سرش نبود — وسطِ ناحیه بود.
+        # همان تفکیکی که روی باکسِ هفتگی اندازه گرفتیم اینجا هم اعمال
+        # می‌شود: نیمهٔ بالا رد نمی‌شود، نیمهٔ پایین و «زیر» رد می‌شوند.
+        # ⚠️ این تفکیک روی باکسِ **هفتگی** اندازه‌گیری شده، نه روی ماهِ
+        # جاری. یک‌شکل بودنِ قاعده است، نه اندازه‌گیریِ مستقل — و خودِ
+        # فیلترِ ماهِ جاری هم شاهدِ محکمی ندارد (t از ۰٫۹۷ به ۰٫۸۴).
+        if (REQUIRE_CUR_MONTH
+                and r.get("cur4") not in ("بالا", "نیمهٔ بالا", "؟")):
+            return 0
+        if not (r["cat"] in wide or norm(r["sym"]) in NORM_EXEMPT):
+            return 0
+        if r["mst"] != "بالا":
+            return 0
+        if r["wst"] == "بالا":
+            return 1
+        if r["w4"] == "نیمهٔ بالا":
+            return 2
+        return 0
+
+    for r in rows:
+        r["tier"] = tier(r)
+    elig = [r for r in rows if r["tier"] == 1]
+    half = [r for r in rows if r["tier"] == 2]
+    # از هر دسته بزرگ‌ترین. اگر دسته‌ای سیگنالِ کامل نداشت،
+    # نیمه‌سیگنالش می‌آید — با **نصفِ وزن**، چون مزیتش هم حدودِ
+    # یک‌سومِ سیگنالِ کامل است.
     best = {}
     for r in elig:
         c = r["cat"]
         if c not in best or r["value_bn"] > best[c]["value_bn"]:
             best[c] = r
+    for r in half:
+        c = r["cat"]
+        if c not in best:
+            best[c] = r
     picks = sorted(best.values(), key=lambda r: -r["value_bn"])
     if not picks:
         return elig, []
-    w = min(MAX_WEIGHT, MAX_INVESTED / len(picks))
+    # نیمه‌سیگنال نصفِ وزن می‌گیرد — مزیتش هم حدودِ یک‌سوم است
+    units = sum(1.0 if r["tier"] == 1 else 0.5 for r in picks)
     book = []
     for r in picks:
+        w = min(MAX_WEIGHT,
+                MAX_INVESTED / units * (1.0 if r["tier"] == 1 else 0.5))
         # باندی که استاپش داخلِ نوسانِ یک روز نمی‌نشیند. باکسِ هفتگی
         # میانهٔ پهنایش ۱٫۴۲٪ است و دامنهٔ یک روز ۲٫۶۲٪، پس استاپِ
         # هفتگیِ زیر ۱٪ عملاً داخلِ نویز می‌نشیند و باندِ ماهانه
@@ -983,7 +1072,61 @@ def build_book(rows, capital):
     return elig, book
 
 
-# ══ ۴. تلگرام ═══════════════════════════════════════════════════════
+# ══ ۴. آلارم ════════════════════════════════════════════════════════
+def alarms(rows, book):
+    """آلارمِ ورود و خروج.
+
+    مصطفی: «آلارمِ ورود و خروج بذار. امروز اگه آلارم فعال بود من
+    سینرژی رو خریده بودم.»
+
+    ورود: نمادی که در نوارِ خرید است — یعنی قیمت رسیده به ناحیه‌ای
+          که باید بخری، نه اینکه فقط واجدِ شرط باشد.
+    خروج: نمادی که **داری** و کلوزش زیرِ باکسِ هفتگی یا ماهانه رفته.
+          این همان «سیگنالِ جهتِ عکس» است.
+    """
+    buy, sell = [], []
+    for r in book:
+        z = r["z"]
+        if z["state"] == "در نوار":
+            buy.append((r["sym"], z["aim"], z["stop"], z["risk_pct"],
+                        r.get("tier", 1)))
+    for r in rows:
+        if not r.get("ok"):
+            continue
+        n = norm(r["sym"])
+        if n not in NORM_HOLD:
+            continue
+        if r["wst"] == "زیر" or r["mst"] == "زیر":
+            which = []
+            if r["mst"] == "زیر":
+                which.append("ماهانه")
+            if r["wst"] == "زیر":
+                which.append("هفتگی")
+            sell.append((r["sym"], r["close"], " و ".join(which),
+                         NORM_HOLD[n]))
+    return buy, sell
+
+
+def alarm_text(buy, sell, stamp):
+    """متنِ آلارم — همان چیزی که به تلگرام می‌رود و بالای صفحه می‌آید."""
+    L = []
+    if sell:
+        L.append("<b>🔴 آلارمِ فروش</b>")
+        for sym, px, which, units in sell:
+            L.append(f"• <b>{sym}</b> — کلوز {px:,.0f} زیرِ باکسِ "
+                     f"{which} · {units:,} واحد داری")
+    if buy:
+        L.append("<b>🟢 آلارمِ خرید — الان در نوار</b>")
+        for sym, aim, stop, risk, tier in buy:
+            tag = "" if tier == 1 else " (نیمه‌سیگنال)"
+            L.append(f"• <b>{sym}</b>{tag} ورود {aim:,.0f} | "
+                     f"استاپ {stop:,.0f} | ریسک {risk:.1f}٪")
+    if not L:
+        L.append("امروز نه آلارمِ خرید هست نه فروش.")
+    return f"<b>بورس — {stamp}</b>\n" + "\n".join(L)
+
+
+# ══ ۴ب. تلگرام ══════════════════════════════════════════════════════
 def telegram(text):
     tok = os.environ.get("TELEGRAM_BOT_TOKEN")
     cid = os.environ.get("TELEGRAM_CHAT_ID")
@@ -1004,7 +1147,7 @@ def telegram(text):
 
 
 # ══ ۵. صفحه ═════════════════════════════════════════════════════════
-def html(rows, book, capital, stamp, last_date):
+def html(rows, book, capital, stamp, last_date, buy=(), sell=()):
     """داشبورد — با همان فرمتِ فایلی که مصطفی فرستاد.
 
     `dashboard_monthly.html` او: تمِ تیره، تب‌های قرصی، کاشیِ آمار،
@@ -1101,8 +1244,9 @@ def html(rows, book, capital, stamp, last_date):
     # هر دسته سرفصلِ خودش را دارد و رتبه **داخل دسته** شمرده می‌شود.
     # ترتیبِ دسته‌ها از قانونِ طبقهٔ دارایی (CLAUDE.md §۳) می‌آید:
     # اثرِ جریانِ پول روی اهرمی بیشترین است، روی طلا کمترین.
-    CAT_ORDER = ["اهرمی", "طلا", "نقره", "سهامی", "بخشی", "مختلط",
-                 "کالا_کشاورزی", "صندوق_در_صندوق", "املاک", "شاخصی"]
+    CAT_ORDER = ["اهرمی", "طلا", "نقره", "کالایی", "سهامی",
+                 "بخشی", "مختلط", "صندوق_در_صندوق", "املاک",
+                 "شاخصی"]
 
     def cat_rank(c):
         return CAT_ORDER.index(c) if c in CAT_ORDER else len(CAT_ORDER)
@@ -1131,6 +1275,27 @@ def html(rows, book, capital, stamp, last_date):
                 f'{liq} با حجمِ کافی</span></td></tr>')
             out += [sigrow(i, r, key) for i, r in enumerate(rs, 1)]
         return "".join(out)
+
+    # ── بنرِ آلارم، بالای همه‌چیز ──
+    def _albox():
+        if not buy and not sell:
+            return ('<div class="alarm quiet">🔕 امروز نه آلارمِ خرید '
+                    'هست نه فروش.</div>')
+        rowsh = []
+        for sym, px, which, units in sell:
+            rowsh.append(
+                f'<div class="al al-s"><b>🔴 بفروش — {sym}</b>'
+                f'<span>کلوز {n(px)} زیرِ باکسِ {which} · '
+                f'{units:,} واحد داری</span></div>')
+        for sym, aim, stop, risk, tier in buy:
+            tag = "" if tier == 1 else " · نیمه‌سیگنال"
+            rowsh.append(
+                f'<div class="al al-b"><b>🟢 بخر — {sym}</b>'
+                f'<span>ورود {n(aim)} · استاپ {n(stop)} · '
+                f'ریسک {risk:.1f}٪{tag}</span></div>')
+        return f'<div class="alarm">{"".join(rowsh)}</div>'
+
+    alarm_box = _albox()
 
     SIGH = ("رتبه|نماد|آلارم|کلوز|نقطهٔ ورود|حدضرر|حدسود|ریسک|"
             "n دسته|موفقیتِ دسته|میانگین بازده|ماهانه|هفتگی|"
@@ -1300,6 +1465,16 @@ tr.grp .td{{background:var(--th);border-top:2px solid var(--blue);
 padding:8px 12px}}
 .gname{{font-weight:700;font-size:.95rem;color:var(--text)}}
 .gmeta{{color:var(--muted);font-size:.78rem;margin-inline-start:12px}}
+.alarm{{margin:16px 0;display:flex;flex-direction:column;gap:8px}}
+.alarm.quiet{{padding:13px 16px;border-radius:12px;background:var(--card);
+border:1px solid var(--border);color:var(--muted);font-size:.85rem}}
+.al{{display:flex;justify-content:space-between;align-items:center;
+gap:14px;padding:13px 16px;border-radius:12px;background:var(--card);
+flex-wrap:wrap}}
+.al b{{font-size:1rem}} .al span{{color:var(--muted);font-size:.85rem}}
+.al-b{{border:1px solid var(--green);
+box-shadow:inset 3px 0 0 var(--green)}}
+.al-s{{border:1px solid var(--red);box-shadow:inset 3px 0 0 var(--red)}}
 .flag{{display:inline-block;margin-inline-end:5px;padding:1px 6px;
 border-radius:6px;background:var(--th);font-size:.7rem;
 color:var(--muted);white-space:nowrap}}
@@ -1331,6 +1506,8 @@ font-size:.78rem;color:var(--muted);max-width:72ch}}
 <h1>داشبورد ریسک و بازده — صندوق‌های ETF</h1>
 <div class="sub">کلوز {stamp} ({WD[last_wd]}) · {len(rows)} نماد بررسی شد
 · {len(ok_rows)} نماد با باکسِ معتبر</div>
+
+{alarm_box}
 
 <div class="cal"><table><tbody>{cal}</tbody></table>
 <div class="mn">ماهانه: {month_note(last_date)}</div></div>
@@ -1552,6 +1729,34 @@ def main():
     if not rows:
         print("      هیچ نمادی دادهٔ کافی نداشت.")
         return 1
+    # ── صندوقِ «پارکِ پول» را از سیگنال‌ها بیرون بگذار ──────────────
+    # مصطفی: «صندوق درآمد ثابت به درد نمی‌خوره، تو سیگنال‌ها نیارش…
+    # زیتون، شیلد و اینا بازدهی‌هاشون کمه، فقط به درد پارکِ پول
+    # می‌خوره.»
+    #
+    # با اسم نمی‌شود شناختشان — زیتون و شیلد در دستهٔ «مختلط» بودند و
+    # در فهرستِ درآمد ثابت نبودند. ولی با **نوسان** بی‌خطا جدا می‌شوند.
+    # اندازه‌گیری روی ۱۳۵ نماد: میانهٔ نوسانِ روزانه ۲٫۱۹٪، و اینها ته
+    # فهرست‌اند — گارانتی ۰٫۲۱٪ · زیتون ۰٫۳۱٪ · انار ۰٫۳۹٪ ·
+    # مختلط ۰٫۴۵٪ · شیلد ۰٫۵۹٪ — در حالی که بازدهِ کلشان ۱۹–۴۱٪ است
+    # در برابر ۱۰۰٪+ بازار.
+    #
+    # آستانه **نسبی** است نه عددِ ثابت (بند ۰ قانون ۳): یک‌سومِ میانهٔ
+    # خودِ جهانِ نمادها. با دادهٔ امروز یعنی ۰٫۷۳٪.
+    vols = sorted(r["vol"] for r in rows if r.get("vol"))
+    if vols:
+        med = vols[len(vols) // 2]
+        cut = med / 3.0
+        npark = 0
+        for r in rows:
+            if r.get("vol") is not None and r["vol"] < cut:
+                r["park"] = True
+                r["reason"] = r.get("reason") or "پارکِ پول"
+                npark += 1
+        if npark:
+            print(f"      {npark} صندوقِ پارکِ پول کنار گذاشته شد "
+                  f"(نوسانِ زیر {cut:.2f}٪ · میانهٔ بازار {med:.2f}٪)")
+
     stamp = max(r["date"] for r in rows)
     print(f"      {len(rows)} نماد · کلوز {stamp}")
 
@@ -1578,7 +1783,9 @@ def main():
     print("\n[۴/۴] ساخت صفحه...")
     y, mo, dd = (int(x) for x in stamp.split("-"))
     last_date = date(y, mo, dd)
-    OUT.write_text(html(rows, book, capital, stamp, last_date),
+    buy, sell = alarms(rows, book)
+    OUT.write_text(html(rows, book, capital, stamp, last_date,
+                        buy, sell),
                    encoding="utf-8")
     print(f"      {OUT}")
 
@@ -1667,19 +1874,32 @@ def main():
 
     print(f"\n  {len(hot)} نماد در نوار خرید · {len(elig)} واجد شرط")
 
+    # ── آلارم ──
+    if buy or sell:
+        print("\n" + "=" * 64)
+        print("  🔔 آلارم")
+        print("=" * 64)
+        for sym, px, which, units in sell:
+            print(f"  🔴 فروش  {sym:<10} کلوز {px:>12,.0f} زیرِ باکسِ "
+                  f"{which} · {units:,} واحد")
+        for sym, aim, stop, risk, tier in buy:
+            tag = "" if tier == 1 else " (نیمه)"
+            print(f"  🟢 خرید  {sym:<10} ورود {aim:>12,.0f} · "
+                  f"استاپ {stop:,.0f} · ریسک {risk:.1f}٪{tag}")
+    else:
+        print("\n  🔕 امروز نه آلارمِ خرید هست نه فروش.")
+
     if args.telegram:
-        lines = [f"<b>سفارشِ امروز</b> — {stamp}"]
+        txt = alarm_text(buy, sell, stamp)
         if book:
+            txt += "\n\n<b>سفارشِ امروز</b>"
             for r in book:
                 z = r["z"]
-                lines.append(
-                    f"• <b>{r['sym']}</b> ورود {z['aim']:,.0f} | "
-                    f"استاپ {z['stop']:,.0f} | ریسک {z['risk_pct']:.1f}%")
-        else:
-            lines.append("امروز نمادی واجد شرط نیست.")
-        lines.append("")
-        lines.append("خوانشِ قاعده‌های خودت روی داده، نه توصیهٔ مالی.")
-        print("\n  تلگرام:", "رفت" if telegram("\n".join(lines)) else "نرفت")
+                txt += (f"\n• <b>{r['sym']}</b> ورود {z['aim']:,.0f} | "
+                        f"استاپ {z['stop']:,.0f} | "
+                        f"ریسک {z['risk_pct']:.1f}%")
+        txt += "\n\nخوانشِ قاعده‌های خودت روی داده، نه توصیهٔ مالی."
+        print("\n  تلگرام:", "رفت" if telegram(txt) else "نرفت")
 
     if args.open:
         try:
