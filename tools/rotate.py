@@ -61,12 +61,14 @@ def periods(rows, mode, anchor):
     return buck
 
 
-def build(files, mode, anchor, kind, cat):
+def build(files, mode, anchor, kind, cat, only=None):
     """{دوره: {نماد: (وضعیت، بازدهٔ دوره، نقدینگی)}} + فهرستِ دوره‌ها."""
     grid = defaultdict(dict)
     for f in files:
         sym = norm(f.stem.replace("_daily", ""))
         if is_fixed_income(sym):
+            continue
+        if only is not None and sym not in only:
             continue
         if cat and SYM2CAT.get(sym) != cat:
             continue
@@ -91,7 +93,7 @@ def build(files, mode, anchor, kind, cat):
     return grid, sorted(grid)
 
 
-def run(grid, keys, mode, cost, core=0.0, topn=6):
+def run(grid, keys, mode, cost, core=0.0, topn=6, wcap=1.0):
     """چهار راه را با هم جلو می‌برد. خروجی: {نام: بازدهٔ درصدی}"""
     eq = {"هولد": 1.0, "نقدشو": 1.0, "چرخش": 1.0, "هسته+نوسان": 1.0}
     hold_state = set()               # نمادهایی که راهِ «نقدشو» نگه داشته
@@ -145,7 +147,13 @@ def run(grid, keys, mode, cost, core=0.0, topn=6):
         # ۳ چرخش — همیشه در بازار تا وقتی حتی یک نماد مثبت است.
         #   پول از نمادِ منفی **بیرون** می‌آید و می‌رود روی مثبت‌ها،
         #   نه اینکه نقد بنشیند.
-        step("چرخش", {s: 1.0 / len(pick) for s in pick} if pick else {})
+        # سقفِ وزنِ هر نماد. اگر کمتر از ۱/cap نماد واجد شرط باشد،
+        # بقیه **نقد** می‌ماند — یعنی سقفِ تمرکز خودش نقد می‌سازد.
+        if pick:
+            wt = min(1.0 / len(pick), wcap)
+            step("چرخش", {s: wt for s in pick})
+        else:
+            step("چرخش", {})
 
         # ۴ هسته + نوسان
         tgt = {s: core / len(syms) for s in syms}
@@ -168,7 +176,15 @@ def main():
                     help="سهمِ همیشه-هولد در راهِ چهارم")
     ap.add_argument("--topn", type=int, default=6)
     ap.add_argument("--week-anchor", type=int, default=6)
+    ap.add_argument("--syms", default=None,
+                    help="فهرستِ نمادها با کاما — جهانِ محدود")
+    ap.add_argument("--wcap", type=float, default=1.0,
+                    help="سقفِ وزنِ هر نماد، مثلاً 0.2")
+    ap.add_argument("--sweep-core", action="store_true",
+                    help="نسبتِ هسته را از ۰ تا ۱۰۰ جارو کن")
     args = ap.parse_args()
+    only = ({norm(x) for x in args.syms.split(",") if x.strip()}
+            if args.syms else None)
 
     files = sorted(Path(args.data).glob("*.csv"))
     if not files:
@@ -177,17 +193,40 @@ def main():
 
     print(f"\n  باکس {args.kind} · کارمزد {args.cost:.2f}٪ روی گردش · "
           f"حداکثر {args.topn} نماد · هسته {args.core:.0%}")
+    if only:
+        print(f"  جهانِ محدود: {len(only)} نماد")
+
+    # ── جاروی نسبتِ هسته ──────────────────────────────────────────
+    # مصطفی: «چه نسبتی؟ پنجاه‌پنجاه؟ هفتاد سی؟»
+    # ⚠️ این جارو روی **همان** ۴۶ هفته است که بقیهٔ اعداد از آن آمده.
+    # بهترین خانه‌اش لزوماً بهترینِ آینده نیست — شکلِ منحنی را بخوان،
+    # نه قلهٔ دقیقش.
+    if args.sweep_core:
+        grid, keys = build(files, "week", args.week_anchor,
+                           args.kind, None, only)
+        if len(keys) >= 4:
+            print(f"\n  ══ نسبتِ هسته (هفتگی، {len(keys)} هفته) ══")
+            print(f"  {'هسته':>6}{'نوسان':>8}{'بازده':>10}"
+                  f"{'در بازار':>10}")
+            print("  " + "─" * 36)
+            for c in (0.0, 0.25, 0.4, 0.5, 0.6, 0.75, 1.0):
+                res, inm, _n = run(grid, keys, "week", args.cost,
+                                   c, args.topn, args.wcap)
+                print(f"  {c:>5.0%}{1 - c:>8.0%}"
+                      f"{res['هسته+نوسان']:>9.0f}٪"
+                      f"{inm['هسته+نوسان']:>9.0f}٪")
+        return 0
 
     for cat in [None] + sorted(CATS):
         name = cat or "همهٔ نمادها"
         line = []
         for mode, fa in (("week", "هفتگی"), ("month", "ماهانه")):
             grid, keys = build(files, mode, args.week_anchor,
-                               args.kind, cat)
+                               args.kind, cat, only)
             if len(keys) < 4:
                 continue
             res, inm, n = run(grid, keys, mode, args.cost,
-                              args.core, args.topn)
+                              args.core, args.topn, args.wcap)
             line.append((fa, res, inm, n))
         if not line:
             continue
