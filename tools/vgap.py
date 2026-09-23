@@ -47,20 +47,55 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from monthly_backtest import load_daily, is_fixed_income, norm  # noqa: E402
 
 
-def vgap_boxes(bars):
-    """ایندکسِ کندل‌هایی که حجمشان کمینهٔ محلی است."""
+# ── مطابقت با کدِ Pine خودش (VertVolGap-v3) ────────────────────────
+# مصطفی کدِ TradingView را فرستاد. سه اختلاف با نسخهٔ اولِ من داشت، و
+# هر سه معنادارند:
+#
+# ۱. **عمیق‌ترین دره، نه آخرین.** `f_findVolumeGapByIndex` در پنجره
+#    می‌گردد و کمینهٔ محلی‌ای را برمی‌دارد که **حجمش از همه کمتر**
+#    است (`v0 < bestVol`). من آخرین دره را می‌گرفتم.
+#
+# ۲. **جهت از کندلِ تأییدکننده می‌آید، نه از قیمتِ امروز.**
+#        confC = close[idxTop + 1]
+#        dir = +1 اگر confC > سقفِ باکس · −1 اگر < کفِ باکس
+#    و این جهت **قفل می‌شود** — کامنتِ خودش: «never re-derived from
+#    the touching candle». من هر بار از کلوزِ روز دوباره حساب می‌کردم.
+#
+# ۳. **ورود با لمسِ باکس است، نه کلوزِ بالای آن.**
+#        if high >= bot and low <= top → BUY/SELL
+#    یعنی پولبک به ناحیه. من کلوز را می‌سنجیدم.
+#
+# اگر کندلِ تأییدکننده **داخلِ** باکس ببندد، کد تا ۴ کندلِ تایم‌فریمِ
+# پایین‌تر صبر می‌کند و اگر باز هم روشن نشد سیگنال را رها می‌کند.
+# اینجا ساده‌تر: جهتِ مبهم = بدونِ سیگنال.
+def find_gap(bars, a, b):
+    """عمیق‌ترین درهٔ حجمی در بازهٔ [a, b] — مثلِ Pine."""
+    best, bv = None, float("inf")
+    for i in range(max(a, 1), min(b, len(bars) - 2) + 1):
+        v = bars[i].v
+        if v < bars[i - 1].v and v < bars[i + 1].v and v < bv:
+            bv, best = v, i
+    return best
+
+
+def gap_signals(bars):
+    """[(ایندکسِ تأیید، کف، سقف، جهت)] — هر خلای حجمیِ جهت‌دار."""
     out = []
     for i in range(1, len(bars) - 1):
-        if bars[i].v < bars[i - 1].v and bars[i].v < bars[i + 1].v:
-            out.append(i)
+        if not (bars[i].v < bars[i - 1].v and bars[i].v < bars[i + 1].v):
+            continue
+        lo, hi = bars[i].l, bars[i].h
+        conf = bars[i + 1].c            # کندلِ تأییدکننده
+        d = 1 if conf > hi else -1 if conf < lo else 0
+        if d:
+            out.append((i + 1, lo, hi, d))
     return out
 
 
 def state_at(bars, gaps, i):
-    """وضعیتِ کلوزِ کندلِ i نسبت به آخرین خلای حجمیِ **تأییدشده**.
+    """وضعیتِ کلوزِ کندلِ i نسبت به آخرین خلای حجمیِ تأییدشده.
 
-    خلای کندلِ g وقتی تأیید می‌شود که g+1 بسته شده باشد، پس فقط
-    خلاهایی به کار می‌آیند که g + 1 < i.
+    نسخهٔ سازگار با آزمون‌های قبلی. `gaps` خروجیِ `vgap_boxes` است.
     """
     g = None
     for x in gaps:
@@ -74,6 +109,12 @@ def state_at(bars, gaps, i):
     c = bars[i].c
     st = "بالا" if c > hi else "زیر" if c < lo else "داخل"
     return st, (lo, hi)
+
+
+def vgap_boxes(bars):
+    """ایندکسِ همهٔ دره‌های حجمی (برای `state_at`)."""
+    return [i for i in range(1, len(bars) - 1)
+            if bars[i].v < bars[i - 1].v and bars[i].v < bars[i + 1].v]
 
 
 def resample(rows, mode):
