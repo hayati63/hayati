@@ -1,0 +1,82 @@
+# به‌روزرسانی خودکار روزانه — روی سرورهای گیت‌هاب، نه ماشین مصطفی.
+#
+# چرا اینجا: شبکهٔ کانتینر ابریِ Claude به cdn.tsetmc.com جواب ۴۰۳ می‌دهد
+# (سیاست شبکه، نه DNS و نه TLS). ماشین ویندوزِ مصطفی کار می‌کند ولی
+# refresh.bat هیچ‌وقت اجرا نشد. رانرِ گیت‌هاب اینترنت باز دارد و رایگان
+# است، پس این تنها مسیری است که **بدون دخالت هیچ‌کس** هر روز اجرا می‌شود.
+#
+# ساعت‌ها به وقت تهران (UTC+3:30):
+#   ۱۲:۴۵ ظهر → ۰۹:۱۵ UTC   یک ربع بعد از بستن بورس
+#   ۱۸:۱۵     → ۱۴:۴۵ UTC   یک ربع بعد از بستن طلا
+name: به‌روزرسانی روزانه
+
+# ⚠️ گیت‌هاب زمان‌بندی (`schedule`) را **فقط از برنچ پیش‌فرض** اجرا
+# می‌کند. تا وقتی PR مرج نشده، این فایل روی برنچ است و هیچ‌وقت خودکار
+# اجرا نمی‌شود. بعد از مرج، هم زمان‌بندی کار می‌کند هم دکمهٔ Run workflow.
+on:
+  schedule:
+    - cron: '15 9 * * 6,0,1,2,3'     # شنبه تا چهارشنبه، بعد از بستن بورس
+    - cron: '45 14 * * 6,0,1,2,3'    # بعد از بستن طلا
+  workflow_dispatch:                  # دکمهٔ اجرای دستی
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: دانلود از TSETMC
+        id: fetch
+        run: |
+          set -o pipefail
+          python tools/fetch_tsetmc.py 2>&1 | tee fetch.log
+        continue-on-error: true
+
+      - name: محاسبه‌ها
+        run: |
+          set -e
+          python tools/breadth.py --json data/breadth.json || true
+          python tools/liquidity.py --data data_auto \
+            --holdings data/holdings.txt --out data/liquidity.json || true
+          python tools/tomorrow.py --json data/tomorrow.json
+          python tools/zones.py --json data/zones.json
+          python tools/attribute.py --json data/attribution.json || true
+          python tools/mkdash.py
+
+      - name: ساخت داشبورد
+        run: python tools/build_page.py --out app/tomorrow.html
+
+      # اگر دو Secret تنظیم نشده باشند، zones.py خودش پیام می‌دهد و
+      # بی‌صدا رد می‌شود — پس اینجا شرطی لازم نیست.
+      - name: آلارمِ تلگرام
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python tools/zones.py --alert --telegram
+
+      - name: ثبت
+        run: |
+          git config user.name  "hayati-bot"
+          git config user.email "noreply@github.com"
+          git add data_auto data app 2>/dev/null || true
+          if git diff --cached --quiet; then
+            echo "هیچ داده‌ای عوض نشد."
+          else
+            git commit -m "داده $(date -u +%Y-%m-%d\ %H:%M) UTC"
+            git push
+          fi
+
+      - name: اگر دانلود شکست خورد، شکست بده
+        if: steps.fetch.outcome == 'failure'
+        run: |
+          echo "::error::دانلود TSETMC شکست خورد — لاگ بالا را ببین."
+          exit 1

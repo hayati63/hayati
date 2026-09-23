@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+portfolio.html
+data/bridge.html
+data_bourse/
+dashboard.html
+data_stocks/
+dashboard_stocks.html

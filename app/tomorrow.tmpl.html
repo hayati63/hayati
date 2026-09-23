@@ -1,0 +1,625 @@
+<title>تصمیم فردا</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;700;900&display=swap">
+<style>
+:root{
+  --bg:#EEF1F5; --surface:#FFFFFF; --sunk:#F6F8FA;
+  --ink:#141E29; --muted:#5B6874; --faint:#8B98A5;
+  --line:#D5DDE5; --line-soft:#E6ECF2;
+  --brass:#8A6512; --brass-soft:#F0E6CE;
+  --up:#0B6E4F; --up-bg:#DFF1E9;
+  --flat:#66727E; --flat-bg:#E8ECF0;
+  --down:#A32A21; --down-bg:#FAE3E1;
+  --warn:#8A5A00; --warn-bg:#FBF0DB;
+}
+@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]){
+  --bg:#0C1117; --surface:#141C25; --sunk:#101821;
+  --ink:#E3EAF1; --muted:#95A2AF; --faint:#6C7A88;
+  --line:#25313C; --line-soft:#1C2732;
+  --brass:#D6A93A; --brass-soft:#2B2413;
+  --up:#45C28F; --up-bg:#10281F;
+  --flat:#8A96A2; --flat-bg:#1B242E;
+  --down:#EE7365; --down-bg:#2E1715;
+  --warn:#D9A445; --warn-bg:#2A2113;
+}}
+:root[data-theme="dark"]{
+  --bg:#0C1117; --surface:#141C25; --sunk:#101821;
+  --ink:#E3EAF1; --muted:#95A2AF; --faint:#6C7A88;
+  --line:#25313C; --line-soft:#1C2732;
+  --brass:#D6A93A; --brass-soft:#2B2413;
+  --up:#45C28F; --up-bg:#10281F;
+  --flat:#8A96A2; --flat-bg:#1B242E;
+  --down:#EE7365; --down-bg:#2E1715;
+  --warn:#D9A445; --warn-bg:#2A2113;
+}
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:Vazirmatn,"Segoe UI",system-ui,sans-serif;
+  font-size:15px; line-height:1.7; direction:rtl;
+  -webkit-text-size-adjust:100%;
+}
+.wrap{max-width:1080px; margin:0 auto; padding-block:28px 56px; padding-left:16px; padding-right:16px}
+h1,h2,h3{text-wrap:balance; margin:0}
+.masthead{display:flex; flex-wrap:wrap; align-items:baseline; gap:8px 16px; margin-bottom:6px}
+h1{font-size:clamp(26px,5vw,38px); font-weight:900; letter-spacing:-.02em; line-height:1.25}
+.stamp{font-size:12.5px; color:var(--muted); font-variant-numeric:tabular-nums}
+.lede{color:var(--muted); font-size:14.5px; max-width:62ch; margin:8px 0 0}
+section{margin-top:40px}
+.shead{display:flex; align-items:baseline; gap:12px; border-bottom:2px solid var(--brass); padding-bottom:7px; margin-bottom:6px}
+.shead h2{font-size:19px; font-weight:700; letter-spacing:-.01em}
+.shead .sub{font-size:12.5px; color:var(--faint); margin-inline-start:auto; font-variant-numeric:tabular-nums}
+.snote{color:var(--muted); font-size:13.5px; margin:10px 0 16px; max-width:66ch}
+.tbox{overflow-x:auto; background:var(--surface); border:1px solid var(--line); border-radius:9px}
+table{border-collapse:collapse; width:100%; font-size:13.5px; font-variant-numeric:tabular-nums}
+th,td{padding:8px 11px; text-align:right; white-space:nowrap; border-bottom:1px solid var(--line-soft)}
+thead th{background:var(--sunk); font-size:11.5px; font-weight:700; color:var(--muted);
+  letter-spacing:.04em; position:sticky; top:0; border-bottom:1px solid var(--line)}
+tbody tr:last-child td{border-bottom:none}
+td.sym{font-weight:700}
+td.n,th.n{text-align:left; font-feature-settings:"tnum"}
+.pill{display:inline-block; padding:1px 8px; border-radius:11px; font-size:11.5px; font-weight:700; line-height:1.6}
+.p-up{background:var(--up-bg); color:var(--up)} .p-flat{background:var(--flat-bg); color:var(--flat)}
+.p-down{background:var(--down-bg); color:var(--down)} .p-warn{background:var(--warn-bg); color:var(--warn)}
+tr.buy td.act{color:var(--up); font-weight:700}
+tr.sell td.act{color:var(--down); font-weight:700}
+tr.sell{background:color-mix(in srgb,var(--down-bg) 40%,transparent)}
+tr.cash td{color:var(--muted); font-style:italic}
+tfoot td{font-weight:700; background:var(--sunk); border-top:1px solid var(--line)}
+.cards{display:grid; grid-template-columns:repeat(auto-fit,minmax(165px,1fr)); gap:12px; margin:16px 0}
+.card{background:var(--surface); border:1px solid var(--line); border-radius:9px; padding:13px 15px}
+.card .k{font-size:11.5px; color:var(--faint); letter-spacing:.03em}
+.card .v{font-size:25px; font-weight:900; letter-spacing:-.02em; font-variant-numeric:tabular-nums; line-height:1.3}
+.card .d{font-size:12px; color:var(--muted)}
+.grid3{border-collapse:collapse; width:100%; font-size:13.5px; font-variant-numeric:tabular-nums}
+.grid3 th,.grid3 td{border:1px solid var(--line); padding:9px 8px; text-align:center}
+.grid3 thead th{background:var(--sunk); font-size:11.5px; color:var(--muted)}
+.grid3 td.rh{background:var(--sunk); font-weight:700; font-size:12px}
+.grid3 td .nn{display:block; font-size:16px; font-weight:800}
+.grid3 td .cc{display:block; font-size:11px; color:var(--faint)}
+.cell-good{background:var(--up-bg)} .cell-good .nn{color:var(--up)}
+.cell-bad{background:var(--down-bg)} .cell-bad .nn{color:var(--down)}
+.note{border-inline-start:3px solid var(--brass); background:var(--surface);
+  padding:12px 15px; border-radius:0 8px 8px 0; margin:16px 0; font-size:13.5px; color:var(--muted)}
+.note b{color:var(--ink)}
+.note.alarm{border-inline-start-color:var(--down)}
+.note.caution{border-inline-start-color:var(--warn)}
+ul{margin:8px 0; padding-inline-start:20px} li{margin:5px 0; font-size:13.5px; color:var(--muted)}
+li b{color:var(--ink)}
+.foot{margin-top:48px; padding-top:18px; border-top:1px solid var(--line);
+  font-size:12.5px; color:var(--faint); max-width:66ch}
+.foot b{color:var(--muted)}
+@media (max-width:560px){
+  th,td{padding:7px 8px; font-size:12.5px}
+  .card .v{font-size:21px}
+}
+</style>
+
+<div class="wrap">
+
+<header>
+  <div class="masthead">
+    <h1>تصمیم فردا</h1>
+    <span class="stamp" id="stamp"></span>
+  </div>
+  <p class="lede">باکس حجمی روی دورهٔ کامل‌شدهٔ قبل — ماهانه و هفتگی با هم.
+  ترتیب بخش‌ها همان ترتیب شرط‌های یک معامله است: اول چه بخرم، بعد چه دارم،
+  بعد شواهدی که پشتش است.</p>
+</header>
+
+<section>
+  <div class="shead"><h2>سفارشِ امروز</h2><span class="sub" id="bkcap"></span></div>
+  <p class="snote">یکی از هر گروه، و آن بزرگ‌ترین بر اساس ارزشِ معاملاتِ
+  روزانه — چون اعضای یک گروه همگرایی بالایی دارند، پس دو تا برداشتن ریسک
+  را پخش نمی‌کند و فقط نقدشوندگی را بدتر می‌کند.</p>
+  <div class="tbox"><table id="t-book"></table></div>
+  <div class="note" id="bknote"></div>
+  <div class="note alarm" id="bkskip"></div>
+</section>
+
+<section>
+  <div class="shead"><h2>داشبورد ماهانه</h2><span class="sub" id="msub"></span></div>
+  <p class="snote">باکس از ماه میلادیِ کامل‌شدهٔ قبل. نوارِ خرید سقفِ باکس
+  تا <b>+۴٪</b> است (هدف +۳٪) — چون ورود روی خودِ سقف t=۱٫۳۵ دارد و
+  ورودِ ۳٪ بالاتر t=۵٫۴۱.</p>
+  <div class="tbox"><table id="t-month"></table></div>
+</section>
+
+<section>
+  <div class="shead"><h2>داشبورد هفتگی</h2><span class="sub" id="wsub"></span></div>
+  <p class="snote">باکس از هفتهٔ کامل‌شدهٔ قبل (شنبه تا چهارشنبه). نوار
+  تا <b>+۲٪</b> (هدف +۰٫۵٪) — باکس هفتگی یک‌سومِ ماهانه پهناست، پس ۳٪
+  بالاتر آنجا خراب می‌کند.</p>
+  <div class="tbox"><table id="t-week"></table></div>
+</section>
+
+<section>
+  <div class="shead"><h2>۱. پرتفوی هدف — کاملِ فهرست</h2><span class="sub" id="cap"></span></div>
+  <p class="snote">از میان <b id="uni"></b> نماد، <b id="elig"></b> تا هم بالای باکس ماهانه‌اند
+  و هم بالای باکس هفتگی. وزن = امتیاز ÷ ریسک، با سقف ۱۲٪ هر نماد و ۳۶٪ هر گروه.
+  «ریسک» فاصلهٔ درصدی تا کفِ باکس است — همان‌جا که استاپ می‌نشیند.</p>
+  <div class="cards" id="cards"></div>
+  <div class="tbox"><table id="t-pf"></table></div>
+</section>
+
+<section>
+  <div class="shead"><h2>۲. چه چیزی را به چه چیزی</h2><span class="sub">اول فروش، بعد خرید</span></div>
+  <p class="snote">بند ۲ راهنما: پول آزادشده منبع خرید همان صبح است، پس ترتیب اجرا مهم است.</p>
+  <div class="tbox"><table id="t-reb"></table></div>
+  <div class="note caution" id="fee"></div>
+</section>
+
+<section>
+  <div class="shead"><h2>۳. نوارِ خرید و آلارم</h2><span class="sub" id="zhot"></span></div>
+  <p class="snote">ورود روی <b>سقفِ باکس نیست</b> — کمی بالاترش. مصطفی گفت
+  بازار اغلب به خودِ ناحیه نمی‌رسد و به کندل‌های مرتبط با آن واکنش نشان
+  می‌دهد؛ اندازه‌گیری شد و درست بود:</p>
+  <div class="tbox" style="margin-bottom:14px"><table id="t-off"></table></div>
+  <p class="snote">پس نوارِ ماهانه از سقفِ باکس تا <b>+۴٪</b> است (هدف +۳٪)
+  و نوارِ هفتگی تا <b>+۲٪</b> (هدف +۰٫۵٪). استاپ زیر کفِ باکس.</p>
+  <div class="tbox"><table id="t-zone"></table></div>
+</section>
+
+<section>
+  <div class="shead"><h2>۴. پرتفوی فعلی</h2><span class="sub">خوانده‌شده با جدول بخش ۵</span></div>
+  <div class="tbox"><table id="t-cur"></table></div>
+  <p class="snote" id="curnote"></p>
+</section>
+
+<section>
+  <div class="shead"><h2>۵. ماهانه × هفتگی</h2><span class="sub" id="combon"></span></div>
+  <p class="snote">میانگین بازده هفتهٔ بعد در هر ترکیب. نرخ پایه <b id="base"></b> —
+  هر خانه را با همین بسنج، نه با صفر.</p>
+  <div class="tbox" style="padding:12px"><table class="grid3" id="t-grid"></table></div>
+  <div class="note" id="verdict"></div>
+</section>
+
+<section>
+  <div class="shead"><h2>۶. شواهد</h2><span class="sub">آزمون جایگشت، ۲۰٬۰۰۰ بار</span></div>
+  <p class="snote">برچسب سیگنال داخل هر دوره به‌هم ریخته می‌شود، پس حرکت خودِ بازار
+  در آن دوره خنثی است. «مزیت» یعنی چقدر بهتر از میانگینِ همان دوره.</p>
+  <div class="tbox"><table id="t-ev"></table></div>
+  <div class="note caution"><b>قید روش:</b> بند ۱ می‌گوید پروفایل ماهانه با H4
+  و هفتگی با H1 ساخته شود. همهٔ اعداد اینجا با کندل <b>روزانه</b>اند — هر هفته
+  فقط ۵ تا ۷ کندل. همین باعث می‌شود ۱۲٫۴٪ سیگنال‌های هفتگی «استاپ‌هم‌کندل»
+  شوند در برابر ۲٫۳٪ ماهانه.</div>
+</section>
+
+<section>
+  <div class="shead"><h2>۷. محرک‌ها</h2><span class="sub">ستون هفتگی حکم نیست</span></div>
+  <div class="note alarm"><b>باگی که مصطفی گرفت — و تشخیص اولِ من هم غلط بود.</b>
+  باکس هفتگیِ دلار را «زیر» نشان می‌دادم در حالی که چارت او «بالا» بود.
+  اول گفتم علتش کندل روزانه در برابر H1 است. <b>نبود.</b> با سه نمادی که
+  حالا H1 دارند اندازه گرفتم: H1 و روزانه در <b>۹۲٪</b> هفته‌ها یک حالت
+  می‌دهند و پهنای باکسشان تقریباً یکی است (۰٫۷۸٪ در برابر ۰٫۸۰٪).<br>
+  علتِ واقعی <b>مرزِ هفته</b> بود. لنگرِ شنبه را روی همه می‌گذاشتم، ولی
+  اونس طلا و نقره دوشنبه تا جمعه معامله می‌شوند (۹۷٪ و ۹۴٪ شمارش) و دلار
+  ۷ روزه است. با لنگرِ دوشنبه، هفتهٔ کامل‌شدهٔ دلار می‌شود ۱۴ تا ۲۰ سپتامبر،
+  باکس ۲٬۲۶۸٬۴۴۴–۲٬۲۷۸٬۸۸۹ و کلوز ۲٬۳۰۹٬۰۰۰ → <b>بالا</b>، همان که چارت
+  نشان می‌داد. مرزِ هفته حالا برای هر نماد از خودِ داده درمی‌آید.</div>
+  <div class="tbox"><table id="t-drv"></table></div>
+</section>
+
+<section>
+  <div class="shead"><h2>۸. هفتگی یا ماهانه؟</h2><span class="sub" id="wfspan"></span></div>
+  <p class="snote">استراتژی قدم‌به‌قدم در گذشته اجرا شد: هر بازچینی فقط با
+  دادهٔ تا کلوزِ قبل، نگه‌داری تا بازچینی بعد، کارمزد روی گردشِ واقعی.</p>
+  <div class="tbox"><table id="t-wf"></table></div>
+  <div class="note alarm" id="wfverdict"></div>
+</section>
+
+<section>
+  <div class="shead"><h2>۹. محرکِ واقعیِ هر نماد</h2><span class="sub">از همبستگی، نه از برچسب</span></div>
+  <p class="snote">برچسبِ دسته یک ادعاست. این جدول می‌گوید بازدهِ روزانهٔ
+  هر نماد واقعاً با چه چیزی حرکت می‌کند. ⚠ یعنی محرکِ غالب با دسته‌اش
+  نمی‌خواند — آنجا سیستم تا امروز محرکِ غلط می‌گرفت.</p>
+  <div class="tbox"><table id="t-attr"></table></div>
+  <div class="note" id="attrnote"></div>
+</section>
+
+<section>
+  <div class="shead"><h2>۱۰. چه دیتایی نداریم</h2></div>
+  <ul>
+    <li><b>اونس طلا ✓ رسید</b> — ۱۳۴۰ روز از H4، تا ۲۰۲۶/۰۹/۲۲. هر ۱۱ محرک حالا هست.</li>
+    <li><b>اکسپورت 1W دلار، تتر، طلای ۱۸</b> — این سه ۷روزه‌اند و مرزِ هفته‌شان
+        از شکافِ داده درنمی‌آید. الان دوشنبه فرض شده چون با چارت تو می‌خواند.
+        با فایل 1W این <b>اندازه‌گیری</b> می‌شود به‌جای فرض. <b>مهم‌ترین قلم.</b></li>
+    <li><b>H1 یا H4 بقیهٔ نمادها</b> — دیگر فوری نیست: اندازه‌گیری نشان داد
+        H1 و روزانه در ۹۲٪ هفته‌ها یک جواب می‌دهند.</li>
+    <li><b>۱۱ نماد کم‌داده</b> — چیزی برای فرستادن نیست، تازه‌پذیرش‌اند:
+        دلتا، مهرگلد، پلاتا، تراست، نقراط، سیان، سیمان، سیلوا، بانکپاد، یاس، نقرآمد.</li>
+    <li><b>لغزش</b> — بند ۸ راهنما آن را بزرگ‌ترین شکاف بین بک‌تست و اجرا می‌نامد
+        و هنوز عددی برایش نداریم. روی صندوق اهرمی با صف خرید ممکن است اصلاً
+        در قیمت پیش‌گشایش پر نشوی.</li>
+  </ul>
+</section>
+
+<p class="foot">
+  <b>این توصیهٔ مالی نیست.</b> این خوانشِ قاعده‌های خودِ مصطفی روی داده است.
+  دوره‌ای که رویش اندازه‌گیری شده ۱۱ ماه است و رژیمِ معمولی نیست:
+  میانگین بازده ماهانهٔ اهرم در این پنجره ‎+۱۲٫۸۹٪ بوده در برابر ‎+۲٫۸۷٪
+  در ۱۹ ماه قبلش. مزیت‌ها نسبت به نرخ پایه سنجیده شده‌اند پس با رژیم
+  بالا و پایین نمی‌روند، ولی بازده مطلق حتماً می‌رود.
+</p>
+
+</div>
+
+<script id="D" type="application/json">__DATA__</script>
+<script>
+(function(){
+  var D = JSON.parse(document.getElementById('D').textContent);
+  var q = function(id){ return document.getElementById(id); };
+  var num = function(x,d){ return (x==null||isNaN(x)) ? '—' :
+        Number(x).toLocaleString('en-US',{minimumFractionDigits:d||0,maximumFractionDigits:d||0}); };
+  var sgn = function(x,d){ return (x==null||isNaN(x)) ? '—' :
+        (x>=0?'+':'−') + Math.abs(x).toFixed(d==null?2:d); };
+  var PILL = {'بالا':'p-up','داخل':'p-flat','زیر':'p-down'};
+  var pill = function(s){ return s ? '<span class="pill '+(PILL[s]||'p-warn')+'">'+s+'</span>'
+        : '<span class="pill p-warn">؟</span>'; };
+  var esc = function(s){ return String(s).replace(/[&<>]/g, function(c){
+        return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c]; }); };
+  var head = function(cols){ return '<thead><tr>' + cols.map(function(c){
+        return '<th'+(c[1]?' class="n"':'')+'>'+c[0]+'</th>'; }).join('') + '</tr></thead>'; };
+
+  var T = D.tom, picks = T.picks.slice(), bn = 1e6;
+  picks.sort(function(a,b){ return b.w - a.w; });
+  var inv = picks.reduce(function(s,p){ return s + p.w; }, 0);
+  var cash = Math.max(0, 100 - inv);
+
+  q('stamp').textContent = 'کلوز ' + T.date + '  ·  سرمایه ' +
+      num(T.capital/1e9,1) + ' میلیارد ریال';
+  q('cap').textContent = num(T.capital/1e9,1) + ' میلیارد ریال';
+  q('uni').textContent = T.universe;
+  q('elig').textContent = T.eligible;
+
+  // ── کارت‌ها: تقسیم گروهی ──
+  var byg = {};
+  picks.forEach(function(p){ byg[p.group] = (byg[p.group]||0) + p.w; });
+  var gk = Object.keys(byg).sort(function(a,b){ return byg[b]-byg[a]; });
+  q('cards').innerHTML =
+    '<div class="card"><div class="k">در بازار</div><div class="v">' +
+      inv.toFixed(1) + '٪</div><div class="d">' + picks.length + ' نماد</div></div>' +
+    '<div class="card"><div class="k">نقد</div><div class="v">' + cash.toFixed(1) +
+      '٪</div><div class="d">' + num(T.capital*cash/100/bn,0) + ' میلیون ریال</div></div>' +
+    gk.map(function(g){ return '<div class="card"><div class="k">' + esc(g) +
+      '</div><div class="v">' + byg[g].toFixed(0) + '٪</div><div class="d">' +
+      picks.filter(function(p){return p.group===g;}).length + ' نماد</div></div>'; }).join('');
+
+  // ── جدول پرتفوی هدف ──
+  q('t-pf').innerHTML = head([['نماد'],['گروه'],['کلوز',1],['وزن',1],
+      ['مبلغ (م.ر)',1],['تعداد واحد',1],['ریسک',1],['ماهانه'],['هفتگی'],['پهنای گروه',1]]) +
+    '<tbody>' + picks.map(function(p){
+      var amt = T.capital * p.w / 100;
+      return '<tr><td class="sym">' + esc(p.sym) + '</td><td>' + esc(p.group) +
+        '</td><td class="n">' + num(p.close) + '</td><td class="n"><b>' + p.w.toFixed(1) +
+        '٪</b></td><td class="n">' + num(amt/bn) + '</td><td class="n">' +
+        num(amt/p.close) + '</td><td class="n">' + p.risk.toFixed(2) + '٪</td><td>' +
+        pill(p.mst) + '</td><td>' + pill(p.wst) + '</td><td class="n">' +
+        p.breadth.toFixed(0) + '٪</td></tr>'; }).join('') +
+      '<tr class="cash"><td class="sym">نقد</td><td>—</td><td class="n">—</td>' +
+      '<td class="n"><b>' + cash.toFixed(1) + '٪</b></td><td class="n">' +
+      num(T.capital*cash/100/bn) + '</td><td class="n">—</td><td class="n">—</td>' +
+      '<td>—</td><td>—</td><td class="n">—</td></tr></tbody>';
+
+  // ── تبدیل ──
+  var cur = D.current, tgt = {}, rows = [], names = {};
+  picks.forEach(function(p){ tgt[p.sym] = p; names[p.sym] = 1; });
+  cur.forEach(function(c){ names[c.sym] = 1; });
+  Object.keys(names).forEach(function(s){
+    var c = cur.filter(function(x){ return x.sym===s; })[0];
+    var t = tgt[s];
+    var cw = c ? c.pct : 0, tw = t ? t.w : 0, px = t ? t.close : (c ? c.close : 0);
+    if (Math.abs(tw - cw) < 0.05) return;
+    rows.push({sym:s, cw:cw, tw:tw, d:tw-cw, units:(tw-cw)/100*T.capital/px,
+               amt:(tw-cw)/100*T.capital, px:px});
+  });
+  rows.sort(function(a,b){ return a.d - b.d; });
+  q('t-reb').innerHTML = head([['نماد'],['کار'],['الان',1],['هدف',1],['Δ',1],
+      ['تعداد واحد',1],['مبلغ (م.ر)',1]]) + '<tbody>' + rows.map(function(r){
+    var sell = r.d < 0;
+    return '<tr class="' + (sell?'sell':'buy') + '"><td class="sym">' + esc(r.sym) +
+      '</td><td class="act">' + (sell?'فروش':'خرید') + '</td><td class="n">' +
+      r.cw.toFixed(1) + '٪</td><td class="n">' + r.tw.toFixed(1) + '٪</td><td class="n">' +
+      sgn(r.d,1) + '</td><td class="n">' + num(Math.abs(r.units)) + '</td><td class="n">' +
+      num(Math.abs(r.amt)/bn) + '</td></tr>'; }).join('') + '</tbody>';
+
+  var turn = rows.reduce(function(s,r){ return s + Math.abs(r.amt); }, 0);
+  var fee = turn * 0.00275;
+  q('fee').innerHTML = '<b>کارمزد این چرخش ≈ ' + num(fee/bn) + ' میلیون ریال</b> — ' +
+    num(turn/1e9,1) + ' میلیارد گردش با ۰٫۵۵٪ رفت‌وبرگشت، یعنی ' +
+    (fee/T.capital*100).toFixed(2) + '٪ کل سرمایه. بند ۹ راهنما: مزیت روی صندوق اهرمی ' +
+    'محکم است و روی سهام نازک — این کارمزد بخشی از همان مزیت نازک را می‌خورد.';
+
+  // ── پرتفوی فعلی ──
+  q('t-cur').innerHTML = head([['نماد'],['تعداد واحد',1],['کلوز',1],['سهم',1],
+      ['ماهانه'],['تا کف ماهانه',1],['هفتگی'],['تا کف هفتگی',1],['خانه']]) +
+    '<tbody>' + cur.map(function(c){
+      var g = D.combo.grid[c.mst] && D.combo.grid[c.mst][c.wst];
+      return '<tr><td class="sym">' + esc(c.sym) + '</td><td class="n">' + num(c.units) +
+        '</td><td class="n">' + num(c.close) + '</td><td class="n">' + c.pct.toFixed(1) +
+        '٪</td><td>' + pill(c.mst) + '</td><td class="n">' + sgn(c.mrisk,1) +
+        '</td><td>' + pill(c.wst) + '</td><td class="n">' + sgn(c.wrisk,1) +
+        '</td><td class="n">' + (g && g.avg!=null ? sgn(g.avg,2)+'٪' : '—') +
+        '</td></tr>'; }).join('') + '</tbody>';
+
+  var nbad = cur.filter(function(c){ return c.wst !== 'بالا'; }).length;
+  q('curnote').innerHTML = '<b>هر پنج نماد ماهانه بالا هستند، ولی ' + nbad +
+    ' تا از ۵ تا هفتگی زیر یا داخل‌اند.</b> ستون آخر می‌گوید تاریخاً از آن خانه ' +
+    'چه بیرون آمده. این دقیقاً همان وضعی است که سؤال توصیفش می‌کرد.';
+
+  // ── جدول ۳×۳ ──
+  var sts = ['بالا','داخل','زیر'], G = D.combo.grid;
+  q('base').textContent = sgn(D.combo.base_avg,2) + '٪ هفتگی · ' +
+      D.combo.base_win.toFixed(1) + '٪ مثبت';
+  q('combon').textContent = num(D.combo.n_obs) + ' نماد×هفته · ' + D.combo.weeks + ' هفته';
+  var h = '<thead><tr><th style="text-align:center">ماهانه ↓ / هفتگی ←</th>' +
+      sts.map(function(s){ return '<th>' + s + '</th>'; }).join('') + '</tr></thead><tbody>';
+  sts.forEach(function(m){
+    h += '<tr><td class="rh">' + m + '</td>';
+    sts.forEach(function(w){
+      var c = G[m] && G[m][w];
+      if (!c || c.avg == null || c.n < 20) { h += '<td>—</td>'; return; }
+      var cls = c.avg > D.combo.base_avg + 0.3 ? ' class="cell-good"'
+              : c.avg < D.combo.base_avg - 0.5 ? ' class="cell-bad"' : '';
+      h += '<td' + cls + '><span class="nn">' + sgn(c.avg,2) + '٪</span>' +
+           '<span class="cc">n=' + num(c.n) + '</span></td>';
+    });
+    h += '</tr>';
+  });
+  q('t-grid').innerHTML = h + '</tbody>';
+
+  var wonly = D.combo.groups['فقط هفتگی بالا'], both = D.combo.groups['هر دو بالا'];
+  q('verdict').innerHTML =
+    '<b>دو حکم، و این دو را نباید قاطی کرد.</b><br>' +
+    '<b>در جهت منفی حق با توست:</b> «ماهانه بالا ولی هفتگی زیر» ' +
+    sgn(G['بالا']['زیر'].avg,2) + '٪ می‌دهد — کمتر از نصفِ نرخ پایه. ' +
+    '«هر دو زیر» ' + sgn(G['زیر']['زیر'].avg,2) + '٪، یعنی صفرِ گرد. ' +
+    'باکس ماهانهٔ مثبت هیچ چیزی را نجات نمی‌دهد وقتی هفتگی شکسته.<br>' +
+    '<b>ولی در جهت مثبت تأیید ماهانه چیزی اضافه نمی‌کند:</b> فقط هفتگی بالا ' +
+    sgn(wonly.avg,2) + '٪ (n=' + num(wonly.n) + ') در برابر هر دو بالا ' +
+    sgn(both.avg,2) + '٪ (n=' + num(both.n) + ') — اختلاف ' +
+    sgn(both.avg-wonly.avg,2) + ' واحد درصد، یعنی هیچ.<br>' +
+    '<b>پس:</b> هفتگی موتورِ سیگنال است، ماهانه فیلترِ ریسک. هر دو شرط ورودند ' +
+    'نه چون جمعشان سود بیشتری می‌دهد، بلکه چون دو خانهٔ قرمز را حذف می‌کند. ' +
+    'همان نتیجه‌ای که بند ۳ برای «هم‌جهت بودن هر سه حمایت» گرفته بود (t=۰٫۱۴).';
+
+  // ── شواهد ──
+  var M = D.month.perm.valley_first, W = D.week.perm.valley_first;
+  var MG = D.month.geom.valley_first, WG = D.week.geom.valley_first;
+  q('t-ev').innerHTML = head([['پنجره'],['دوره',1],['سیگنال',1],['نرخ پایه',1],
+      ['نرخ برد',1],['مزیت',1],['p',1],['حمایت خالی',1],['استاپ‌هم‌کندل',1],['میانگین R',1]]) +
+    '<tbody>' +
+    '<tr><td class="sym">ماهانه</td><td class="n">' + D.month.months + ' ماه</td>' +
+      '<td class="n">' + num(M.n_signal) + '</td><td class="n">' + M.base_win.toFixed(1) +
+      '٪</td><td class="n"><b>' + M.win.toFixed(1) + '٪</b></td><td class="n">' +
+      sgn(M.edge,2) + '</td><td class="n"><b>' + M.p.toFixed(4) + '</b></td>' +
+      '<td class="n">' + MG.empty.toFixed(0) + '٪</td><td class="n">' +
+      MG.ambiguous_pct.toFixed(1) + '٪</td><td class="n">' + sgn(MG.avg_r,3) + '</td></tr>' +
+    '<tr><td class="sym">هفتگی</td><td class="n">' + D.week.weeks + ' هفته</td>' +
+      '<td class="n">' + num(W.n_signal) + '</td><td class="n">' + W.base_win.toFixed(1) +
+      '٪</td><td class="n"><b>' + W.win.toFixed(1) + '٪</b></td><td class="n">' +
+      sgn(W.edge,2) + '</td><td class="n"><b>' + W.p.toFixed(4) + '</b></td>' +
+      '<td class="n">' + WG.empty.toFixed(0) + '٪</td><td class="n"><span class="pill p-warn">' +
+      WG.ambiguous_pct.toFixed(1) + '٪</span></td><td class="n">' + sgn(WG.avg_r,3) +
+      '</td></tr></tbody>';
+
+  // ── محرک‌ها ──
+  var WD = ['دوشنبه','سه‌شنبه','چهارشنبه','پنجشنبه','جمعه','شنبه','یکشنبه'];
+  q('t-drv').innerHTML = head([['محرک'],['کلوز',1],['ماهانه'],['هفتگی'],
+      ['تا کف هفتگی',1],['مرزِ هفته'],['کندل',1]]) + '<tbody>' +
+    D.drivers.map(function(d){
+    if (d.missing) return '<tr><td class="sym">' + esc(d.name) +
+      '</td><td class="n">—</td><td><span class="pill p-warn">نرسیده</span></td>' +
+      '<td>—</td><td class="n">—</td><td>—</td><td class="n">—</td></tr>';
+    var dec = d.close < 1000 ? 2 : 0;
+    return '<tr><td class="sym">' + esc(d.name) + '</td><td class="n">' + num(d.close,dec) +
+      '</td><td>' + pill(d.mst) + '</td><td>' +
+      (d.wok ? pill(d.wst) : '<span class="pill p-warn">؟</span>') +
+      '</td><td class="n">' + sgn(d.wrisk,1) + '</td><td>' +
+      (d.anchor==null ? '—' : WD[d.anchor]) + '</td>' +
+      '<td class="n">' + d.wbars + '</td></tr>'; }).join('') + '</tbody>';
+  // ── دفترِ نهایی ──
+  if (D.book) {
+    var B = D.book, bn = 1e6;
+    q('bkcap').textContent = 'سرمایه ' + num(B.capital/1e9,1) + ' میلیارد ریال';
+    q('t-book').innerHTML = head([['نماد'],['باند'],['کلوز',1],['ورود',1],
+        ['استاپ',1],['تارگت',1],['ریسک',1],['وزن',1],['مبلغ (م.ر)',1],
+        ['تعداد واحد',1],['ضرر اگر استاپ',1],['وضعیت']]) + '<tbody>' +
+      B.rows.map(function(r){
+        var ZS = {'در نوار':'p-up','زیر نوار':'p-flat','بالای نوار':'p-down'};
+        return '<tr><td class="sym">' + esc(r.sym) + '</td><td>' +
+          (r.band==='week'?'هفتگی':'ماهانه') + '</td><td class="n">' +
+          num(r.close) + '</td><td class="n"><b>' + num(r.aim) +
+          '</b></td><td class="n">' + num(r.stop) + '</td><td class="n">' +
+          num(r.target) + '</td><td class="n">' + r.risk_pct.toFixed(1) +
+          '٪</td><td class="n">' + r.w.toFixed(0) + '٪</td><td class="n">' +
+          num(r.amt/bn) + '</td><td class="n">' + num(r.units) +
+          '</td><td class="n">' + num(r.loss/bn) + '</td><td><span class="pill ' +
+          (ZS[r.state]||'p-flat') + '">' + r.state + '</span></td></tr>';
+      }).join('') +
+      '<tr class="cash"><td class="sym">نقد</td><td>—</td><td class="n">—</td>' +
+      '<td class="n">—</td><td class="n">—</td><td class="n">—</td>' +
+      '<td class="n">—</td><td class="n"><b>' + (100-B.invested).toFixed(0) +
+      '٪</b></td><td class="n">' + num(B.capital*(100-B.invested)/100/bn) +
+      '</td><td class="n">—</td><td class="n">—</td><td>—</td></tr></tbody>';
+    q('bknote').innerHTML = '<b>کلِ ریسک اگر هر سه استاپ بخورند: ' +
+      (B.risk_total/B.capital*100).toFixed(2) + '٪ سرمایه</b> (' +
+      num(B.risk_total/bn) + ' میلیون ریال). ' +
+      'این سه تقریباً مستقل‌اند — عیار/زیتون ‎−۰٫۰۶، عیار/سینرژی ‎+۰٫۳۱، ' +
+      'زیتون/سینرژی ‎+۰٫۱۰ — پس هر سه با هم خوردن بعید است.<br>' +
+      '<b>زیتون روی باندِ ماهانه است، نه هفتگی:</b> ریسکِ هفتگی‌اش ۰٫۲۳٪ ' +
+      'درمی‌آید، یعنی استاپ داخلِ نوسانِ یک روز می‌نشیند. باندِ ماهانه ' +
+      '۳٫۸٪ است و زیرِ نوسان.';
+    if (B.skipped && B.skipped.length) {
+      q('bkskip').innerHTML = '<b>حذف‌شده به دلیل حجم:</b> ' +
+        B.skipped.map(function(x){ return esc(x.sym) + ' (' +
+          num(x.value_bn) + ' میلیارد در روز)'; }).join(' · ') +
+        '. آستانه ۵۰۰ میلیارد گذاشته شد. مدلِ قبلی فقط «چند روز تا خروج» ' +
+        'را می‌دید و <b>صف</b> را نمی‌دید — پتروما ۱۹ میلیارد در روز ' +
+        'معامله می‌شود و یک موقعیتِ ۲۴ میلیاردی آنجا یعنی بیشتر از یک روزِ ' +
+        'کاملِ حجم. بند ۸ راهنما لغزش را بزرگ‌ترین شکافِ بک‌تست تا اجرا ' +
+        'می‌نامد و هنوز عددی برایش نداریم.';
+    }
+  }
+
+  // ── داشبورد ماهانه و هفتگی ──
+  if (D.zones) {
+    var ZS2 = {'در نوار':'p-up','زیر نوار':'p-flat','بالای نوار':'p-down'};
+    var mkTbl = function(key, tid, sub) {
+      var Z = D.zones.slice().sort(function(a,b){
+        var ai = a[key].state==='در نوار'?0:a[key].state==='زیر نوار'?1:2;
+        var bi = b[key].state==='در نوار'?0:b[key].state==='زیر نوار'?1:2;
+        return ai-bi || a[key].risk_pct-b[key].risk_pct; });
+      var nz = Z.filter(function(r){ return r[key].state==='در نوار'; }).length;
+      q(sub).textContent = Z.length + ' نماد · ' + nz + ' تا در نوار';
+      q(tid).innerHTML = head([['نماد'],['کلوز',1],['باکس'],['نوارِ خرید',1],
+          ['ورود',1],['استاپ',1],['تارگت',1],['ریسک',1],['وضعیت']]) +
+        '<tbody>' + Z.map(function(r){
+          var b = r[key], st = key==='month' ? r.mst : r.wst;
+          var live = b.state==='در نوار';
+          return '<tr' + (live?'':' class="cash"') + '><td class="sym">' +
+            esc(r.sym) + '</td><td class="n">' + num(r.close) + '</td><td>' +
+            pill(st) + '</td><td class="n">' + num(b.lo) + '–' + num(b.hi) +
+            '</td><td class="n">' + num(b.aim) + '</td><td class="n">' +
+            num(b.stop) + '</td><td class="n">' + num(b.target) +
+            '</td><td class="n">' + b.risk_pct.toFixed(1) +
+            '٪</td><td><span class="pill ' + (ZS2[b.state]||'p-flat') + '">' +
+            b.state + '</span></td></tr>'; }).join('') + '</tbody>';
+    };
+    mkTbl('month', 't-month', 'msub');
+    mkTbl('week', 't-week', 'wsub');
+  }
+
+  // ── نوار خرید ──
+  if (D.zones) {
+    var OFF = D.offsets || [];
+    q('t-off').innerHTML = head([['ورود'],['ماهانه: میانگین R',1],['t',1],
+        ['پر شد',1],['هفتگی: میانگین R',1],['t',1],['پر شد',1]]) +
+      '<tbody>' + OFF.map(function(o){
+        var best = o.best ? ' class="cell-good"' : '';
+        return '<tr><td class="sym">' + o.label + '</td><td class="n"' + best +
+          '>' + sgn(o.mR,3) + '</td><td class="n">' + o.mT.toFixed(2) +
+          '</td><td class="n">' + o.mFill.toFixed(0) + '٪</td><td class="n">' +
+          sgn(o.wR,3) + '</td><td class="n">' + o.wT.toFixed(2) +
+          '</td><td class="n">' + o.wFill.toFixed(0) + '٪</td></tr>';
+      }).join('') + '</tbody>';
+
+    var Z = D.zones.slice();
+    var inZone = function(r){ return r.week.state==='در نوار' || r.month.state==='در نوار'; };
+    Z.sort(function(a,b){ return (inZone(b)?1:0)-(inZone(a)?1:0)
+                               || a.week.dist_pct-b.week.dist_pct; });
+    var nhot = Z.filter(inZone).length;
+    q('zhot').textContent = nhot + ' نماد الان در نوار';
+    var ZS = {'در نوار':'p-up','زیر نوار':'p-flat','بالای نوار':'p-down'};
+    q('t-zone').innerHTML = head([['نماد'],['کلوز',1],['نوارِ هفتگی',1],
+        ['وضعیت'],['ورود',1],['استاپ',1],['تارگت',1],['ریسک',1],['نوارِ ماهانه',1],['وضعیت']]) +
+      '<tbody>' + Z.map(function(r){
+        var w = r.week, m = r.month;
+        var live = inZone(r);
+        return '<tr' + (live?'':' class="cash"') + '><td class="sym">' + esc(r.sym) +
+          '</td><td class="n">' + num(r.close) + '</td><td class="n">' +
+          num(w.lo) + '–' + num(w.hi) + '</td><td><span class="pill ' +
+          (ZS[w.state]||'p-flat') + '">' + w.state + '</span></td><td class="n">' +
+          num(w.aim) + '</td><td class="n">' + num(w.stop) + '</td><td class="n">' +
+          num(w.target) + '</td><td class="n">' + w.risk_pct.toFixed(1) +
+          '٪</td><td class="n">' + num(m.lo) + '–' + num(m.hi) +
+          '</td><td><span class="pill ' + (ZS[m.state]||'p-flat') + '">' +
+          m.state + '</span></td></tr>'; }).join('') + '</tbody>';
+  }
+
+  // ── هفتگی یا ماهانه ──
+  if (D.wf) {
+    var W = D.wf, ann = function(m,k){ return m ? (Math.pow(1+m.mean/100,k)-1)*100 : null; };
+    q('wfspan').textContent = W.span[0] + ' تا ' + W.span[1] + ' · کارمزد ' + W.fee + '٪';
+    var wfrows = [
+      ['هفتگی', W.weekly, 52, W.turn_weekly],
+      ['هفتگی — چسبنده', W.weekly_sticky, 52, W.turn_weekly_sticky],
+      ['ماهانه', W.monthly, 12, W.turn_monthly],
+      ['ماهانه — چسبنده', W.monthly_sticky, 12, W.turn_monthly_sticky],
+      ['پایه: همه را نگه دار', W.base_weekly, 52, 0]];
+    q('t-wf').innerHTML = head([['سبد'],['دوره',1],['هر دوره',1],['برد',1],
+        ['افت بیشینه',1],['گردش',1],['سالانه',1],['کارمزد/سال',1]]) +
+      '<tbody>' + wfrows.map(function(r){
+        var m = r[1]; if(!m) return '';
+        var a = ann(m, r[2]), fee = r[3]*r[2]/100*W.fee;
+        var base = r[0].indexOf('پایه') === 0;
+        return '<tr' + (base?' class="cash"':'') + '><td class="sym">' + r[0] +
+          '</td><td class="n">' + m.n + '</td><td class="n">' + sgn(m.mean,2) +
+          '٪</td><td class="n">' + m.win.toFixed(0) + '٪</td><td class="n">' +
+          m.mdd.toFixed(1) + '٪</td><td class="n">' + r[3].toFixed(0) +
+          '٪</td><td class="n"><b>' + sgn(a,1) + '٪</b></td><td class="n">' +
+          (fee ? '−'+fee.toFixed(1)+'٪' : '—') + '</td></tr>'; }).join('') + '</tbody>';
+
+    var fw = W.turn_weekly*52/100*W.fee, fm = W.turn_monthly*12/100*W.fee;
+    q('wfverdict').innerHTML =
+      '<b>جواب: ماهانه — ولی نه به دلیلی که فکر می‌کردیم.</b><br>' +
+      'سیگنالِ هفتگی از نظر آماری قوی‌تر است (p=۰٫۰۰۰۳ در برابر ۰٫۰۰۰۴). ' +
+      'ولی مزیتش +۰٫۱۴ واحد در هفته است ≈ <b>+۷٫۳ واحد در سال</b>، و کارمزدِ ' +
+      'بازچینی هفتگی <b>−' + fw.toFixed(1) + ' واحد در سال</b>. ماهانه: ' +
+      'مزیت +۹٫۱ در برابر کارمزد −' + fm.toFixed(1) + '. ' +
+      '<b>مزیتِ هفتگی به کارمزدِ هفتگی نمی‌ارزد.</b><br><br>' +
+      '<b>و یک چیزِ ناخوشایند:</b> هر چهار نسخه از «همه را بخر و نگه دار» ' +
+      'بدتر بودند. علتش این است که حوضچهٔ نمادهای باکس‌دار خودش ۰٫۵۳ واحد ' +
+      'از کل بازار عقب است — ۵۵ نمادِ تازه‌پذیرش که باکس ندارند، در این ' +
+      '۱۱ ماهِ صعودی از همه بیشتر دویدند. مزیتِ +۰٫۱۴ واحدی این را جبران ' +
+      'نمی‌کند. جزئیات در <code>docs/11-hafte-ya-mah.md</code>.<br><br>' +
+      '<b>چسبندگی جواب داد:</b> نگه‌داشتنِ نمادی که داریم و هنوز واجد شرط ' +
+      'است، گردش را از ' + W.turn_weekly.toFixed(0) + '٪ به ' +
+      W.turn_weekly_sticky.toFixed(0) + '٪ آورد و سالانه را از ' +
+      sgn(ann(W.weekly,52),1) + '٪ به ' + sgn(ann(W.weekly_sticky,52),1) +
+      '٪ برد. این همان حرفِ تو دربارهٔ کهرباست، حالا با عدد.';
+  }
+
+  // ── محرکِ واقعی ──
+  if (D.attr) {
+    var DN = {xau:'اونس طلا',xag:'اونس نقره',dollar:'دلار',usdt:'تتر',
+      gold18:'طلای ۱۸',oil:'نفت برنت',copper:'مس',tedpix:'شاخص کل',
+      eqwt:'شاخص هم‌وزن',cert_gold:'گواهی شمش طلا',cert_silver:'گواهی شمش نقره'};
+    var want = {}, held = {};
+    picks.forEach(function(p){ want[p.sym]=1; });
+    cur.forEach(function(c){ held[c.sym]=1; });
+    want['سینرژی'] = 1;
+    var rowsA = D.attr.filter(function(r){ return want[r.sym] || held[r.sym]; });
+    rowsA.sort(function(a,b){ return Math.abs(b.r)-Math.abs(a.r); });
+    var NAT = {'طلا':['xau','dollar','gold18','cert_gold'],
+      'نقره':['xag','dollar','cert_silver'],
+      'اهرمی':['tedpix','eqwt'],'سهامی':['tedpix','eqwt'],
+      'شاخصی':['tedpix','eqwt'],'مختلط':['tedpix','eqwt'],
+      'بخشی':['tedpix','eqwt','oil','copper','dollar'],
+      'کالا_کشاورزی':['xau','dollar','oil','copper']};
+    q('t-attr').innerHTML = head([['نماد'],['دسته'],['در پرتفو'],
+        ['محرکِ غالب'],['r',1],['دومی'],['شاخص کل',1],['نفت',1]]) +
+      '<tbody>' + rowsA.map(function(r){
+        var nat = NAT[r.cat] || [], bad = nat.length && nat.indexOf(r.best)<0;
+        var ss = Object.keys(r.all).sort(function(a,b){
+          return Math.abs(r.all[b])-Math.abs(r.all[a]); });
+        var s2 = ss[1] ? DN[ss[1]]+' '+sgn(r.all[ss[1]],2) : '—';
+        var where = want[r.sym] && held[r.sym] ? 'می‌ماند'
+                  : want[r.sym] ? 'خرید' : 'فروش';
+        return '<tr><td class="sym">' + esc(r.sym) + '</td><td>' + esc(r.cat) +
+          '</td><td><span class="pill ' + (where==='خرید'?'p-up':where==='فروش'?'p-down':'p-flat') +
+          '">' + where + '</span></td><td>' + (DN[r.best]||r.best) +
+          (bad?' ⚠':'') + '</td><td class="n">' + sgn(r.r,2) + '</td><td>' + s2 +
+          '</td><td class="n">' + sgn(r.all.tedpix,2) + '</td><td class="n">' +
+          sgn(r.all.oil,2) + '</td></tr>'; }).join('') + '</tbody>';
+
+    var syn = D.attr.filter(function(r){ return r.sym==='سینرژی'; })[0];
+    var golds = D.attr.filter(function(r){
+      return ['گوهر','عیار','طلا','کهربا'].indexOf(r.sym)>=0; });
+    var gmin = Math.min.apply(null, golds.map(function(g){ return g.all.cert_gold; }));
+    var gmax = Math.max.apply(null, golds.map(function(g){ return g.all.cert_gold; }));
+    q('attrnote').innerHTML =
+      (syn ? '<b>سینرژی:</b> نیمِ حرفت تأیید شد و نیمش نه. واقعاً سهامی ' +
+        'نیست — همبستگی‌اش با شاخص کل <b>' + sgn(syn.all.tedpix,2) + '</b> ' +
+        'است، یعنی <b>ضدِ بورس</b> حرکت می‌کند و پوششِ خوبی است. ولی محرکش ' +
+        'نفت هم نیست (' + sgn(syn.all.oil,2) + ') — <b>دلار</b> است (' +
+        sgn(syn.r,2) + ').<br><br>' : '') +
+      '<b>پتروما و پتروآبان:</b> اسمشان پالایشی است، رفتارشان سهامی. ' +
+      'به شاخص کل ‎+۰٫۷۰ و +۰٫۶۴، به نفت <b>منفی</b>. جدولِ محرک در سیستم ' +
+      'وزن نفت را ۰٫۵۰ گذاشته بود؛ به ۰٫۱۵ اصلاح شد.<br><br>' +
+      '<b>همپوشانی:</b> هر چهار صندوق طلا با گواهی شمش طلا ' +
+      sgn(gmin,2) + ' تا ' + sgn(gmax,2) + ' همبسته‌اند. ' +
+      '<b>یک شرط‌اند، نه چهار تا.</b> برای همین سقف گروه ۳۶٪ هست، و برای ' +
+      'همین تعویضِ کهربا با گوهر فقط کارمزد است و صفر تغییر.';
+  }
+})();
+</script>
