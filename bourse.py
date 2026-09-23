@@ -220,6 +220,20 @@ HOLDING = {"نقران": 4238989, "کهربا": 157741, "سمازن": 129712,
            "دوایکس": 111801, "شاراک": 34835, "سقاین": 29021,
            "فباهنر": 1}
 NORM_HOLD = {norm(k): v for k, v in HOLDING.items()}
+# نقدِ بند ۷ راهنما. اگر عوض شد، یا اینجا، یا data_bourse/capital.txt
+CASH = 6_544_941_269
+
+# ── نمادهای پرتفو که **صندوق نیستند** ──────────────────────────────
+# سمازن، شاراک، سقاین و فباهنر سهم‌اند. `discover()` فقط نمادهایی را
+# نگه می‌دارد که در جدولِ CATEGORY باشند، و آن جدول همه‌اش صندوق است —
+# پس این چهار تا هیچ‌وقت قیمت نمی‌گیرند و سرمایه همیشه کم‌برآورد
+# می‌ماند. insCodeها از بند ۷ راهنما می‌آید.
+#
+# ⚠️ این‌ها فقط برای **ارزش‌گذاری** گرفته می‌شوند، نه برای سیگنال:
+# استراتژی روی صندوق اعتبارسنجی شده و بند ۹ راهنما می‌گوید با کارمزدِ
+# واقعیِ سهام (~۱٫۲٪) مزیت روی سهام منفی می‌شود.
+HOLD_INS = {"سمازن": "33808206014018431", "شاراک": "7711282667602555",
+            "سقاین": "60654872678917533", "فباهنر": "66772024744156373"}
 
 
 # ══ ۱. دانلود ═══════════════════════════════════════════════════════
@@ -1958,6 +1972,23 @@ def main():
                 print(f"      {i}/{len(ins)}...")
             time.sleep(0.25)
         print(f"      {ok} نماد ذخیره شد، {fail} تا نشد")
+
+        # قیمتِ نمادهای غیرصندوقیِ پرتفو — فقط برای ارزش‌گذاری
+        hpx = {}
+        for sym, code in HOLD_INS.items():
+            if norm(sym) not in NORM_HOLD:
+                continue
+            try:
+                hr = fetch_symbol(sym, code)
+                if hr:
+                    hpx[sym] = hr[-1]["c"]
+            except Exception:                        # noqa: BLE001
+                pass
+            time.sleep(0.25)
+        if hpx:
+            (DATA / "hold_px.json").write_text(
+                json.dumps(hpx, ensure_ascii=False), encoding="utf-8")
+            print(f"      قیمتِ {len(hpx)} نمادِ غیرصندوقیِ پرتفو گرفته شد")
     else:
         print("\n[۱-۲/۴] حالت آفلاین — از دادهٔ ذخیره‌شده")
 
@@ -2033,11 +2064,39 @@ def main():
         except ValueError:
             capital = 0
     if not capital:
-        capital = 1_000_000_000
+        # ── سرمایه را از خودِ پرتفو حساب کن، نه یک عددِ ساختگی ──────
+        # قبلاً اینجا «یک میلیارد» فرض می‌شد و بی‌صدا رد می‌شد. ولی
+        # capital مخرجِ «ریسکِ کل» و «نقد» است، پس عددِ ساختگی یعنی دو
+        # کاشیِ داشبورد غلط — و غلط‌بودنشان از روی صفحه معلوم نیست.
+        # حالا: ارزشِ روزِ آنچه داریم + نقد.
+        px = {r["sym"]: r["close"] for r in rows}
+        hf = DATA / "hold_px.json"
+        if hf.exists():
+            try:
+                px.update(json.loads(hf.read_text(encoding="utf-8")))
+            except ValueError:
+                pass
+        npx = {norm(k): v for k, v in px.items()}
+        have, miss = 0.0, []
+        for sym, u in HOLDING.items():
+            c = npx.get(norm(sym))
+            if c:
+                have += u * c
+            else:
+                miss.append(sym)
+        capital = have + CASH
         capfile.parent.mkdir(exist_ok=True)
         capfile.write_text(str(int(capital)), encoding="utf-8")
-        print(f"\n      سرمایه تنظیم نشده — فعلاً یک میلیارد فرض شد.")
-        print(f"      عدد واقعی را در {capfile} بنویس.")
+        print(f"\n      سرمایه از پرتفو حساب شد: "
+              f"{have / 1e9:,.1f} سهام + {CASH / 1e9:,.1f} نقد "
+              f"= {capital / 1e9:,.1f} میلیارد ریال")
+        if miss:
+            # نمادِ غیرصندوقی در دیدبانِ صندوق‌ها نیست، پس ارزشش
+            # شمرده نشده و سرمایه **کم‌برآورد** است. سکوت نکن.
+            print(f"      ⚠️  قیمتِ {'، '.join(miss)} پیدا نشد — "
+                  f"سرمایه کم‌برآورد است.")
+            print(f"      عددِ درست را در {capfile} بنویس یا "
+                  f"--capital بده.")
 
     elig, book = build_book(rows, capital)
     hot = [r for r in rows if r.get("ok")
