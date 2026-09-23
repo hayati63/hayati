@@ -562,11 +562,10 @@ def sample():
 
 # ══ ۲. باکس حجمی ════════════════════════════════════════════════════
 def make_box(bars, min_rows=3, max_rows=20):
-    """باکس = **اولین درهٔ حجمی از پایین**. بند ۱ راهنما.
+    """باکس = بازهٔ پیوستهٔ **پرحجم** حولِ POC، محدود به دره‌ها.
 
-    این پورتِ کلمه‌به‌کلمهٔ `tools/vp_box.py` است، که خودش وفادار به
-    `lvn_clarity_cascade.pine` است و بیت‌به‌بیت با آن تطبیق داده شده.
-    چهار ریزه‌کاری که اگر رعایت نشوند جواب عوض می‌شود:
+    پروفایل مثل قبل ساخته می‌شود و چهار ریزه‌کاری‌اش دست‌نخورده است —
+    اگر رعایت نشوند جواب عوض می‌شود:
 
       • دامنه از High/Low کلِ پنجره گرفته می‌شود، نه از Close
       • حجمِ هر کندل به نسبتِ هم‌پوشانی بینِ ردیف‌ها **پخش** می‌شود،
@@ -574,11 +573,38 @@ def make_box(bars, min_rows=3, max_rows=20):
       • کندلی با دامنهٔ صفر، کلِ حجمش در یک ردیف می‌نشیند
       • دره فقط روی ردیف‌های **میانی** (۱ تا rows−۲) شمرده می‌شود
 
-    و خودِ باکس **یک ردیف** است — همان ردیفِ دره — نه بازه‌ای حولِ
-    پرحجم‌ترین ردیف. (اولین بار این را اشتباه نوشتم و صفر درصد با نسخهٔ
-    مرجع می‌خواند.)
-
     تعداد ردیف ثابت نیست: از ۳ بالا می‌رود تا اولین دره ظاهر شود.
+
+    ## چه چیزی عوض شد، و چرا
+
+    تا امروز این تابع **خودِ ردیفِ دره** را برمی‌گرداند — یعنی ناحیهٔ
+    کم‌حجم. ولی بند ۱ راهنما این را نمی‌گوید:
+
+        «آن دره **مرز باکس** است»
+        «باکس = بازهٔ پیوستهٔ حول POC، محدود به نزدیک‌ترین دره‌ها»
+
+    یعنی باکس ناحیهٔ **پرحجمی** است که دره مرزش است. دو چیزِ متفاوت،
+    و جای متفاوتی می‌افتند. مصطفی روی عیار گرفتش: حمایتی که او کشیده
+    بود ۶۵٬۰۰۰ تومان بود، این تابع ۶۳٬۷۳۷ می‌داد. ۶۳٬۷۳۷ دقیقاً
+    **کفِ** باکسِ اوست — یعنی مرز، نه خودِ ناحیه.
+
+    اندازه‌گیری، روی همان دادهٔ ۱۱ ماهه (`data_auto`)، با همان آزمونِ
+    جایگشتِ درون‌دوره:
+
+        ماهانه   مزیت      p         R (هندسهٔ ۱:۱)   استاپ   هم‌کندل
+        دره      +۰٫۷۶   ۰٫۰۰۰۴      +۰٫۱۷۱           ۵۳      ۱۲ (۲٪)
+        POC      +۱٫۷۲   ۰٫۰۰۰۰      +۰٫۳۳۳            ۸       ۱ (۰٪)
+
+        هفتگی    مزیت      p         R
+        دره      +۰٫۶۶   ۰٫۰۰۰۲      +۰٫۱۲۴          ۲۲۱ هم‌کندل (۱۳٪)
+        POC      +۰٫۸۵   ۰٫۰۰۰۲      +۰٫۴۰۹           ۴۰ هم‌کندل (۳٪)
+
+    POC در هر دو افق هم **بهتر جدا می‌کند** و هم هندسهٔ سالم‌تری دارد.
+    و آن +۰٫۴۰۹R هفتگی دقیقاً عددی است که بند ۳ راهنما ثبت کرده — یعنی
+    قاعدهٔ اصلی از اول با باکسِ پرحجم حساب شده بود، نه با ردیفِ دره.
+
+    علتِ هندسه روشن است: باکسِ دره میانهٔ ۱٫۴٪ پهنا دارد و دامنهٔ یک
+    روزِ معاملاتی میانهٔ ۲٫۶٪ — یعنی استاپ داخلِ نوسانِ یک کندل می‌افتاد.
     """
     n = len(bars)
     if n <= 2:
@@ -607,9 +633,80 @@ def make_box(bars, min_rows=3, max_rows=20):
         valleys = [i for i in range(1, rows - 1)
                    if bins[i] < bins[i - 1] and bins[i] < bins[i + 1]]
         if valleys:
-            bot = r_lo + valleys[0] * step
-            return (bot, bot + step)
+            # ── باکس = بازهٔ پیوستهٔ پرحجم حولِ POC، محدود به دره‌ها ──
+            # از POC به هر دو طرف برو تا به اولین دره برسی. خودِ دره
+            # **مرز** است، پس بیرون می‌ماند.
+            poc = max(range(rows), key=lambda i: (bins[i], -i))
+            vs = set(valleys)
+            lo_i = poc
+            while lo_i - 1 >= 0 and (lo_i - 1) not in vs:
+                lo_i -= 1
+            hi_i = poc
+            while hi_i + 1 <= rows - 1 and (hi_i + 1) not in vs:
+                hi_i += 1
+            return (r_lo + lo_i * step, r_lo + (hi_i + 1) * step)
     return None
+
+
+# ── میله و پرچم: سه تارگت ──────────────────────────────────────────
+# مصطفی: «یک میله داره و یک پرچم داره که هرگاه اون پرچم به بالا شکسته
+# بشه یه میله رشد می‌کنه … سه تا تارگت، کوتاه‌مدت و میان‌مدت و بلندمدت.»
+#
+# بک‌تست شد (`tools/flagpole.py`) با گروهِ کنترلِ **هم‌هندسه** — همان
+# نماد، روزِ تصادفی، همان فاصلهٔ درصدیِ تارگت و استاپ — چون تارگتی که
+# ۸٪ بالاتر است در بازارِ صعودی خودبه‌خود می‌خورد و نرخِ خامِ رسیدن
+# بی‌معناست (بند ۰ قانون ۲):
+#
+#   مقیاس            n     میله و پرچم   کنترل    اختلاف     t       p
+#   کوتاه ≤۳ کندل    ۷۲      +۰٫۷۸      +۰٫۲۰   +۰٫۵۸R   ۳٫۰۵  ۰٫۰۰۱۳
+#   میان  ≤۸ کندل   ۱۷۸      +۱٫۳۶      +۰٫۱۹   +۱٫۱۷R   ۸٫۶۲  ۰٫۰۰۰۷
+#   بلند  ≤۲۰ کندل  ۴۳۸      +۱٫۰۶      +۰٫۴۰   +۰٫۶۵R   ۶٫۶۱  ۰٫۰۰۰۷
+#
+# هر سه از کنترل جلو زدند. قوی‌ترین، مقیاسِ میان است.
+#
+# ⚠️ روی کندلِ **روزانه**. او سه تایم‌فریم (H4/دیلی/هفتگی) گفته بود؛
+# با دادهٔ روزانه سه *طولِ میله* جای سه تایم‌فریم را می‌گیرد. نزدیک
+# است، یکی نیست.
+FLAG_SCALES = (("کوتاه", 3, 6.0), ("میان", 8, 10.0), ("بلند", 20, 15.0))
+
+
+def flag_targets(bars, px, retrace_max=0.5, flag_max=6):
+    """آخرین میله‌وپرچمِ هر مقیاس → تارگتی که هنوز نخورده."""
+    out = []
+    n = len(bars)
+    for name, pole_max, min_pct in FLAG_SCALES:
+        best = None
+        for i in range(1, n):
+            for plen in range(1, pole_max + 1):
+                j = i + plen - 1
+                if j >= n:
+                    break
+                p_lo = bars[i - 1]["c"]
+                p_hi = max(b["h"] for b in bars[i:j + 1])
+                if p_lo <= 0 or (p_hi - p_lo) / p_lo * 100 < min_pct:
+                    continue
+                pole = p_hi - p_lo
+                for flen in range(2, flag_max + 1):
+                    k = j + flen
+                    if k >= n:
+                        break
+                    fl = bars[j + 1:k + 1]
+                    f_lo = min(b["l"] for b in fl)
+                    f_hi = max(b["h"] for b in fl)
+                    if p_hi - f_lo > pole * retrace_max or f_hi > p_hi:
+                        break
+                    t = k + 1
+                    if t < n and bars[t]["c"] > f_hi:
+                        best = {"scale": name, "at": bars[t]["d"],
+                                "target": bars[t]["c"] + pole,
+                                "stop": f_lo}
+                        break
+                break
+        # فقط تارگتی که هنوز بالای قیمتِ امروز است معنی دارد
+        if best and best["target"] > px:
+            best["up_pct"] = (best["target"] / px - 1) * 100
+            out.append(best)
+    return out
 
 
 def value_area_box(bars):
@@ -835,6 +932,7 @@ def analyse(sym, rows, ins=None, allow_ticks=False):
     cm = by_m[ms[-1]]
     cur = (make_box(cm) or value_area_box(cm)) if len(cm) >= 3 else None
     return {**base, "ok": True, "reason": "",
+            "flags": flag_targets(rows, px),
             "mst": state(px, mb), "wst": state(px, wb),
             "cur_box": cur, "cur_st": state(px, cur) if cur else "؟",
             "month": zone(mb, px, BAND["month"]),
@@ -949,6 +1047,18 @@ def html(rows, book, capital, stamp, last_date):
         v = (WINRATE[hz].get(k) or WINRATE["week"].get(k)) if k else None
         return v or (0, 0, 0.0)
 
+    def flagcell(r):
+        """سه تارگتِ میله و پرچم، هرکدام که هنوز نخورده."""
+        fs = r.get("flags") or []
+        if not fs:
+            return '<span class="sub">—</span>'
+        return " ".join(
+            f'<span class="flag" title="پرچمِ {f["scale"]} — '
+            f'شکست {f["at"]} · استاپ {f["stop"]:,.0f}">'
+            f'{f["scale"]} {n(f["target"])} '
+            f'<b class="g">+{f["up_pct"]:.0f}٪</b></span>'
+            for f in fs)
+
     def thin(r):
         """نمادِ کم‌حجم در جدول می‌ماند ولی علامت می‌خورد — در دفتر
         نمی‌آید و مصطفی باید بداند چرا."""
@@ -983,7 +1093,8 @@ def html(rows, book, capital, stamp, last_date):
                 f'<td class="td n">{win}٪ {bar(win)}</td>'
                 f'<td class="td n {"g" if avg > 0 else "r"}">{avg:+.2f}٪</td>'
                 f'<td class="td">{bdg(r["mst"])}</td>'
-                f'<td class="td">{bdg(r["wst"])}</td></tr>')
+                f'<td class="td">{bdg(r["wst"])}</td>'
+                f'<td class="td">{flagcell(r)}</td></tr>')
 
     # مصطفی: «طراحی نمی‌کنی که صندوق‌ها تفکیک شده باشن، این‌جوری
     # صندوق‌ها ردیفی‌ان.» پس جدول دیگر یک فهرستِ صافِ ۱۳۴تایی نیست —
@@ -1013,7 +1124,7 @@ def html(rows, book, capital, stamp, last_date):
             hot = sum(1 for r in rs if in_band(r, key))
             liq = sum(1 for r in rs if r["value_bn"] >= MIN_VALUE_BN)
             out.append(
-                f'<tr class="grp" data-c="{c}"><td class="td" colspan="13">'
+                f'<tr class="grp" data-c="{c}"><td class="td" colspan="14">'
                 f'<span class="gname">{"بدون دسته" if c == "؟" else c}</span>'
                 f'<span class="gmeta">{len(rs)} نماد · '
                 f'<b class="g">{hot}</b> در نوار · '
@@ -1022,7 +1133,8 @@ def html(rows, book, capital, stamp, last_date):
         return "".join(out)
 
     SIGH = ("رتبه|نماد|آلارم|کلوز|نقطهٔ ورود|حدضرر|حدسود|ریسک|"
-            "n دسته|موفقیتِ دسته|میانگین بازده|ماهانه|هفتگی")
+            "n دسته|موفقیتِ دسته|میانگین بازده|ماهانه|هفتگی|"
+            "تارگتِ میله و پرچم")
 
     # ── تبِ ۲: دفتر ──
     bk = "".join(
@@ -1188,6 +1300,9 @@ tr.grp .td{{background:var(--th);border-top:2px solid var(--blue);
 padding:8px 12px}}
 .gname{{font-weight:700;font-size:.95rem;color:var(--text)}}
 .gmeta{{color:var(--muted);font-size:.78rem;margin-inline-start:12px}}
+.flag{{display:inline-block;margin-inline-end:5px;padding:1px 6px;
+border-radius:6px;background:var(--th);font-size:.7rem;
+color:var(--muted);white-space:nowrap}}
 .thin{{display:inline-block;margin-inline-start:6px;padding:1px 6px;
 border-radius:6px;background:var(--th);color:var(--muted);
 font-size:.68rem;font-weight:600}}

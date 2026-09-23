@@ -18,7 +18,8 @@ from typing import List, Optional, Sequence, Tuple
 
 Box = Tuple[float, float]  # (lo, hi)
 
-BOX_KINDS = ("valley_first", "valley_nearest", "valley_deepest", "value_area")
+BOX_KINDS = ("valley_first", "valley_nearest", "valley_deepest",
+             "poc_band", "value_area")
 
 
 class Bar:
@@ -112,6 +113,39 @@ def valley_box(
     return (lo, hi, p.rows)
 
 
+def poc_band(
+    bars: Sequence[Bar], min_rows: int = 3, max_rows: int = 20
+) -> Optional[Box]:
+    """بازهٔ پیوستهٔ **پرحجم** حولِ POC، محدود به نزدیک‌ترین دره‌ها.
+
+    این دقیقاً چیزی است که بند ۱ راهنما نوشته:
+
+        «آن دره **مرز باکس** است»
+        «باکس = بازهٔ پیوستهٔ حول POC، محدود به نزدیک‌ترین دره‌ها»
+
+    و تا امروز **پیاده نشده بود**. هم `valley_box` هم `bourse.make_box`
+    خودِ ردیفِ دره را برمی‌گردانند — یعنی ناحیهٔ **کم‌حجم**، نه ناحیهٔ
+    پرحجمی که دره مرزش است. دو چیزِ متفاوت‌اند و جای متفاوتی می‌افتند.
+
+    روش: از POC به پایین برو تا به اولین دره برسی، از POC به بالا هم.
+    باکس بینِ آن دو دره است — خودِ دره‌ها مرزند، پس بیرون می‌مانند.
+    اگر آن طرف دره‌ای نبود، لبهٔ دامنه مرز است.
+    """
+    p = build_profile(bars, min_rows, max_rows)
+    if p is None:
+        return None
+    poc = max(range(p.rows), key=lambda i: (p.bins[i], -i))
+    vs = set(p.valleys)
+
+    lo_i = poc
+    while lo_i - 1 >= 0 and (lo_i - 1) not in vs:
+        lo_i -= 1
+    hi_i = poc
+    while hi_i + 1 <= p.rows - 1 and (hi_i + 1) not in vs:
+        hi_i += 1
+    return (p.lo + lo_i * p.step, p.lo + (hi_i + 1) * p.step)
+
+
 def value_area_box(bars: Sequence[Bar]) -> Optional[Box]:
     """سه بین پرحجم‌ترین، بین‌بندی روی close. پورت `box()` از dash.html."""
     if len(bars) < 3:
@@ -150,6 +184,8 @@ def make_box(
     """
     if kind == "value_area":
         return value_area_box(bars)
+    if kind == "poc_band":
+        return poc_band(bars, min_rows, max_rows)
 
     p = build_profile(bars, min_rows, max_rows)
     if p is None:
