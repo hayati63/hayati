@@ -1572,13 +1572,29 @@ def build_book(rows, capital):
     #
     # پس اگر هیچ نمادی واجد شرط نبود، **نقد نمی‌مانیم** — سبدِ هم‌وزنِ
     # نقدشونده‌ترین‌های همان جهان نگه داشته می‌شود.
+    # ⚠️ ولی «نقد نماندن» یعنی **نگه داشتن**، نه **خریدن**. پیاده‌سازیِ
+    # قبلی این دو را یکی گرفته بود و همهٔ ایرادهایی که مصطفی گرفت از
+    # همین‌جا آمد: پرحجم‌ترین‌ها برداشته می‌شدند بدونِ هیچ چکِ وضعیت،
+    # بعد برایشان نقطهٔ ورود و حدضرر نشان داده می‌شد انگار سیگنال‌اند.
+    # فملی و وبملت و شپنا با کلوزِ زیرِ حدضرر، و پالایش که زیرِ باکسِ
+    # ماهِ جاری بود، همه از این مسیر وارد می‌شدند.
+    #
+    # دو چیز عوض شد:
+    #   ۱. انتخاب با **کیفیتِ وضعیت** است نه فقط حجم — بالای باکس
+    #      بهتر از داخل، داخل بهتر از زیر؛ حجم فقط تساوی را می‌شکند.
+    #   ۲. پرکننده در جدول و در آلارم **نگه‌دار** علامت می‌خورد و
+    #      نقطهٔ ورود نشان نمی‌دهد. خریدنش پیشنهاد نمی‌شود.
     if not picks:
+        def quality(r):
+            rank = {"بالا": 0, "داخل": 1, "زیر": 2}
+            return (rank.get(r["wst"], 3) + rank.get(r["mst"], 3),
+                    -r["value_bn"])
         pool = [r for r in rows
                 if r["value_bn"] >= MIN_VALUE_BN and not r.get("park")]
-        pool.sort(key=lambda r: -r["value_bn"])
+        pool.sort(key=quality)
         picks = pool[:4]
         for r in picks:
-            r["tier"] = 3               # «پرکننده» — سیگنال نیست
+            r["tier"] = 3               # «پرکننده» — نگه‌دار، نه خرید
     if not picks:
         return elig, []
     # نیمه‌سیگنال نصفِ وزن می‌گیرد — مزیتش هم حدودِ یک‌سوم است
@@ -1603,10 +1619,81 @@ def build_book(rows, capital):
                 else ("month" if "month" in live else "week"))
         z = r[band]
         amt = capital * w / 100
+        # پرکننده: **نگه‌دار**، نه خرید. قیمتِ مرجعش کلوزِ امروز است
+        # نه نقطهٔ ورود، چون ورودی در کار نیست.
+        hold_only = r["tier"] == 3
+        ref = r["close"] if hold_only else z["aim"]
         book.append({**r, "band": band, "z": z, "w": w,
-                     "amt": amt, "units": amt / z["aim"],
-                     "loss": amt * z["risk_pct"] / 100})
+                     "hold_only": hold_only,
+                     "amt": amt, "units": amt / ref,
+                     "loss": 0.0 if hold_only
+                     else amt * z["risk_pct"] / 100})
     return elig, book
+
+
+def audit(rows, book):
+    """بازرسِ دفتر — هر اجرا، قبل از اینکه چیزی نشان داده شود.
+
+    مصطفی: «من دونه‌دونه اینا رو چک کنم؟ خودت نمی‌تونی تشخیص بدی؟»
+
+    حق دارد. تا اینجا هر باگِ این دسته را **او** پیدا کرده بود: پالایش
+    که زیرِ حمایتِ هفتگی بود و در جدول مثبت نشان داده می‌شد، فملی و
+    وبملت و شپنا که کلوزشان زیرِ حدضررشان بود و در دفترِ پیشنهادی
+    آمده بودند. هر بار یک مسیرِ تازه.
+
+    پس به‌جای وصلهٔ موردی، **ثابت‌های دفتر** اینجا نوشته می‌شوند و هر
+    اجرا سنجیده. هر ردیفی که نقضشان کند از دفتر بیرون می‌رود و با نام
+    چاپ می‌شود — نه بی‌صدا، چون بی‌صدا بودن همان چیزی است که این همه
+    وقت گرفت.
+
+    خروجی: (دفترِ پاک‌شده، فهرستِ نقض‌ها)
+    """
+    bad = []
+    clean = []
+    for r in book:
+        z, band = r["z"], r["band"]
+        px = r["close"]
+        why = []
+        # پرکننده (tier 3) عمداً سیگنال نیست — قاعدهٔ «هرگز نقد نشو».
+        # پس شرط‌های وضعیت درباره‌اش معنا ندارند و فقط باید مطمئن شد
+        # که مثلِ سیگنال **نمایش داده نمی‌شود**.
+        if r.get("tier") == 3:
+            if not r.get("hold_only"):
+                bad.append((r["sym"],
+                            ["پرکننده بدونِ علامتِ «نگه‌دار» — "
+                             "مثلِ سیگنال نمایش داده می‌شود"]))
+            else:
+                clean.append(r)
+            continue
+        # ۱. قیمت نباید زیرِ حدضرر باشد — استاپی که خورده استاپ نیست
+        if px < z["stop"]:
+            why.append(f"کلوز {px:,.0f} زیرِ حدضرر {z['stop']:,.0f}")
+        # ۲. سیگنالِ همان باند نباید مرده باشد
+        if r.get(band[0] + "_dead"):
+            why.append(f"سیگنالِ {band} بعد از روزِ تصمیم مرده")
+        # ۳. وضعیتِ باکس باید با حضور در دفتر بخواند
+        if r["mst"] != "بالا":
+            why.append(f"ماهانه «{r['mst']}» است نه بالا")
+        if r["wst"] == "زیر":
+            why.append("هفتگی «زیر» است")
+        # ۴. هندسه باید سالم باشد
+        if not (z["stop"] < z["aim"] < z["target"]):
+            why.append(f"هندسهٔ خراب: استاپ {z['stop']:,.0f} · "
+                       f"ورود {z['aim']:,.0f} · تارگت {z['target']:,.0f}")
+        # ۵. نقدشوندگی و پارکِ پول
+        if r["value_bn"] < MIN_VALUE_BN:
+            why.append(f"ارزشِ معاملات {r['value_bn']:,.0f} زیرِ حد")
+        if r.get("park"):
+            why.append("صندوقِ پارکِ پول")
+        # ۶. فیلترِ ماهِ جاری
+        if (REQUIRE_CUR_MONTH
+                and r.get("cur4") not in ("بالا", "نیمهٔ بالا", "؟")):
+            why.append(f"ماهِ جاری «{r.get('cur4')}» است")
+        if why:
+            bad.append((r["sym"], why))
+        else:
+            clean.append(r)
+    return clean, bad
 
 
 # ══ ۴. آلارم ════════════════════════════════════════════════════════
@@ -2007,20 +2094,39 @@ def html(rows, book, capital, stamp, last_date, buy=(), sell=()):
             "تریگرِ حجمی (٪)|تارگتِ میله و پرچم")
 
     # ── تبِ ۲: دفتر ──
-    bk = "".join(
-        f'<tr data-s="{r["sym"]}" data-c="{r["cat"]}">'
-        f'<td class="td sym">{r["sym"]}</td><td class="td">{r["cat"]}</td>'
-        f'<td class="td">{"هفتگی" if r["band"] == "week" else "ماهانه"}</td>'
-        f'<td class="td n">{n(r["close"])}</td>'
-        f'<td class="td n hi">{n(r["z"]["aim"])}</td>'
-        f'<td class="td n r">{n(r["z"]["stop"])}</td>'
-        f'<td class="td n g">{n(r["z"]["target"])}</td>'
-        f'<td class="td n">{r["z"]["risk_pct"]:.1f}٪</td>'
-        f'<td class="td n">{r["w"]:.0f}٪</td>'
-        f'<td class="td n">{n(r["amt"] / 1e6)}</td>'
-        f'<td class="td n">{n(r["units"])}</td>'
-        f'<td class="td n r">{n(r["loss"] / 1e6)}</td>'
-        f'<td class="td">{alarm(r["z"], r.get(r["band"][0] + "_dead"))}</td></tr>' for r in book)
+    def bkrow(r):
+        # پرکننده نقطهٔ ورود و حدضرر و تارگت **ندارد** — نگه‌دار است
+        # نه خرید. نشان دادنِ آن سه عدد برایش همان چیزی بود که فملی و
+        # وبملت را با کلوزِ زیرِ حدضرر در دفتر نشان می‌داد.
+        ho = r.get("hold_only")
+        z = r["z"]
+        dash = '<span class="sub">—</span>'
+        rk = dash if ho else f'{z["risk_pct"]:.1f}٪'
+        return (
+            f'<tr data-s="{r["sym"]}" data-c="{r["cat"]}">'
+            f'<td class="td sym">{r["sym"]}'
+            + ('<span class="gate gate-ok" title="سیگنال نیست. هیچ '
+               'نمادی واجد شرط نبود و قاعدهٔ «هرگز نقد نشو» این را '
+               'نگه می‌دارد. نخر — فقط اگر داری، نگه دار.">'
+               'نگه‌دار، نه خرید</span>' if ho else "")
+            + f'</td><td class="td">{r["cat"]}</td>'
+            f'<td class="td">'
+            + ("—" if ho else ("هفتگی" if r["band"] == "week" else "ماهانه"))
+            + f'</td><td class="td n">{n(r["close"])}</td>'
+            f'<td class="td n hi">{dash if ho else n(z["aim"])}</td>'
+            f'<td class="td n r">{dash if ho else n(z["stop"])}</td>'
+            f'<td class="td n g">{dash if ho else n(z["target"])}</td>'
+            f'<td class="td n">{rk}</td>'
+            f'<td class="td n">{r["w"]:.0f}٪</td>'
+            f'<td class="td n">{n(r["amt"] / 1e6)}</td>'
+            f'<td class="td n">{n(r["units"])}</td>'
+            f'<td class="td n r">{dash if ho else n(r["loss"] / 1e6)}</td>'
+            f'<td class="td">'
+            + ('<span class="badge b-m">نگه‌دار</span>' if ho
+               else alarm(z, r.get(r["band"][0] + "_dead")))
+            + '</td></tr>')
+
+    bk = "".join(bkrow(r) for r in book)
     bk += (f'<tr class="dim"><td class="td sym">نقد</td>'
            f'<td class="td" colspan="7"></td>'
            f'<td class="td n"><b>{100 - inv:.0f}٪</b></td>'
@@ -2282,6 +2388,14 @@ font-size:.78rem;color:var(--muted);max-width:72ch}}
   یکشنبه صادر شده بود گم می‌کرد. ستونِ <b>کلوز</b> و ستونِ
   <b>آلارم</b> همچنان قیمتِ <i>امروز</i>اند. با <code>--now</code>
   به رفتارِ قبلی برمی‌گردد.
+  <br><b>حدسود و خروج — دو چیزِ متفاوت‌اند.</b> مصطفی: «مگر قرار نشد
+  حد سود مصادف بشود با وقتی که باکسِ هفتگی خلاف صادر بشود؟» درست است،
+  و قاعدهٔ خودِ اوست: «ما فقط در صورتی می‌فروشیم که زیرِ باکس بسته
+  شود.» پس <b>خروجِ واقعی همان حدضرر است</b> — وقتی کلوز زیرِ کفِ
+  باکسِ هفتگی برود، آلارمِ <span class="badge b-r">🔄 عوض کن</span>
+  روشن می‌شود. ستونِ <b>حدسود</b> تارگتِ هندسهٔ ۱:۱ است (ورود +
+  اندازهٔ ریسک) و فقط <i>مرجعِ بک‌تست</i> است، نه قاعده‌ای که او
+  اجرا می‌کند؛ اعدادِ R همه با همان حساب شده‌اند.
   <br>باکس از ماه میلادیِ کامل‌شدهٔ قبل. <b>نقطهٔ ورود</b>
   سقفِ باکس ‎+۳٪ است، نه خودِ سقف — در بک‌تست ورود روی سقف t=۱٫۳۵ داد و
   ۳٪ بالاتر t=۵٫۴۱. ستونِ آلارم می‌گوید قیمت الان چقدر تا آن فاصله دارد.
@@ -2743,6 +2857,21 @@ def main():
                   f"--capital بده.")
 
     elig, book = build_book(rows, capital)
+
+    # ── بازرس: هیچ ردیفی که ثابت‌های دفتر را نقض کند نباید رد شود ──
+    book, bad = audit(rows, book)
+    if bad:
+        print("\n" + "!" * 64)
+        print(f"  ⛔ بازرس {len(bad)} ردیف را از دفتر بیرون انداخت:")
+        for sym, why in bad:
+            print(f"     {sym}")
+            for w in why:
+                print(f"       ↳ {w}")
+        print("  این یعنی یک مسیر در build_book درست کار نکرده.")
+        print("  همین متن را بفرست تا ریشه‌اش را پیدا کنم.")
+        print("!" * 64)
+    else:
+        print(f"      بازرسِ دفتر: {len(book)} ردیف، همه سالم ✓")
     hot = [r for r in rows if r.get("ok")
            and (r["week"]["state"] == "در نوار"
                 or r["month"]["state"] == "در نوار")]
@@ -2777,11 +2906,22 @@ def main():
         print("  " + "-" * 74)
         for r in book:
             z = r["z"]
-            print(f"  {r['sym']:<10}"
-                  f"{'هفتگی' if r['band']=='week' else 'ماهانه':<8}"
-                  f"{z['aim']:>12,.0f}{z['stop']:>12,.0f}"
-                  f"{z['target']:>12,.0f}{z['risk_pct']:>6.1f}٪"
-                  f"{r['units']:>13,.0f}")
+            if r.get("hold_only"):
+                # پرکننده: نه ورودی، نه استاپی. چاپِ آن سه عدد همان
+                # چیزی بود که در ترمینال هم پیشنهادِ خرید می‌نمود.
+                print(f"  {r['sym']:<10}{'نگه‌دار':<8}"
+                      f"{'—':>12}{'—':>12}{'—':>12}{'—':>7}"
+                      f"{r['units']:>13,.0f}")
+            else:
+                print(f"  {r['sym']:<10}"
+                      f"{'هفتگی' if r['band']=='week' else 'ماهانه':<8}"
+                      f"{z['aim']:>12,.0f}{z['stop']:>12,.0f}"
+                      f"{z['target']:>12,.0f}{z['risk_pct']:>6.1f}٪"
+                      f"{r['units']:>13,.0f}")
+        if any(r.get("hold_only") for r in book):
+            print("\n  ⚠️  امروز هیچ نمادی واجد شرطِ خرید نیست.")
+            print("      ردیف‌های «نگه‌دار» سیگنال نیستند — قاعدهٔ")
+            print("      «هرگز نقد نشو» آن‌ها را نگه می‌دارد. نخر.")
         print(f"\n  نقد: {100-sum(r['w'] for r in book):.0f}٪")
     else:
         print("\n  امروز هیچ نمادی واجد شرط نیست — همه نقد.")
@@ -2865,9 +3005,13 @@ def main():
             txt += "\n\n<b>سفارشِ امروز</b>"
             for r in book:
                 z = r["z"]
-                txt += (f"\n• <b>{r['sym']}</b> ورود {z['aim']:,.0f} | "
-                        f"استاپ {z['stop']:,.0f} | "
-                        f"ریسک {z['risk_pct']:.1f}%")
+                if r.get("hold_only"):
+                    txt += (f"\n• <b>{r['sym']}</b> — نگه‌دار "
+                            f"(سیگنالِ خرید نیست)")
+                else:
+                    txt += (f"\n• <b>{r['sym']}</b> ورود {z['aim']:,.0f} | "
+                            f"استاپ {z['stop']:,.0f} | "
+                            f"ریسک {z['risk_pct']:.1f}%")
         txt += "\n\nخوانشِ قاعده‌های خودت روی داده، نه توصیهٔ مالی."
         print("\n  تلگرام:", "رفت" if telegram(txt) else "نرفت")
 
