@@ -87,6 +87,9 @@ LIVE_STATE = False        # با --now: وضعیت روی آخرین کلوز، 
 BOX_KIND = "valley"
 COST_FUND = 0.55
 COST_STOCK = 1.20
+# سهمِ سرمایه که در حالتِ --all به چرخشِ سهام می‌رسد.
+# صفر است و دلیلش اندازه‌گیری است، نه سلیقه — docs/34.
+STOCK_SHARE = 0.0
 # اوراقِ بدهی که در دیدبان می‌آیند ولی سهم نیستند. عمداً **کوتاه**
 # است: هر پیشوندی که اضافه کنم ممکن است سهمِ واقعی را بی‌صدا بیندازد
 # بیرون، و بی‌صدا افتادن دقیقاً همان چیزی است که مصطفی روی نهال گرفت.
@@ -3924,6 +3927,343 @@ font-size:.78rem;color:var(--muted);max-width:72ch}}
 </body></html>"""
 
 
+
+# ══ ۵.۵ اجرای ترکیبی — یک دستور، هر دو جهان ═════════════════════════
+# مصطفی: «برای گزارش‌گیری همه چیز را باید روزانه بزنم — هم صندوق‌های
+# ETF و هم کلیهٔ سهام‌ها و هم پرتفوی روزانهٔ هدف.»
+#
+# تا حالا دو دستورِ جدا بود و **یک اشکالِ جدی داشت**: هر اجرا سرمایه
+# را از همان پرتفو حساب می‌کرد و دفترِ خودش را روی ۱۰۰٪ آن می‌بست.
+# اگر هر دو را دنبال می‌کردی، ۲۰۰٪ سرمایه‌گذاری می‌شدی. اینجا یک
+# سرمایهٔ واحد بین دو جهان تقسیم می‌شود.
+#
+# **سهمِ سهام پیش‌فرض صفر است، و این حدس نیست.** `docs/34`: همان
+# چرخش روی ۷۷ صندوقِ سهامی، معیارِ هولدِ شاخص کل = ۱٫۰۰ —
+#
+#     کارمزدِ ۰٪ → ۱٫۱۸۲ · ۰٫۵۵٪ (صندوق) → ۱٫۰۷۵
+#     کارمزدِ ۱٫۲٪ (سهام) → ۰٫۹۵۹ · ۲٪ → ۰٫۸۳۴
+#
+# یعنی چرخشِ سهام با کارمزدِ واقعی از **هولدِ شاخص** عقب می‌ماند. پس
+# بودجهٔ چرخش به صندوق‌ها می‌رود. سهام‌هایی که **داری** همچنان هر روز
+# حد ضرر و حد سود می‌گیرند و اگر زیرِ ناحیه بسته شوند آلارمِ خروج
+# می‌خورند — فقط پولِ تازه رویشان نمی‌رود. با --stock-share N
+# می‌شود عوضش کرد.
+SNAP_KEYS = ("stamp", "capital", "cash", "units", "book", "pos",
+             "buy", "sell", "sells", "buys", "nopx", "px", "compass")
+
+
+def snap_write(path, stamp, capital, units, cash, book, pos,
+               buy, sell, sells, buys, nopx, px, comp):
+    """عکسِ یک اجرا — چیزی که گزارشِ ترکیبی لازم دارد، نه بیشتر.
+
+    ردیف‌های دفتر پر از کلیدهای داخلی‌اند (hist، flags، z…) که در
+    JSON یا بزرگ‌اند یا سریال‌ناپذیر. فقط آنچه گزارش می‌خواند بیرون
+    می‌رود.
+    """
+    def bk(r):
+        z = r.get("z") or {}
+        return {"sym": r["sym"], "cat": r.get("cat", "؟"),
+                "tier": r.get("tier"), "band": r.get("band"),
+                "w": r.get("w"), "amt": r.get("amt"),
+                "units": r.get("units"), "loss": r.get("loss"),
+                "hold_only": bool(r.get("hold_only")),
+                "close": r.get("close"), "bx": r.get("bx"),
+                "drv": r.get("drv"), "drv_resp": r.get("drv_resp"),
+                "aim": z.get("aim"), "stop": z.get("stop"),
+                "target": z.get("target"),
+                "risk_pct": z.get("risk_pct")}
+
+    data = {
+        "universe": "سهام" if STOCK else "صندوق",
+        "bench": BENCH, "cost": COST_STOCK if STOCK else COST_FUND,
+        "stamp": stamp, "capital": capital, "cash": cash,
+        "units": {k: v for k, v in units.items()},
+        "book": [bk(r) for r in book],
+        "pos": [{k: v for k, v in x.items() if k != "flag"}
+                | {"flag": (x.get("flag") or {}).get("target")}
+                for x in pos],
+        "buy": [list(x) for x in buy],
+        "sell": [list(x) for x in sell],
+        "sells": [{k: v for k, v in x.items()} for x in sells],
+        "buys": [{k: v for k, v in x.items()} for x in buys],
+        "nopx": list(nopx),
+        "px": {k: v for k, v in px.items()},
+        "compass": {k: v for k, v in (comp or {}).items()
+                    if k != "hist"},
+    }
+    f = Path(path)
+    f.parent.mkdir(parents=True, exist_ok=True)
+    f.write_text(json.dumps(data, ensure_ascii=False, indent=1,
+                            default=str), encoding="utf-8")
+
+
+def run_all(argv, stock_share, open_pages=True):
+    """هر دو جهان، یکی بعدِ دیگری، بعد یک گزارشِ ترکیبی.
+
+    زیرفرایند است نه فراخوانیِ درون‌فرایندی، چون `main()` ده‌ها
+    گلوبال می‌گذارد (STOCK، DATA، OUT، BENCH، WINRATE…). اجرای دوباره
+    در همان فرایند یعنی نشتِ حالتِ اجرای اول به دومی — همان جنس
+    باگی که تا حالا سه بار از این پروژه درآمده.
+    """
+    import subprocess
+    here = Path(__file__).resolve()
+    snaps = {}
+    for tag, extra, out in (
+            ("صندوق", [], HERE / "data_bourse" / "snap.json"),
+            ("سهام", ["--stocks"], HERE / "data_stocks" / "snap.json")):
+        print("\n" + "█" * 64)
+        print(f"  █  جهانِ {tag}")
+        print("█" * 64)
+        cmd = [sys.executable, str(here)] + argv + extra + [
+            "--export", str(out), "--no-open"]
+        r = subprocess.run(cmd)
+        if r.returncode == 0 and out.exists():
+            try:
+                snaps[tag] = json.loads(out.read_text(encoding="utf-8"))
+            except ValueError:
+                print(f"  ⚠️  عکسِ جهانِ {tag} خوانده نشد.")
+        else:
+            print(f"  ⚠️  جهانِ {tag} کامل نشد "
+                  f"(کدِ خروج {r.returncode}) — از گزارشِ ترکیبی "
+                  f"کنار می‌ماند.")
+    if not snaps:
+        print("\n  هیچ‌کدام از دو جهان نتیجه نداد.")
+        return 1
+    return combined(snaps, stock_share, open_pages)
+
+
+def combined(snaps, stock_share=None, open_pages=False):
+    """گزارشِ ترکیبی — یک سرمایه، یک پرتفوی هدف، یک فهرستِ خرید و فروش."""
+    share = STOCK_SHARE if stock_share is None else stock_share
+    share = max(0.0, min(100.0, share))
+    fu, st = snaps.get("صندوق"), snaps.get("سهام")
+    lines = []
+
+    def out(t=""):
+        print(t)
+        lines.append(t)
+
+    # ── سرمایه: **یکی**، نه دو تا ──────────────────────────────────
+    # هر اجرا سرمایه را از همان پرتفو حساب می‌کند، پس هر دو تقریباً
+    # یک عدد می‌دهند. بزرگ‌ترش را می‌گیریم چون اجرای صندوق قیمتِ
+    # سهم‌ها را ندارد و کم‌برآورد می‌کند (همان هشدارِ «قیمتِ وسپه…
+    # پیدا نشد»).
+    caps = [x["capital"] for x in snaps.values() if x.get("capital")]
+    capital = max(caps) if caps else 0.0
+    stamp = max(x["stamp"] for x in snaps.values())
+
+    out("\n" + "=" * 64)
+    out("  گزارشِ روزانهٔ ترکیبی — هر دو جهان، یک سرمایه")
+    out("=" * 64)
+    out(f"\n  کلوز {stamp} · سرمایهٔ واحد "
+        f"{capital / 1e9:,.1f} میلیارد ریال")
+    for tag, x in snaps.items():
+        out(f"    جهانِ {tag:<7} مبنا {x['bench']:<10} "
+            f"کارمزد {x['cost']}٪ · {len(x['book'])} ردیفِ دفتر")
+
+    # ── تقسیمِ سرمایه بینِ دو جهان ─────────────────────────────────
+    out("\n" + "-" * 64)
+    out(f"  تقسیمِ سرمایه: صندوق {100 - share:.0f}٪ · "
+        f"سهام {share:.0f}٪")
+    if share == 0:
+        out("  سهمِ سهام صفر است و این حدس نیست — docs/34:")
+        out("    کارمزدِ ۰٪ → ۱٫۱۸۲ · ۰٫۵۵٪ (صندوق) → ۱٫۰۷۵")
+        out("    کارمزدِ ۱٫۲٪ (سهام) → ۰٫۹۵۹ · ۲٪ → ۰٫۸۳۴")
+        out("    (معیار: هولدِ شاخص کل = ۱٫۰۰، ۷۷ صندوقِ سهامی، ۳۵ هفته)")
+        out("  یعنی چرخشِ سهام با کارمزدِ واقعی از هولدِ شاخص عقب")
+        out("  می‌ماند. پس پولِ تازه روی سهام نمی‌رود.")
+        out("  ⚠️ ولی سهامی که **داری** حذف نشده — پایین‌تر هر روز")
+        out("     حد ضرر و حد سود می‌گیرد. با --stock-share N عوض کن.")
+
+    # ── پرتفوی هدفِ ترکیبی ─────────────────────────────────────────
+    rows = []
+    for tag, x, sh in (("صندوق", fu, 100 - share), ("سهام", st, share)):
+        if not x or sh <= 0:
+            continue
+        tot = sum(r["w"] or 0 for r in x["book"]) or 1.0
+        for r in x["book"]:
+            rows.append({**r, "univ": tag,
+                         "w2": (r["w"] or 0) / tot * sh})
+    rows.sort(key=lambda r: -r["w2"])
+    if rows:
+        out("\n" + "=" * 64)
+        out("  پرتفوی هدفِ امروز — ترکیبی")
+        out("=" * 64)
+        out(f"\n  {'نماد':<11}{'جهان':<8}{'وزن':>7}{'مبلغ (م.ر)':>13}"
+            f"{'ورود':>12}{'استاپ':>11}{'ریسک':>7}")
+        out("  " + "-" * 62)
+        for r in rows:
+            amt = capital * r["w2"] / 100
+            if r["hold_only"]:
+                out(f"  {r['sym']:<11}{r['univ']:<8}{r['w2']:>6.1f}٪"
+                    f"{amt / 1e6:>13,.0f}"
+                    f"{'نگه‌دار، نه خرید':>31}")
+            else:
+                out(f"  {r['sym']:<11}{r['univ']:<8}{r['w2']:>6.1f}٪"
+                    f"{amt / 1e6:>13,.0f}{r['aim'] or 0:>12,.0f}"
+                    f"{r['stop'] or 0:>11,.0f}"
+                    f"{r['risk_pct'] or 0:>6.1f}٪")
+        tw = sum(r["w2"] for r in rows)
+        rk = sum(capital * r["w2"] / 100 * (r["risk_pct"] or 0) / 100
+                 for r in rows if not r["hold_only"])
+        out("  " + "-" * 62)
+        out(f"  {'جمع':<11}{'':<8}{tw:>6.1f}٪"
+            f"{capital * tw / 100 / 1e6:>13,.0f}")
+        out(f"  نقد: {100 - tw:.1f}٪ · اگر همهٔ استاپ‌ها بخورند: "
+            f"{rk / capital * 100:.2f}٪ سرمایه "
+            f"({rk / 1e6:,.0f} میلیون ریال)")
+
+    # ── از سبدِ فعلی به سبدِ هدفِ **ترکیبی** ────────────────────────
+    # این بخش دلیلِ اصلیِ وجودِ --all است. فهرستِ خرید و فروشِ هر
+    # اجرا روی سرمایهٔ کاملِ خودش بسته می‌شود، پس دنبال‌کردنِ هر دو
+    # یعنی دو برابر خرید. اینجا یک‌بار، روی سبدِ ترکیبی.
+    units, px = {}, {}
+    for x in snaps.values():
+        for k, v in (x.get("units") or {}).items():
+            units[k] = max(units.get(k, 0), v)
+        for k, v in (x.get("px") or {}).items():
+            px.setdefault(k, v)
+    tgt = {norm(r["sym"]): r for r in rows}
+    sells, buys, nopx = [], [], []
+    for sym, u in units.items():
+        k = norm(sym)
+        pxx = px.get(k)
+        if not pxx:
+            nopx.append(sym)
+            continue
+        want = (capital * tgt[k]["w2"] / 100 / pxx) if k in tgt else 0.0
+        if u - want > max(1.0, u * 0.02):
+            d = u - want
+            sells.append((sym, d, pxx, d * pxx, want <= 0))
+    for k, r in tgt.items():
+        pxx = px.get(k) or r.get("aim") or r.get("close")
+        if not pxx or r["hold_only"]:
+            continue
+        have = next((u for sm, u in units.items() if norm(sm) == k), 0)
+        want = capital * r["w2"] / 100 / pxx
+        if want - have > max(1.0, want * 0.02):
+            d = want - have
+            buys.append((r["sym"], d, pxx, d * pxx, have <= 0))
+    if sells or buys:
+        out("\n" + "=" * 64)
+        out("  از سبدِ فعلی به سبدِ هدف — یک فهرست، نه دو تا")
+        out("=" * 64)
+        out("  ترتیب: **اول فروش، بعد خرید** — پولِ آزادشده منبعِ "
+            "خریدِ همان صبح است.")
+        for ttl, lst, mark in (("▼ فروش", sells, "کلِ موجودی"),
+                               ("▲ خرید", buys, "جدید")):
+            if not lst:
+                continue
+            out(f"\n  {ttl:<14}{'واحد':>14}{'قیمت':>12}"
+                f"{'مبلغ (م.ر)':>14}")
+            out("  " + "-" * 56)
+            for sym, u, pxx, amt, full in lst:
+                out(f"  {sym:<14}{u:>14,.0f}{pxx:>12,.0f}"
+                    f"{amt / 1e6:>14,.0f}"
+                    + (f" ({mark})" if full else ""))
+            out(f"  {'جمع':<14}{'':>14}{'':>12}"
+                f"{sum(x[3] for x in lst) / 1e6:>14,.0f}")
+        sv = sum(x[3] for x in sells)
+        bv = sum(x[3] for x in buys)
+        if capital > 0:
+            # کارمزد به تفکیکِ جهان: سهم ۱٫۲٪، صندوق ۰٫۵۵٪
+            def fee_of(sym):
+                r = tgt.get(norm(sym))
+                return (COST_STOCK if (r and r["univ"] == "سهام")
+                        else COST_FUND)
+            cost = sum(x[3] * fee_of(x[0]) / 2 / 100
+                       for x in sells + buys)
+            out(f"\n  گردشِ امروز: {(sv + bv) / 1e6:,.0f} میلیون ریال "
+                f"= {(sv + bv) / capital * 100:.0f}٪ سرمایه")
+            out(f"  کارمزدش: ~{cost / 1e6:,.0f} میلیون ریال "
+                f"({cost / capital * 100:.2f}٪ سرمایه)")
+            if (sv + bv) / capital > 1.2:
+                out("  ⚠️  چرخشِ کامل است. قاعدهٔ انتخاب هیسترزیس "
+                    "ندارد و بک‌تست هم")
+                out("      همین‌طور بسته شده — ولی اگر فروش و خرید "
+                    "در یک دسته‌اند،")
+                out("      داری کارمزد می‌دهی تا همان ریسک را نگه "
+                    "داری. خودت ببین.")
+        if nopx:
+            out(f"\n  ⚠️  قیمتِ {'، '.join(nopx)} در هیچ‌کدام از دو "
+                f"جهان نبود — در فهرستِ بالا نیستند.")
+
+    # ── پوزیشن‌های من، از هر دو جهان ───────────────────────────────
+    allpos, seen = [], set()
+    for tag, x in snaps.items():
+        for pz in (x.get("pos") or []):
+            k = norm(pz["sym"])
+            if k in seen:
+                continue
+            seen.add(k)
+            allpos.append({**pz, "univ": tag})
+    allpos.sort(key=lambda x: -(x.get("value") or 0))
+    if allpos:
+        out("\n" + "=" * 64)
+        out("  پوزیشن‌های من — حد ضرر و حد سودِ امروز (هر دو جهان)")
+        out("=" * 64)
+        out(f"\n  {'نماد':<11}{'جهان':<8}{'ارزش (م.ر)':>12}"
+            f"{'کلوز':>11}{'حد ضرر':>11}{'فاصله':>8}   حد سود")
+        out("  " + "-" * 76)
+        for x in allpos:
+            fl = (f"{x['flag']:,.0f} (پرچم)" if x.get("flag")
+                  else "شکستِ ناحیه")
+            warn = " ⛔" if x.get("below") else ""
+            out(f"  {x['sym']:<11}{x['univ']:<8}"
+                f"{(x.get('value') or 0) / 1e6:>12,.0f}"
+                f"{x['px']:>11,.0f}{x['zone_lo']:>11,.0f}"
+                f"{x['dist_stop']:>+7.1f}٪   {fl}{warn}")
+        gone = [x for x in allpos if x.get("below")]
+        if gone:
+            out(f"\n  ⛔ {len(gone)} قلم زیرِ ناحیه بسته — "
+                f"فردا در پولبک فروشنده: "
+                + "، ".join(x["sym"] for x in gone))
+            out("     نقد نشو؛ پولش روی نمادی که بالای باکسش است.")
+
+    # ── آلارم‌های ترکیبی ───────────────────────────────────────────
+    ab = [(t, *b) for t, x in snaps.items() for b in (x.get("buy") or [])]
+    asl = [(t, *b) for t, x in snaps.items() for b in (x.get("sell") or [])]
+    out("\n" + "=" * 64)
+    out("  🔔 آلارمِ امروز — هر دو جهان")
+    out("=" * 64)
+    if not ab and not asl:
+        out("\n  🔕 نه آلارمِ خرید هست نه فروش.")
+    for t, sym, px, which, u in asl:
+        out(f"\n  🔄 عوض کن  {sym} ({t}) — کلوز {px:,.0f} زیرِ "
+            f"باکسِ {which} · {u:,} واحد")
+    for t, sym, aim, stop, risk, tier in ab:
+        if t == "سهام" and share == 0:
+            out(f"\n  🟡 {sym} (سهام) سیگنال است ولی سهمِ سهام صفر "
+                f"است — ورود {aim:,.0f} · استاپ {stop:,.0f}")
+            continue
+        tag = "" if tier == 1 else " (نیمه)"
+        out(f"\n  🟢 بخر  {sym} ({t}) — ورود {aim:,.0f} · "
+            f"استاپ {stop:,.0f} · ریسک {risk:.1f}٪{tag}")
+
+    out("\n" + "=" * 64)
+    out("  این خوانشِ قاعده‌های خودت روی داده است، نه توصیهٔ مالی.")
+    out("=" * 64)
+    out("\n  داشبوردها:")
+    for tag, f in (("صندوق", HERE / "dashboard.html"),
+                   ("سهام", HERE / "dashboard_stocks.html")):
+        if f.exists():
+            out(f"    {tag:<8}{f}")
+
+    rep = HERE / "گزارشِ-روزانه.txt"
+    rep.write_text("\n".join(lines), encoding="utf-8")
+    print(f"\n  گزارشِ متنی: {rep}")
+    if open_pages:
+        # هر دو صفحه باز می‌شوند، نه یکی. زیرفرایندها با --no-open
+        # اجرا شده‌اند تا وسطِ کار مرورگر باز نشود.
+        for f in (HERE / "dashboard.html", HERE / "dashboard_stocks.html"):
+            if f.exists():
+                try:
+                    webbrowser.open(f.as_uri())
+                except Exception:                    # noqa: BLE001
+                    pass
+    return 0
+
+
 # ══ ۶. اجرا ═════════════════════════════════════════════════════════
 def main():
     global REQUIRE_CUR_MONTH, MAX_INVESTED, MAX_WEIGHT
@@ -3949,6 +4289,19 @@ def main():
                     help="سقفِ سرمایهٔ در بازار؛ پیش‌فرض ۱۰۰")
     ap.add_argument("--no-curmonth", dest="curmonth", action="store_false",
                     help="شرطِ «ماه جاری هم بالا باشد» را خاموش کن")
+    ap.add_argument("--all", dest="run_all", action="store_true",
+                    help="هر دو جهان را پشتِ سرِ هم بزن (صندوق‌ها و "
+                         "سهام) و یک **گزارشِ ترکیبی** با یک سرمایهٔ "
+                         "واحد بساز — نه دو تا")
+    ap.add_argument("--stock-share", type=float, default=None,
+                    help="درصدِ سرمایه که به چرخشِ سهام برسد در حالتِ "
+                         "--all. پیش‌فرض ۰، و دلیلش اندازه‌گیری است "
+                         "(docs/34): با کارمزدِ ۱٫۲٪ چرخشِ سهام از "
+                         "هولدِ شاخص عقب می‌ماند.")
+    ap.add_argument("--export", default=None,
+                    help="عکسِ این اجرا را در یک فایلِ JSON بنویس "
+                         "(دفتر، پوزیشن‌ها، آلارم‌ها) — --all از "
+                         "همین استفاده می‌کند")
     ap.add_argument("--stocks", action="store_true",
                     help="به‌جای صندوق‌ها، **سهام** را بگیر؛ دادهٔ جدا "
                          "(data_stocks/)، خروجیِ جدا "
@@ -3992,6 +4345,25 @@ def main():
     if args.max_weight is not None:
         MAX_WEIGHT = args.max_weight
     REQUIRE_CUR_MONTH = args.curmonth
+
+    # ── --all: هر دو جهان، بعد یک گزارشِ ترکیبی ────────────────────
+    # قبل از هر کارِ دیگری، چون این اجرا خودش دو زیرفرایند می‌سازد و
+    # نباید گلوبال‌های اینجا را دست بزند.
+    if args.run_all:
+        drop = {"--all", "--stocks", "--export", "--no-open",
+                "--stock-share"}
+        passthru, skip = [], False
+        for a in sys.argv[1:]:
+            if skip:
+                skip = False
+                continue
+            if a in drop:
+                skip = a in ("--export", "--stock-share")
+                continue
+            if a.split("=")[0] in drop:
+                continue
+            passthru.append(a)
+        return run_all(passthru, args.stock_share, args.open)
 
     STOCK = args.stocks
     LIVE_STATE = args.now
@@ -4720,7 +5092,12 @@ def main():
         txt += "\n\nخوانشِ قاعده‌های خودت روی داده، نه توصیهٔ مالی."
         print("\n  تلگرام:", "رفت" if telegram(txt) else "نرفت")
 
-    if args.open:
+    if args.export:
+        snap_write(args.export, stamp, capital, hu, hc, book, pos,
+                   buy, sell, sells, buys, nopx, PX, comp)
+        print(f"      عکسِ اجرا: {args.export}")
+
+    if args.open and not args.export:
         try:
             webbrowser.open(OUT.as_uri())
         except Exception:                            # noqa: BLE001

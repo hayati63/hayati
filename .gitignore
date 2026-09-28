@@ -1,9 +1,12 @@
-__pycache__/
 *.pyc
-portfolio.html
+__pycache__/
+dashboard.html
+dashboard_stocks.html
 data/bridge.html
 data_bourse/
-dashboard.html
+data_bourse/snap.json
 data_stocks/
-dashboard_stocks.html
+data_stocks/snap.json
+portfolio.html
 گزارشِ-امروز.txt
+گزارشِ-روزانه.txt
