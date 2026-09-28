@@ -1696,6 +1696,176 @@ def audit(rows, book):
     return clean, bad
 
 
+# ══ ۳.۵ قطب‌نما — سنجش در برابر کهربا ═══════════════════════════════
+# مصطفی: «می‌خواهم هر روز درآمدِ مازادم را نسبت به صندوقِ کهربا بسنجم…
+# یک قطب‌نمای هوشمند که انحرافِ ما را هر روز نشان بدهد… از فردا هر روز
+# سود یا ضررِ روزانه را نشان بده.»
+#
+# چرا کهربا مبنای درستی است: صندوقِ طلاست و بند ۱۸ docs نشان داد سنجشِ
+# ریالی در تورمِ ایران تقریباً بی‌معناست. «۳۰٪ سود» وقتی طلا ۴۰٪ رفته
+# یعنی عقب‌ماندگی. پس مبنا یک دارایی است، نه ریال.
+#
+# سه فایل در data_bourse/ نگه داشته می‌شود:
+#   baseline.json  لنگر: تاریخ، قیمتِ کهربا، سرمایهٔ آن روز
+#   holdings.json  سبدِ فعلی (با --adopt از دفتر پر می‌شود)
+#   track.csv      یک ردیف در روز — تاریخچه‌ای که نمودار از آن می‌آید
+BENCH = "کهربا"
+
+
+def holdings_load():
+    """سبدِ فعلی: از فایل، وگرنه از ثابتِ HOLDING بالای فایل.
+
+    فایل را `--adopt` می‌نویسد، بعد از اینکه سفارشِ دفتر را اجرا کردی.
+    این‌طوری برای به‌روز کردنِ پرتفو لازم نیست کدِ پایتون را دست بزنی.
+    """
+    f = DATA / "holdings.json"
+    if f.exists():
+        try:
+            d = json.loads(f.read_text(encoding="utf-8"))
+            return d.get("units", {}), float(d.get("cash", 0))
+        except (ValueError, TypeError):
+            pass
+    return dict(HOLDING), float(CASH)
+
+
+def holdings_save(units, cash):
+    DATA.mkdir(exist_ok=True)
+    (DATA / "holdings.json").write_text(
+        json.dumps({"units": units, "cash": cash},
+                   ensure_ascii=False, indent=1), encoding="utf-8")
+
+
+def port_value(units, cash, px):
+    """ارزشِ روزِ سبد. (ارزش، فهرستِ نمادهای بی‌قیمت)"""
+    tot, miss = float(cash), []
+    for sym, u in units.items():
+        c = px.get(norm(sym))
+        if c is None:
+            miss.append(sym)
+            continue
+        tot += u * c
+    return tot, miss
+
+
+def compass(px, units, cash, stamp):
+    """قطب‌نما: پرتفو در برابرِ کهربا، از روزِ لنگر تا امروز.
+
+    بازدهِ مبنا = همان مبلغِ روزِ لنگر، اگر تماماً کهربا خریده بودی.
+    مازاد = پرتفو منهای آن. هم ریالی، هم درصدی.
+
+    ⚠️ روزِ اول همه‌چیز صفر است و باید صفر باشد — تاریخچه‌ای نیست که
+    از آن پیشرفت درآید. عددِ واقعی از فردا شروع می‌شود.
+    """
+    bpx = px.get(norm(BENCH))
+    if bpx is None:
+        return None
+    pv, miss = port_value(units, cash, px)
+    bf = DATA / "baseline.json"
+    base = None
+    if bf.exists():
+        try:
+            base = json.loads(bf.read_text(encoding="utf-8"))
+        except ValueError:
+            base = None
+    if not base or not base.get("bench_px"):
+        base = {"date": stamp, "bench": BENCH, "bench_px": bpx,
+                "capital": pv}
+        DATA.mkdir(exist_ok=True)
+        bf.write_text(json.dumps(base, ensure_ascii=False, indent=1),
+                      encoding="utf-8")
+
+    bench_val = base["capital"] * (bpx / base["bench_px"])
+    out = {"date": stamp, "base_date": base["date"],
+           "base_capital": base["capital"], "base_bench_px": base["bench_px"],
+           "bench_px": bpx, "port": pv, "bench": bench_val,
+           "excess_rial": pv - bench_val,
+           "excess_pct": (pv / bench_val - 1) * 100 if bench_val else 0.0,
+           "port_pct": (pv / base["capital"] - 1) * 100,
+           "bench_pct": (bpx / base["bench_px"] - 1) * 100,
+           "missing": miss, "first_day": base["date"] == stamp}
+
+    # ── تاریخچه: یک ردیف در روز، بدونِ تکرار ──────────────────────
+    tf = DATA / "track.csv"
+    hist = []
+    if tf.exists():
+        with tf.open(encoding="utf-8-sig", newline="") as fh:
+            for r in csv.DictReader(fh):
+                if r.get("date") and r["date"] != stamp:
+                    hist.append(r)
+    prev = hist[-1] if hist else None
+    out["day_pnl"] = (pv - float(prev["port"])) if prev else 0.0
+    out["day_pct"] = ((pv / float(prev["port"]) - 1) * 100
+                      if prev and float(prev["port"]) else 0.0)
+    out["day_bench_pct"] = ((bpx / float(prev["bench_px"]) - 1) * 100
+                            if prev and float(prev.get("bench_px") or 0)
+                            else 0.0)
+    row = {"date": stamp, "port": f"{pv:.0f}", "bench_px": f"{bpx:.0f}",
+           "bench": f"{bench_val:.0f}",
+           "excess_rial": f"{pv - bench_val:.0f}",
+           "excess_pct": f"{out['excess_pct']:.4f}"}
+    hist.append(row)
+    with tf.open("w", encoding="utf-8-sig", newline="") as fh:
+        w = csv.DictWriter(fh, fieldnames=list(row))
+        w.writeheader()
+        for r in hist:
+            w.writerow({k: r.get(k, "") for k in row})
+    out["hist"] = hist[-40:]
+
+    # انحرافِ معیارِ مازادِ روزانه — «قطب‌نما» فقط جهت نیست، پراکندگی
+    # هم هست. با کمتر از ۵ روز عدد نمی‌دهد چون بی‌معناست.
+    ex = [float(r["excess_pct"]) for r in hist if r.get("excess_pct")]
+    d = [ex[i] - ex[i - 1] for i in range(1, len(ex))]
+    out["sd"] = statistics.pstdev(d) if len(d) >= 5 else None
+    out["days"] = len(hist)
+    return out
+
+
+def rebalance(units, cash, book, px, capital):
+    """از سبدِ فعلی به سبدِ هدف — دقیقاً چه بفروش و چه بخر.
+
+    مصطفی: «پرتفوم را دقیق بگو با چه مبلغی بفروشم.» پس ستونِ مبلغ
+    اجباری است، نه فقط تعدادِ واحد.
+
+    **اول فروش، بعد خرید** — بند ۲ راهنما: «پول آزادشده منبعِ خریدِ
+    همان صبح است.»
+    """
+    want = {}
+    for r in book:
+        c = px.get(norm(r["sym"]))
+        if c:
+            want[r["sym"]] = (capital * r["w"] / 100) / c
+    sells, buys, noprice = [], [], []
+    for sym, u in units.items():
+        c = px.get(norm(sym))
+        if c is None:
+            # بی‌صدا ردش نکن — این همان الگویی است که سه بار گرفت.
+            noprice.append(sym)
+            continue
+        tgt = 0.0
+        for w, wu in want.items():
+            if norm(w) == norm(sym):
+                tgt = wu
+                break
+        if u - tgt > max(1.0, u * 0.02):          # زیرِ ۲٪ اختلاف را دست نزن
+            sells.append({"sym": sym, "units": u - tgt, "px": c,
+                          "amt": (u - tgt) * c, "all": tgt <= 0})
+    for sym, wu in want.items():
+        c = px.get(norm(sym))
+        if c is None:
+            continue
+        have = 0.0
+        for s2, u2 in units.items():
+            if norm(s2) == norm(sym):
+                have = u2
+                break
+        if wu - have > max(1.0, wu * 0.02):
+            buys.append({"sym": sym, "units": wu - have, "px": c,
+                         "amt": (wu - have) * c, "new": have <= 0})
+    sells.sort(key=lambda x: -x["amt"])
+    buys.sort(key=lambda x: -x["amt"])
+    return sells, buys, noprice
+
+
 # ══ ۴. آلارم ════════════════════════════════════════════════════════
 def alarms(rows, book):
     """آلارمِ ورود و خروج.
@@ -1776,7 +1946,8 @@ def telegram(text):
 
 
 # ══ ۵. صفحه ═════════════════════════════════════════════════════════
-def html(rows, book, capital, stamp, last_date, buy=(), sell=()):
+def html(rows, book, capital, stamp, last_date, buy=(), sell=(),
+         comp=None, sells=(), buys=(), nopx=()):
     """داشبورد — با همان فرمتِ فایلی که مصطفی فرستاد.
 
     `dashboard_monthly.html` او: تمِ تیره، تب‌های قرصی، کاشیِ آمار،
@@ -2068,6 +2239,157 @@ def html(rows, book, capital, stamp, last_date, buy=(), sell=()):
 
     alarm_box = _albox()
 
+    # ── قطب‌نما ───────────────────────────────────────────────────
+    # شکل از کارِ داده می‌آید: یک عددِ سرخط (مازادِ امروز) + یک سری
+    # زمانی تک‌خطی. سری تک‌خطی است، پس راهنمای رنگ لازم ندارد —
+    # عنوان خودش نامش را می‌گوید.
+    #
+    # رنگ اینجا **وضعیت** است نه دسته‌بندی (جلو/عقب)، و قاعدهٔ رنگِ
+    # وضعیت این است که هیچ‌وقت تنها حاملِ معنا نباشد. پس کنارِ هر
+    # عددِ سبز یا قرمز، کلمه و جهت هم می‌آید: «جلو ▲» / «عقب ▼».
+    def _compass():
+        if not comp:
+            return ""
+        ex, rial = comp["excess_pct"], comp["excess_rial"]
+        up = ex >= 0
+        cls = "g" if up else "r"
+        word = "جلو" if up else "عقب"
+        arrow = "▲" if up else "▼"
+        if comp["first_day"]:
+            return (f'<div class="compass"><div class="cmp-h">'
+                    f'قطب‌نما — در برابرِ {BENCH}</div>'
+                    f'<div class="sub">امروز روزِ <b>لنگر</b> است '
+                    f'({comp["date"]}). سرمایهٔ مبنا '
+                    f'{n(comp["base_capital"] / 1e9, 1)} میلیارد ریال · '
+                    f'{BENCH} {n(comp["base_bench_px"])} ریال.<br>'
+                    f'عددِ مازاد از <b>فردا</b> معنا پیدا می‌کند — امروز '
+                    f'صفر است و باید صفر باشد.</div></div>')
+
+        # ── نمودار: خطِ مازادِ تجمعی، با خطِ صفرِ مرجع ──────────────
+        pts = [float(r["excess_pct"]) for r in comp["hist"]
+               if r.get("excess_pct")]
+        spark = ""
+        if len(pts) >= 2:
+            # نسبتِ viewBox نزدیکِ نسبتِ واقعیِ جعبه باشد وگرنه
+            # preserveAspectRatio وسط‌چین می‌کند و نمودار باریک می‌ماند.
+            W, H, PAD = 1200, 120, 26
+            lo, hi = min(pts + [0.0]), max(pts + [0.0])
+            rng = (hi - lo) or 1.0
+            xs = [PAD + i * (W - 2 * PAD) / (len(pts) - 1)
+                  for i in range(len(pts))]
+            ys = [H - PAD - (v - lo) / rng * (H - 2 * PAD) for v in pts]
+            zy = H - PAD - (0.0 - lo) / rng * (H - 2 * PAD)
+            line = " ".join(f"{'M' if i == 0 else 'L'}{x:.1f},{y:.1f}"
+                            for i, (x, y) in enumerate(zip(xs, ys)))
+            area = (line + f" L{xs[-1]:.1f},{zy:.1f} "
+                    f"L{xs[0]:.1f},{zy:.1f} Z")
+            col = "var(--green)" if up else "var(--red)"
+            dots = "".join(
+                f'<circle cx="{x:.1f}" cy="{y:.1f}" r="7" fill="transparent">'
+                f'<title>{comp["hist"][i]["date"]}: {v:+.2f}٪</title>'
+                f'</circle>'
+                for i, (x, y, v) in enumerate(zip(xs, ys, pts)))
+            spark = (
+                f'<svg class="spark" viewBox="0 0 {W} {H}" '
+                f'role="img" aria-label="مازادِ تجمعی نسبت به {BENCH}">'
+                f'<path d="{area}" fill="{col}" opacity=".13"/>'
+                f'<line x1="{PAD}" y1="{zy:.1f}" x2="{W - PAD}" '
+                f'y2="{zy:.1f}" stroke="var(--muted)" stroke-width="1" '
+                f'stroke-dasharray="3 3"/>'
+                f'<path d="{line}" fill="none" stroke="{col}" '
+                f'stroke-width="2" stroke-linejoin="round" '
+                f'stroke-linecap="round"/>'
+                f'<circle cx="{xs[-1]:.1f}" cy="{ys[-1]:.1f}" r="4.5" '
+                f'fill="{col}" stroke="var(--card)" stroke-width="2"/>'
+                # برچسبِ انتخابی: فقط بیشینه، کمینه و نقطهٔ آخر —
+                # نه عدد روی هر نقطه.
+                f'<text x="{PAD}" y="{PAD - 9}" class="sv" direction="ltr">'
+                f'{hi:+.1f}٪</text>'
+                f'<text x="{PAD}" y="{H - 7}" class="sv" direction="ltr">'
+                f'{lo:+.1f}٪</text>'
+                f'<text x="{xs[-1]:.1f}" y="{max(15, ys[-1] - 13):.1f}" '
+                f'class="sv se" direction="ltr" text-anchor="end">'
+                f'{pts[-1]:+.2f}٪</text>'
+                f'{dots}</svg>'
+                f'<div class="sub sprk-l"><span>صفر = هم‌پای {BENCH}</span>'
+                f'<span>{comp["hist"][0]["date"]} → '
+                f'{comp["hist"][-1]["date"]}</span></div>')
+
+        sd = ("" if comp["sd"] is None else
+              f'<div class="stat"><div class="k">انحرافِ معیارِ روزانه</div>'
+              f'<div class="v">{comp["sd"]:.2f}</div>'
+              f'<div class="d">واحدِ درصد · پراکندگیِ مازاد</div></div>')
+        dex = comp["day_pct"] - comp["day_bench_pct"]
+        return (
+            f'<div class="compass"><div class="cmp-h">'
+            f'قطب‌نما — در برابرِ {BENCH} · از {comp["base_date"]} '
+            f'({comp["days"]} روز)</div>'
+            f'<div class="stats cmp-s">'
+            f'<div class="stat"><div class="k">مازاد نسبت به {BENCH}</div>'
+            f'<div class="v {cls}" dir="ltr">{ex:+.2f}٪ {arrow}</div>'
+            f'<div class="d">{word} · {n(rial / 1e6)} میلیون ریال</div></div>'
+            f'<div class="stat"><div class="k">سود/زیانِ امروز</div>'
+            f'<div class="v {"g" if comp["day_pnl"] >= 0 else "r"}" dir="ltr">'
+            f'<span dir="ltr">{n(comp["day_pnl"] / 1e6)}</span></div>'
+            f'<div class="d">میلیون ریال · {comp["day_pct"]:+.2f}٪ '
+            f'({dex:+.2f} واحد نسبت به {BENCH})</div></div>'
+            f'<div class="stat"><div class="k">پرتفو</div>'
+            f'<div class="v">{n(comp["port"] / 1e9, 1)}</div>'
+            f'<div class="d">میلیارد ریال · {comp["port_pct"]:+.2f}٪ '
+            f'از لنگر</div></div>'
+            f'<div class="stat"><div class="k">{BENCH} (مبنا)</div>'
+            f'<div class="v">{n(comp["bench"] / 1e9, 1)}</div>'
+            f'<div class="d">میلیارد ریال · {comp["bench_pct"]:+.2f}٪ '
+            f'از لنگر</div></div>{sd}</div>{spark}</div>')
+
+    compass_box = _compass()
+
+    def _orders():
+        """دقیقاً چه بفروش و چه بخر — با مبلغ، نه فقط تعداد."""
+        if not sells and not buys:
+            return ('<div class="sub">سبدِ فعلی با سبدِ هدف یکی است — '
+                    'کاری لازم نیست.</div>')
+        def tbl(rows_, kind):
+            if not rows_:
+                return ""
+            head = "▼ فروش" if kind == "s" else "▲ خرید"
+            tot = sum(x["amt"] for x in rows_)
+            body = "".join(
+                f'<tr><td class="td sym">{x["sym"]}'
+                + ('<span class="gate gate-ok">کلِ موجودی</span>'
+                   if kind == "s" and x["all"] else
+                   '<span class="gate gate-ok">جدید</span>'
+                   if kind == "b" and x.get("new") else "")
+                + f'</td><td class="td n">{n(x["units"])}</td>'
+                f'<td class="td n">{n(x["px"])}</td>'
+                f'<td class="td n {"r" if kind == "s" else "g"}">'
+                f'<b>{n(x["amt"] / 1e6)}</b></td></tr>'
+                for x in rows_)
+            return (f'<h3>{head}</h3><div class="wrap"><table class="table">'
+                    f'<thead><tr><th class="th">نماد</th>'
+                    f'<th class="th n">واحد</th><th class="th n">قیمت</th>'
+                    f'<th class="th n">مبلغ (میلیون ریال)</th></tr></thead>'
+                    f'<tbody>{body}<tr class="dim"><td class="td sym">جمع'
+                    f'</td><td class="td"></td><td class="td"></td>'
+                    f'<td class="td n"><b>{n(tot / 1e6)}</b></td></tr>'
+                    f'</tbody></table></div>')
+        warn = ("" if not nopx else
+                f'<div class="feebox">⚠️ قیمتِ '
+                f'<b>{"، ".join(nopx)}</b> پیدا نشد، پس در این فهرست '
+                f'نیستند. این‌ها سهم‌اند نه صندوق؛ در اجرای آنلاین '
+                f'قیمتشان گرفته می‌شود. تا آن موقع تکلیفشان روشن '
+                f'نیست.</div>')
+        return (warn + f'<div class="sub"><b>ترتیب: اول فروش، بعد خرید.</b> '
+                f'بند ۲ راهنما — پولِ آزادشده منبعِ خریدِ همان صبح است. '
+                f'مبلغ‌ها به قیمتِ کلوزِ {stamp} است؛ در پیش‌گشایش '
+                f'تعداد را با قیمتِ همان لحظه دوباره حساب کن.'
+                f'<br>بعد از اجرای واقعی یک بار '
+                f'<code>python bourse.py --adopt</code> را بزن تا قطب‌نما '
+                f'از فردا همین سبد را دنبال کند.</div>'
+                + tbl(sells, "s") + tbl(buys, "b"))
+
+    orders_box = _orders()
+
     UNIV = "سهامِ بورس" if STOCK else "صندوق‌های ETF"
     BTSRC = (f"از خودِ همین {len(ok_rows)} سهم ساخته شد، در همین اجرا."
              if STOCK else "۱۲۱ صندوق، ۴۲ هفته و ۱۱ ماه.")
@@ -2308,6 +2630,17 @@ flex-wrap:wrap}}
 .al-b{{border:1px solid var(--green);
 box-shadow:inset 3px 0 0 var(--green)}}
 .al-s{{border:1px solid var(--red);box-shadow:inset 3px 0 0 var(--red)}}
+.compass{{margin:16px 0;padding:16px 18px;border-radius:14px;
+background:var(--card);border:1px solid var(--border)}}
+.cmp-h{{font-weight:700;font-size:.95rem;margin-bottom:12px;
+color:var(--text)}}
+.cmp-s{{margin:0 0 6px}}
+.spark{{width:100%;height:130px;display:block;margin-top:10px}}
+.spark .sv{{fill:var(--muted);font-size:13px;font-weight:600}}
+.spark .se{{fill:var(--text)}}
+.stat .v[dir="ltr"]{{direction:ltr;unicode-bidi:isolate}}
+.sprk-l{{display:flex;justify-content:space-between;
+font-size:.72rem;margin-top:4px}}
 .feebox{{margin:14px 0;padding:13px 16px;border-radius:12px;
 background:rgba(245,101,101,.08);border:1px solid var(--red);
 font-size:.88rem;line-height:1.9;color:var(--text)}}
@@ -2364,6 +2697,8 @@ font-size:.78rem;color:var(--muted);max-width:72ch}}
 
 {alarm_box}
 
+{compass_box}
+
 <div class="cal"><table><tbody>{cal}</tbody></table>
 <div class="mn">ماهانه: {month_note(last_date)}</div></div>
 
@@ -2373,6 +2708,7 @@ font-size:.78rem;color:var(--muted);max-width:72ch}}
   <button class="tab on" data-t="p1">سیگنال ماهانه</button>
   <button class="tab" data-t="p2">سیگنال هفتگی</button>
   <button class="tab" data-t="p3">دفترِ پیشنهادی</button>
+  <button class="tab" data-t="p6">خرید و فروشِ امروز</button>
   <button class="tab" data-t="p4">وضعیت همهٔ نمادها</button>
   <button class="tab" data-t="p5">بک‌تست</button>
 </div>
@@ -2456,6 +2792,8 @@ font-size:.78rem;color:var(--muted);max-width:72ch}}
   {thead("نماد|دسته|کلوز|ماه قبل|ماه جاری|هفتگی|حجم (م‌ر/روز)|وضعیت")}
   </tr></thead><tbody>{allr}</tbody></table></div>
 </div>
+
+<div class="panel" id="p6">{orders_box}</div>
 
 <div class="panel" id="p5">
   {bt("month", "بک‌تست ماهانه",
@@ -2556,6 +2894,11 @@ def main():
     ap.add_argument("--box", choices=("valley", "poc"), default="valley",
                     help="valley = ردیفِ دره (پیش‌فرض) · "
                          "poc = ناحیهٔ پرحجمِ حولِ POC")
+    ap.add_argument("--adopt", action="store_true",
+                    help="سفارشِ امروز را به‌عنوانِ سبدِ فعلی ثبت کن "
+                         "(بعد از اجرای واقعیِ معاملات)")
+    ap.add_argument("--rebase", action="store_true",
+                    help="لنگرِ قطب‌نما را به امروز منتقل کن")
     ap.add_argument("--now", action="store_true",
                     help="وضعیت را روی **آخرین** کلوز حساب کن، نه روی "
                          "کلوزِ روزِ تصمیم (رفتارِ قبلی)")
@@ -2582,6 +2925,12 @@ def main():
         # صندوق‌ها کنارِ سهم بنشیند — همان چیزی که نباید بشود.
         DATA = HERE / "data_stocks"
         OUT = HERE / "dashboard_stocks.html"
+    if args.rebase:
+        # بعد از تعیینِ DATA، وگرنه در حالتِ سهام پوشهٔ صندوق‌ها را
+        # پاک می‌کرد.
+        for f in ("baseline.json", "track.csv"):
+            (DATA / f).unlink(missing_ok=True)
+        print("      لنگرِ قطب‌نما پاک شد — از امروز دوباره شروع می‌شود.")
 
     print("=" * 64)
     print("  بورس — تک‌فایل" + ("  ·  حالتِ سهام" if STOCK else ""))
@@ -2813,6 +3162,16 @@ def main():
     stamp = max(r["date"] for r in rows)
     print(f"      {len(rows)} نماد · کلوز {stamp}")
 
+    # نقشهٔ قیمتِ امروز — قطب‌نما و فهرستِ خرید/فروش هر دو لازمش دارند
+    PX = {norm(r["sym"]): r["close"] for r in rows}
+    hpf = DATA / "hold_px.json"
+    if hpf.exists():
+        try:
+            for k, v in json.loads(hpf.read_text(encoding="utf-8")).items():
+                PX[norm(k)] = v
+        except ValueError:
+            pass
+
     capfile = DATA / "capital.txt"
     capital = args.capital
     if not capital and capfile.exists():
@@ -2834,19 +3193,13 @@ def main():
                 px.update(json.loads(hf.read_text(encoding="utf-8")))
             except ValueError:
                 pass
-        npx = {norm(k): v for k, v in px.items()}
-        have, miss = 0.0, []
-        for sym, u in HOLDING.items():
-            c = npx.get(norm(sym))
-            if c:
-                have += u * c
-            else:
-                miss.append(sym)
-        capital = have + CASH
+        hu, hc = holdings_load()
+        have, miss = port_value(hu, 0.0, PX)
+        capital = have + hc
         capfile.parent.mkdir(exist_ok=True)
         capfile.write_text(str(int(capital)), encoding="utf-8")
         print(f"\n      سرمایه از پرتفو حساب شد: "
-              f"{have / 1e9:,.1f} سهام + {CASH / 1e9:,.1f} نقد "
+              f"{have / 1e9:,.1f} سهام + {hc / 1e9:,.1f} نقد "
               f"= {capital / 1e9:,.1f} میلیارد ریال")
         if miss:
             # نمادِ غیرصندوقی در دیدبانِ صندوق‌ها نیست، پس ارزشش
@@ -2879,9 +3232,24 @@ def main():
     print("\n[۴/۴] ساخت صفحه...")
     y, mo, dd = (int(x) for x in stamp.split("-"))
     last_date = date(y, mo, dd)
+    # ── قطب‌نما و فهرستِ خرید/فروش ─────────────────────────────────
+    hu, hc = holdings_load()
+    comp = compass(PX, hu, hc, stamp)
+    sells, buys, nopx = rebalance(hu, hc, book, PX, capital)
+
+    if args.adopt:
+        # سفارشِ دفتر را به‌عنوانِ سبدِ فعلی ثبت کن — بعد از اینکه
+        # واقعاً اجرایش کردی. از فردا قطب‌نما همین را دنبال می‌کند.
+        nu = {r["sym"]: round(r["units"]) for r in book}
+        inv = sum(r["w"] for r in book)
+        holdings_save(nu, capital * max(0.0, 100 - inv) / 100)
+        print("\n      ✓ سبد ثبت شد در data_bourse/holdings.json")
+        for k, v in nu.items():
+            print(f"        {k:<10}{v:>14,} واحد")
+
     buy, sell = alarms(rows, book)
     OUT.write_text(html(rows, book, capital, stamp, last_date,
-                        buy, sell),
+                        buy, sell, comp, sells, buys, nopx),
                    encoding="utf-8")
     print(f"      {OUT}")
 
@@ -2923,6 +3291,78 @@ def main():
             print("      ردیف‌های «نگه‌دار» سیگنال نیستند — قاعدهٔ")
             print("      «هرگز نقد نشو» آن‌ها را نگه می‌دارد. نخر.")
         print(f"\n  نقد: {100-sum(r['w'] for r in book):.0f}٪")
+
+    # ── دقیقاً چه بفروش، چه بخر ───────────────────────────────────
+    if sells or buys:
+        print("\n" + "=" * 64)
+        print("  از سبدِ فعلی به سبدِ هدف")
+        print("=" * 64)
+        print("  ترتیب: **اول فروش، بعد خرید** — پولِ آزادشده منبعِ "
+              "خریدِ همان صبح است.\n")
+        if sells:
+            print(f"  ▼ فروش{'':<6}{'واحد':>14}{'قیمت':>12}"
+                  f"{'مبلغ (م.ر)':>14}")
+            print("  " + "-" * 60)
+            for x in sells:
+                tag = " (کلِ موجودی)" if x["all"] else ""
+                print(f"  {x['sym']:<12}{x['units']:>14,.0f}"
+                      f"{x['px']:>12,.0f}{x['amt']/1e6:>14,.0f}{tag}")
+            print(f"  {'جمعِ فروش':<12}{'':>14}{'':>12}"
+                  f"{sum(x['amt'] for x in sells)/1e6:>14,.0f}")
+        if buys:
+            print(f"\n  ▲ خرید{'':<6}{'واحد':>14}{'قیمت':>12}"
+                  f"{'مبلغ (م.ر)':>14}")
+            print("  " + "-" * 60)
+            for x in buys:
+                tag = " (جدید)" if x["new"] else ""
+                print(f"  {x['sym']:<12}{x['units']:>14,.0f}"
+                      f"{x['px']:>12,.0f}{x['amt']/1e6:>14,.0f}{tag}")
+            print(f"  {'جمعِ خرید':<12}{'':>14}{'':>12}"
+                  f"{sum(x['amt'] for x in buys)/1e6:>14,.0f}")
+        if nopx:
+            print(f"\n  ⚠️  قیمتِ {'، '.join(nopx)} پیدا نشد، پس در "
+                  f"فهرستِ بالا نیستند.")
+            print("      این‌ها سهم‌اند نه صندوق؛ در اجرای آنلاین "
+                  "قیمتشان گرفته می‌شود.")
+            print("      تا آن موقع تکلیفشان در این فهرست روشن نیست.")
+        print("\n  بعد از اجرای واقعی، یک بار بزن:  "
+              "python bourse.py --adopt")
+        print("  تا قطب‌نما از فردا همین سبد را دنبال کند.")
+
+    # ── قطب‌نما ───────────────────────────────────────────────────
+    if comp:
+        print("\n" + "=" * 64)
+        print(f"  قطب‌نما — در برابرِ {BENCH}")
+        print("=" * 64)
+        if comp["first_day"]:
+            print(f"\n  امروز روزِ **لنگر** است ({comp['date']}).")
+            print(f"  سرمایهٔ مبنا {comp['base_capital']/1e9:,.1f} "
+                  f"میلیارد ریال · {BENCH} "
+                  f"{comp['base_bench_px']:,.0f} ریال")
+            print("  عددِ مازاد از **فردا** معنا پیدا می‌کند؛ امروز صفر")
+            print("  است و باید صفر باشد.")
+        else:
+            sign = "جلو" if comp["excess_rial"] >= 0 else "عقب"
+            print(f"\n  از {comp['base_date']} تا {comp['date']} "
+                  f"({comp['days']} روز)\n")
+            print(f"  {'پرتفو':<14}{comp['port']/1e9:>10,.2f} م‌لیارد"
+                  f"{comp['port_pct']:>+10.2f}٪")
+            print(f"  {BENCH:<14}{comp['bench']/1e9:>10,.2f} م‌لیارد"
+                  f"{comp['bench_pct']:>+10.2f}٪")
+            print("  " + "-" * 46)
+            print(f"  {'مازاد':<14}"
+                  f"{comp['excess_rial']/1e9:>+10,.2f} م‌لیارد"
+                  f"{comp['excess_pct']:>+10.2f}٪   ← {sign}")
+            print(f"\n  امروز: {comp['day_pnl']/1e6:>+,.0f} م.ر "
+                  f"({comp['day_pct']:+.2f}٪) · "
+                  f"{BENCH} {comp['day_bench_pct']:+.2f}٪ · "
+                  f"مازادِ امروز {comp['day_pct']-comp['day_bench_pct']:+.2f}"
+                  f" واحد")
+            if comp["sd"] is not None:
+                print(f"  انحرافِ معیارِ مازادِ روزانه: {comp['sd']:.2f} واحد")
+        if comp["missing"]:
+            print(f"\n  ⚠️  قیمتِ {'، '.join(comp['missing'])} پیدا نشد — "
+                  f"ارزشِ پرتفو کم‌برآورد است.")
     else:
         print("\n  امروز هیچ نمادی واجد شرط نیست — همه نقد.")
 
