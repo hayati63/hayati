@@ -996,6 +996,47 @@ def make_box(bars, min_rows=3, max_rows=20):
     return None
 
 
+# ── کندلِ سازندهٔ ناحیه — استراتژیِ سومِ مصطفی ──────────────────────
+# مصطفی: «گاهی قیمت‌ها تا نزدیکیِ محدوده می‌آیند و واکنش می‌دهند به
+# کندلی که به ناحیه در ارتباط هست.»
+#
+# یعنی سطحِ واکنش لزوماً خودِ مرزِ باکس نیست؛ کندلی که ناحیه را ساخته
+# جای دقیق‌تری است. اندازه‌گیری شد (`tools/reaction.py`, `docs/35`)
+# روی ۱٬۶۸۴ سیگنالِ هفتگی و ۵۴۳ ماهانه، با هندسهٔ یکسان برای همه و
+# بوت‌استرپِ خوشه‌ای روی نماد:
+#
+#   هفتگی   کلوزِ کندلِ سازنده   Δبرد +۶٫۳  بازهٔ +۱٫۲ تا +۱۱٫۴  ۲٪ برعکس
+#   ماهانه  سقفِ کندلِ سازنده    Δبرد +۱۱٫۶ بازهٔ +۵٫۴ تا +۱۷٫۶  ۰٪ برعکس
+#   کنترل «سقفِ باکس +۱٪»       هفتگی +۰٫۹ با ۳۵٪ برعکس ← هیچ
+#
+# گروهِ کنترل مهم است: اگر «هر سطحِ بالاتر» هم همین‌قدر بهتر می‌شد،
+# یافته دربارهٔ کندل نبود. نشد — پس هست.
+def zone_candle(bars, box):
+    """کندلی که بیشترین حجم را به بازهٔ باکس داده.
+
+    سهمِ هر کندل به نسبتِ هم‌پوشانیِ دامنه‌اش با باکس حساب می‌شود —
+    همان قاعدهٔ پخشِ حجمِ `make_box`, نه «کلِ حجم در ردیفِ کلوز».
+    """
+    if not box or not bars:
+        return None
+    lo, hi = box
+    best, bv = None, 0.0
+    for b in bars:
+        if b["l"] > hi or b["h"] < lo:
+            continue
+        br = b["h"] - b["l"]
+        share = (b["v"] if br <= 0
+                 else b["v"] * max(0.0, min(hi, b["h"])
+                                   - max(lo, b["l"])) / br)
+        if share > bv:
+            best, bv = b, share
+    if best is None:
+        return None
+    return {"low": best["l"], "close": best["c"], "high": best["h"],
+            "date": best["d"].isoformat() if hasattr(best["d"], "isoformat")
+            else str(best["d"])}
+
+
 # ── میله و پرچم: سه تارگت ──────────────────────────────────────────
 # مصطفی: «یک میله داره و یک پرچم داره که هرگاه اون پرچم به بالا شکسته
 # بشه یه میله رشد می‌کنه … سه تا تارگت، کوتاه‌مدت و میان‌مدت و بلندمدت.»
@@ -1100,6 +1141,9 @@ def poc_band_box(bars):
 
 
 VGAP_MAX_DIST = 25.0
+# همان قرارداد برای سطحِ واکنش: سطحی که ۲۵٪ دورتر است
+# جوابِ «کجا واکنش می‌دهد؟» نیست، یک عددِ تاریخی است.
+REACT_MAX_DIST = 25.0
 
 
 def vgap_levels(rows, px):
@@ -1443,6 +1487,7 @@ def analyse(sym, rows, ins=None, allow_ticks=False):
     #     ۵ ردیف روزانه: [19 23 31 15 12]  ← دره‌ای نیست
     # با ~۱۲۰ کندلِ ساعتی پروفایل ریز است و دره زود ظاهر می‌شود.
     wb = None
+    wbars_used = by_w[ws[-2]]
     if allow_ticks and ins:
         wdays = sorted({b["d"] for b in by_w[ws[-2]]})
         h1 = []
@@ -1452,6 +1497,9 @@ def analyse(sym, rows, ins=None, allow_ticks=False):
             wb = make_box(h1)
             if wb is not None:
                 base["h1bars"] = len(h1)
+                # کندلِ سازندهٔ ناحیه هم از همان پروفایلی می‌آید که
+                # باکس از آن ساخته شد — وگرنه دو چیزِ ناهم‌خوان.
+                wbars_used = h1
     if wb is None:
         wb = make_box(by_w[ws[-2]])
         if wb is not None and allow_ticks:
@@ -1559,7 +1607,11 @@ def analyse(sym, rows, ins=None, allow_ticks=False):
             "cur_box": cur, "cur_st": state(px, cur) if cur else "؟",
             "cur4": state4(px, cur) if cur else "؟",
             "month": zone(mb, px, BAND["month"]),
-            "week": zone(wb, px, BAND["week"])}
+            "week": zone(wb, px, BAND["week"]),
+            # سطحِ واکنش — کندلی که ناحیه را ساخته. افقِ هفتگی روی
+            # **کلوز** و ماهانه روی **سقفِ** آن کندل اندازه‌گیری شد.
+            "react_w": zone_candle(wbars_used, wb),
+            "react_m": zone_candle(by_m[ms[-2]], mb)}
 
 
 def build_book(rows, capital):
@@ -1979,6 +2031,132 @@ def audit(rows, book):
 #   holdings.json  سبدِ فعلی (با --adopt از دفتر پر می‌شود)
 #   track.csv      یک ردیف در روز — تاریخچه‌ای که نمودار از آن می‌آید
 BENCH = "کهربا"
+# ── و در حالتِ سهام، مبنا **شاخص** است ─────────────────────────────
+# مصطفی: «یک داشبورد جدا فقط برای تمامی سهام هم می‌بایست ساخته شود
+# که ملاکِ تصمیم‌گیریِ آن بر اساس شاخص کل و شاخص کل هم‌وزن خواهد
+# بود.»
+#
+# کدامشان؟ اندازه‌گیری شد (`tools/bench_pick.py`, `docs/34`) روی ۷۷
+# صندوقِ سهامی/شاخصی — نزدیک‌ترین پروکسیِ موجود به جهانِ سهام، چون
+# دادهٔ خودِ سهام در مخزن نیست. هفتگی، معیارِ هولدِ شاخص کل = ۱٫۰۰:
+#
+#   شاخصِ **خودِ نماد** ۰٫۹۰۶   ← بهترین
+#   کهربا               ۰٫۸۸۶
+#   شاخص هم‌وزن         ۰٫۸۷۱
+#   شاخص کل             ۰٫۸۷۰
+#   ترتیبِ تصادفی       ۰٫۸۳۲
+#
+# پس مبنا **یکی نیست**: هر نماد در برابرِ شاخصی سنجیده می‌شود که
+# اندازه‌گیریِ محرک گفته با آن حرکت می‌کند — بزرگ‌ها با شاخص کل،
+# میان‌رده‌ها با هم‌وزن. نمادِ بی‌محرک به شاخص کل برمی‌گردد.
+#
+# ⚠️ ولی سرِ اصلِ ماجرا: **هر چهار گزینه زیرِ ۱٫۰۰اند.** یعنی در آن
+# جهان، این چرخش از هولدِ شاخص کل عقب می‌ماند. جزئیات و دلیلش
+# (کارمزدِ ۱٫۲٪ × گردشِ ~۱٫۵ در هفته) در `docs/34`.
+BENCH_STOCK = "شاخص کل"
+BENCH_IDX = {"شاخص کل": "شاخص_کل", "شاخص هم‌وزن": "شاخص_هم‌وزن"}
+# محرکی که «شاخص» است → همان مبنای آن نماد
+IDX_DRV = {"شاخص_کل": "شاخص کل", "شاخص_هم‌وزن": "شاخص هم‌وزن"}
+_IDX_CACHE = {}
+
+
+def idx_series(name):
+    """سریِ روزانهٔ یک شاخص، از data/drivers_daily. {تاریخ: کلوز}."""
+    k = BENCH_IDX.get(name, name)
+    if k not in _IDX_CACHE:
+        f = DRV_DIR / f"{k}_daily.csv"
+        ser = {}
+        if f.exists():
+            with f.open(encoding="utf-8-sig", newline="") as fh:
+                for row in csv.DictReader(fh):
+                    try:
+                        ser[date.fromisoformat(str(row["date"])[:10])] = \
+                            float(row["close"])
+                    except (KeyError, TypeError, ValueError):
+                        continue
+        _IDX_CACHE[k] = ser
+    return _IDX_CACHE[k]
+
+
+def idx_bars(name):
+    """کندل‌های روزانهٔ یک شاخص، به فرمتِ make_box."""
+    k = BENCH_IDX.get(name, name)
+    f = DRV_DIR / f"{k}_daily.csv"
+    out = []
+    if not f.exists():
+        return out
+    with f.open(encoding="utf-8-sig", newline="") as fh:
+        for row in csv.DictReader(fh):
+            try:
+                out.append({
+                    "d": date.fromisoformat(str(row["date"])[:10]),
+                    "h": float(row["high"]), "l": float(row["low"]),
+                    "c": float(row["close"]),
+                    "v": float(row.get("volume") or 0) or 1.0})
+            except (KeyError, TypeError, ValueError):
+                continue
+    out.sort(key=lambda b: b["d"])
+    return out
+
+
+# ── وضعیتِ بازار: شاخص کل و هم‌وزن ─────────────────────────────────
+# مصطفی برای داشبوردِ سهام: «ملاکِ تصمیم‌گیریِ آن بر اساس شاخص کل و
+# شاخص کل هم‌وزن خواهد بود.»
+#
+# ⚠️ این **سیگنالِ ورود نیست** و نباید بشود. بند ۳ راهنما، فهرستِ
+# ردشده‌ها: «باکس روی شاخص کل به‌عنوان ورود — فقط سیگنال ریسک.» پس
+# اینجا فقط خوانده و نشان داده می‌شود؛ هیچ نمادی به خاطرش حذف
+# نمی‌شود.
+def idx_regime():
+    """{شاخص: {افق: (وضعیت، فاصلهٔ ٪، کف، سقف، کلوز)}}"""
+    out = {}
+    for nm in BENCH_IDX:
+        bars = idx_bars(nm)
+        if len(bars) < 40:
+            continue
+        px = bars[-1]["c"]
+        by_m, by_w = defaultdict(list), defaultdict(list)
+        for b in bars:
+            by_m[(b["d"].year, b["d"].month)].append(b)
+            by_w[week_key(b["d"])].append(b)
+        hz = {}
+        for fa, grp in (("ماهانه", by_m), ("هفتگی", by_w)):
+            ks = sorted(grp)
+            if len(ks) < 2:
+                continue
+            box = make_box(grp[ks[-2]])        # دورهٔ **کامل‌شدهٔ** قبل
+            if not box:
+                continue
+            lo, hi = box
+            st = state(px, box)
+            d = ((px - hi) / hi * 100 if st == "بالا"
+                 else (px - lo) / lo * 100 if st == "زیر" else 0.0)
+            hz[fa] = (st, d, lo, hi, px)
+        # دیلی: باکس از **روزِ کامل‌شدهٔ قبل** ساختنی نیست (یک کندل)،
+        # پس پنجرهٔ پنج‌روزهٔ قبل از امروز.
+        if len(bars) >= 11:
+            box = make_box(bars[-6:-1])
+            if box:
+                lo, hi = box
+                st = state(px, box)
+                d = ((px - hi) / hi * 100 if st == "بالا"
+                     else (px - lo) / lo * 100 if st == "زیر" else 0.0)
+                hz["دیلی"] = (st, d, lo, hi, px)
+        if hz:
+            out[nm] = {"hz": hz, "date": bars[-1]["d"].isoformat(),
+                       "px": px,
+                       "d1": (px / bars[-2]["c"] - 1) * 100
+                       if len(bars) > 1 else 0.0}
+    return out
+
+
+def bench_for(r):
+    """مبنای این نماد: در حالتِ صندوق کهربا، در حالتِ سهام شاخصِ خودش."""
+    if not STOCK:
+        return BENCH
+    d = r.get("drv")
+    return IDX_DRV.get(d, BENCH_STOCK)
+
 # ── فیلترِ مبنا: نمادی که از کهربا عقب است سیگنال نمی‌شود ───────────
 # مصطفی: «از بین نمادهایی که انتخاب کردی برو تو گذشته ببین میزان
 # بازدهی‌شان چقدر بوده و اگر از بازدهیِ کهربا پایین‌تر است سیگنال
@@ -2010,17 +2188,26 @@ def bench_excess(rows, look=None):
     مقایسه می‌شود و عدد بی‌معنا می‌شود.
     """
     lk = look or BENCH_LOOK
+    # مبنا: در حالتِ صندوق یک سریِ مشترک (کهربا)، در حالتِ سهام
+    # **سریِ خودِ نماد** — هر کدام در برابرِ شاخصی که با آن حرکت
+    # می‌کند. `docs/34`.
     kb = None
-    for r in rows:
-        if norm(r["sym"]) == norm(BENCH):
-            kb = r.get("hist")
-            break
-    if not kb:
-        return
+    if not STOCK:
+        for r in rows:
+            if norm(r["sym"]) == norm(BENCH):
+                kb = r.get("hist")
+                break
+        if not kb:
+            return
     for r in rows:
         h = r.get("hist")
         if not h:
             continue
+        if STOCK:
+            r["bench"] = bench_for(r)
+            kb = idx_series(r["bench"])
+            if not kb:
+                continue
         days = sorted(set(h) & set(kb))
         if len(days) < lk + 1:
             continue
@@ -2697,6 +2884,37 @@ def html(rows, book, capital, stamp, last_date, buy=(), sell=(),
                 f'پاسخ = {m:+.1f} × {cc:+.2f} = {resp:+.2f}">'
                 f'{nm} <b>{resp:+.1f}</b></span>')
 
+    def reactcell(r, key):
+        """سطحِ واکنش: کندلی که ناحیه را ساخته.
+
+        مصطفی: «گاهی قیمت‌ها تا نزدیکیِ محدوده می‌آیند و واکنش
+        می‌دهند به کندلی که به ناحیه در ارتباط هست.»
+
+        اندازه‌گیری (`docs/35`) گفت کدام لبهٔ آن کندل: هفتگی
+        **کلوز**، ماهانه **سقف**. پس همان برجسته می‌شود و دوتای
+        دیگر در توضیحِ سلول می‌مانند.
+        """
+        rc = r.get("react_w" if key == "week" else "react_m")
+        if not rc:
+            return '<span class="sub">—</span>'
+        main = "close" if key == "week" else "high"
+        fa = {"low": "کف", "close": "کلوز", "high": "سقف"}
+        lv = rc[main]
+        px = r["close"] or 0
+        d = (lv - px) / px * 100 if px else 0.0
+        tipall = " · ".join(f"{fa[k]} {n(rc[k])}"
+                            for k in ("low", "close", "high"))
+        if abs(d) > REACT_MAX_DIST:
+            return (f'<span class="sub" title="کندلِ {rc["date"]} — '
+                    f'{tipall}. {abs(d):.0f}٪ دور است، پس نقشهٔ '
+                    f'معامله نیست.">— <i>{d:+.0f}٪</i></span>')
+        # زیرِ قیمت = حمایتی که ممکن است پولبک آنجا برگردد
+        cls = "vl-u" if d <= 0 else "vl-d"
+        tip = " · ".join(f"{fa[k]} {n(rc[k])}" for k in ("low", "close", "high"))
+        return (f'<span class="vl {cls}" title="کندلِ {rc["date"]} — '
+                f'{tip}. اندازه‌گیری‌شده برای این افق: '
+                f'{fa[main]}">{n(lv)} <b>{d:+.1f}٪</b></span>')
+
     def sigrow(i, r, key):
         z = r[key]
         nn, win, avg = wr(r, key)
@@ -2706,6 +2924,7 @@ def html(rows, book, capital, stamp, last_date, buy=(), sell=(),
                 f'<td class="td">{alarm(z, r.get(key[0] + "_dead"))}</td>'
                 f'<td class="td n">{n(r["close"])}</td>'
                 f'<td class="td n hi">{n(z["aim"])}</td>'
+                f'<td class="td">{reactcell(r, key)}</td>'
                 f'<td class="td n r">{n(z["stop"])}</td>'
                 f'<td class="td n g">{n(z["target"])}</td>'
                 f'<td class="td n">{z["risk_pct"]:.1f}٪</td>'
@@ -2746,7 +2965,7 @@ def html(rows, book, capital, stamp, last_date, buy=(), sell=(),
             hot = sum(1 for r in rs if in_band(r, key))
             liq = sum(1 for r in rs if r["value_bn"] >= MIN_VALUE_BN)
             out.append(
-                f'<tr class="grp" data-c="{c}"><td class="td" colspan="14">'
+                f'<tr class="grp" data-c="{c}"><td class="td" colspan="15">'
                 f'<span class="gname">{"بدون دسته" if c == "؟" else c}</span>'
                 f'<span class="gmeta">{len(rs)} نماد · '
                 f'<b class="g">{hot}</b> در نوار · '
@@ -2796,6 +3015,52 @@ def html(rows, book, capital, stamp, last_date, buy=(), sell=(),
         return (warn + '<div class="drvgrid">' + "".join(cards)
                 + '</div>')
 
+    # ── نوارِ وضعیتِ بازار: شاخص کل و هم‌وزن ───────────────────────
+    # در حالتِ سهام این «ملاکِ تصمیم‌گیری» است که مصطفی خواست. در
+    # حالتِ صندوق هم بی‌ربط نیست — اهرمی‌ها با همین دو شاخص حرکت
+    # می‌کنند. ولی در هیچ‌کدام **فیلتر نیست**: بند ۳ راهنما باکس روی
+    # شاخص را فقط «سیگنالِ ریسک» می‌داند، و همان‌جا ماند.
+    def _idxbox():
+        reg = idx_regime()
+        if not reg:
+            return ""
+        cards = []
+        for nm, v in reg.items():
+            cells = []
+            for fa in ("ماهانه", "هفتگی", "دیلی"):
+                h = v["hz"].get(fa)
+                if not h:
+                    cells.append(f'<span class="vl vl-n" title="{fa}: '
+                                 f'باکسی ساخته نشد — درهٔ حجمی نبود">'
+                                 f'{fa[0]} —</span>')
+                    continue
+                st, d, lo, hi, _px = h
+                cl2 = ("vl-u" if st == "بالا" else
+                       "vl-d" if st == "زیر" else "vl-i")
+                txt = (f"{fa[0]} {d:+.1f}٪" if st != "داخل"
+                       else f"{fa[0]} داخل")
+                cells.append(
+                    f'<span class="vl {cl2}" title="{fa}: {st} · '
+                    f'باکس {n(lo)}–{n(hi)} از دورهٔ کامل‌شدهٔ قبل">'
+                    f'{txt}</span>')
+            dcl2 = "g" if v["d1"] >= 0 else "r"
+            cards.append(
+                f'<div class="drvc"><div class="nm">{nm}</div>'
+                f'<div class="mv {dcl2}">{n(v["px"])} '
+                f'<span style="font-size:.8rem">{v["d1"]:+.2f}٪</span></div>'
+                f'<div class="sb" style="margin-top:6px">{"".join(cells)}'
+                f'</div><div class="sb">تا {v["date"]}</div></div>')
+        lead = ('<b>ملاکِ تصمیم‌گیریِ این داشبورد.</b> '
+                if STOCK else '<b>زمینهٔ بازار.</b> ')
+        return ('<div class="note">' + lead
+                + 'وضعیتِ شاخص نسبت به باکسِ دورهٔ کامل‌شدهٔ قبلِ خودش. '
+                  '<b>این سیگنالِ ورود نیست</b> — بند ۳ راهنما باکس روی '
+                  'شاخص را فقط «سیگنالِ ریسک» می‌داند و هیچ نمادی به '
+                  'خاطرش حذف نمی‌شود. وقتی هر سه افق زیرند، اندازهٔ '
+                  'پوزیشن را خودت کوچک کن؛ برنامه این کار را نمی‌کند.'
+                  '</div><div class="drvgrid">' + "".join(cards)
+                + '</div>')
+
     # ── بنرِ آلارم، بالای همه‌چیز ──
     def _albox():
         if not buy and not sell:
@@ -2818,6 +3083,7 @@ def html(rows, book, capital, stamp, last_date, buy=(), sell=(),
 
     alarm_box = _albox()
     drv_box = _drvbox()
+    idx_box = _idxbox()
     DRVN = (drv or {}).get('n', 0)
 
     # ── قطب‌نما ───────────────────────────────────────────────────
@@ -3098,9 +3364,25 @@ def html(rows, book, capital, stamp, last_date, buy=(), sell=(),
               'کارمزد می‌تواند کلش را بخورد — بند ۹ راهنما. '
               'ستونِ «بک‌تستِ وضعیت» بازدهِ <b>ناخالص</b> است؛ برای '
               'هر رفت‌وبرگشت ۱٫۲ واحد از آن کم کن. سطری که مزیتش '
-              'زیرِ ۱٫۲ واحد است، بعد از کارمزد چیزی نمی‌ماند.</div>')
+              'زیرِ ۱٫۲ واحد است، بعد از کارمزد چیزی نمی‌ماند.'
+              '<br><br>و حالا عددش هم هست (<code>docs/34</code>). '
+              'همین چرخش روی ۷۷ صندوقِ سهامی، ۳۵ هفته، معیارِ '
+              '<b>هولدِ شاخص کل = ۱٫۰۰</b>:'
+              '<br>&nbsp;&nbsp;کارمزدِ ۰٪ → <b class="g">۱٫۱۸۲</b>'
+              '&nbsp;·&nbsp; ۰٫۵۵٪ (صندوق) → <b class="g">۱٫۰۷۵</b>'
+              '&nbsp;·&nbsp; ۱٫۲۰٪ (سهام) → <b class="r">۰٫۹۵۹</b>'
+              '&nbsp;·&nbsp; ۲٪ → <b class="r">۰٫۸۳۴</b>'
+              '<br>نقطهٔ سربه‌سر حدودِ <b>۰٫۸–۰٫۹٪</b> است و گردش '
+              'حدودِ ۱٫۵ در هفته. در هر چهار حالت قاعده از '
+              '<b>ترتیبِ تصادفی</b> جلوتر است — یعنی مهارت واقعی '
+              'است و آنچه می‌بازد به <b>کارمزد</b> می‌بازد نه به '
+              'تصادف. نتیجهٔ عملی: اگر همین قاعده را می‌خواهی، از '
+              'راهِ <b>صندوق</b> اجرا کن نه از راهِ سهام.'
+              '<br><br>⚠️ این روی صندوق‌های سهامی اندازه‌گیری شده، نه '
+              'روی خودِ سهام — دادهٔ سهام در مخزن نیست. پروکسی است، '
+              'نه خودِ جهان.</div>')
 
-    SIGH = ("رتبه|نماد|آلارم|کلوز|نقطهٔ ورود|حدضرر|حدسود|ریسک|"
+    SIGH = ("رتبه|نماد|آلارم|کلوز|نقطهٔ ورود|سطحِ واکنش|حدضرر|حدسود|ریسک|"
             "بک‌تستِ وضعیت|ماهانه|هفتگی|"
             "تریگرِ حجمی (٪)|محرک (پاسخ)|تارگتِ میله و پرچم")
 
@@ -3401,6 +3683,8 @@ font-size:.78rem;color:var(--muted);max-width:72ch}}
 
 {alarm_box}
 
+{idx_box}
+
 {compass_box}
 
 <div class="cal"><table><tbody>{cal}</tbody></table>
@@ -3599,7 +3883,7 @@ font-size:.78rem;color:var(--muted);max-width:72ch}}
 def main():
     global REQUIRE_CUR_MONTH, MAX_INVESTED, MAX_WEIGHT
     global STOCK, DATA, OUT, MIN_VALUE_BN, WINRATE, LIVE_STATE, BOX_KIND
-    global BENCH_FILTER, BENCH_LOOK
+    global BENCH_FILTER, BENCH_LOOK, BENCH
     ap = argparse.ArgumentParser()
     ap.add_argument("--capital", type=float, default=0,
                     help="سرمایه به ریال؛ ۰ یعنی از data_bourse/capital.txt")
@@ -3676,6 +3960,10 @@ def main():
         # صندوق‌ها کنارِ سهم بنشیند — همان چیزی که نباید بشود.
         DATA = HERE / "data_stocks"
         OUT = HERE / "dashboard_stocks.html"
+        # و مبنای سنجش هم عوض می‌شود: کهربا صندوق طلاست و در جهانِ
+        # سهام مرجعِ بی‌ربطی است. مصطفی: «ملاکِ تصمیم‌گیریِ آن بر
+        # اساس شاخص کل و شاخص کل هم‌وزن خواهد بود.»
+        BENCH = BENCH_STOCK
     if args.rebase:
         # بعد از تعیینِ DATA، وگرنه در حالتِ سهام پوشهٔ صندوق‌ها را
         # پاک می‌کرد.
@@ -3915,6 +4203,13 @@ def main():
 
     # نقشهٔ قیمتِ امروز — قطب‌نما و فهرستِ خرید/فروش هر دو لازمش دارند
     PX = {norm(r["sym"]): r["close"] for r in rows}
+    if STOCK:
+        # شاخص «نماد» نیست و در دیدبان قیمت ندارد، ولی قطب‌نما یک
+        # عددِ مبنا لازم دارد. سطحِ شاخص از همان سریِ روزانه می‌آید.
+        for nm in BENCH_IDX:
+            ser = idx_series(nm)
+            if ser:
+                PX[norm(nm)] = ser[max(ser)]
     hpf = DATA / "hold_px.json"
     if hpf.exists():
         try:
@@ -3960,7 +4255,8 @@ def main():
             print(f"      عددِ درست را در {capfile} بنویس یا "
                   f"--capital بده.")
 
-    bench_excess(rows)
+    # محرک **قبل از** مبنا، چون در حالتِ سهام مبنای هر نماد از
+    # محرکِ اندازه‌گیری‌شده‌اش می‌آید (`bench_for`).
     DRV = drv_attach(rows)
     if not DRV.get("ok"):
         print(f"      ⚠️  محرک‌ها خوانده نشدند ({DRV.get('why')}) — "
@@ -3972,6 +4268,15 @@ def main():
         if DRV.get("stale"):
             print(f"      ⚠️  دادهٔ محرک {DRV['lag']} روز از کلوزِ "
                   f"نمادها عقب است — «پاسخِ محرک» کهنه است.")
+    bench_excess(rows)
+    if STOCK:
+        nb = defaultdict(int)
+        for r in rows:
+            if r.get("bench"):
+                nb[r["bench"]] += 1
+        if nb:
+            print("      مبنای سنجش: "
+                  + " · ".join(f"{k} {v}" for k, v in sorted(nb.items())))
     elig, book = build_book(rows, capital)
 
     # ── بازرس: هیچ ردیفی که ثابت‌های دفتر را نقض کند نباید رد شود ──

@@ -36,11 +36,26 @@ from vp_box import make_box, state
 from calendar_wk import week_key_for
 
 SAT = week_key_for(5)
-LEVELS = ("box_top", "touch_low", "touch_close", "last_touch", "box_top_1p")
+LEVELS = ("box_top", "touch_low", "touch_close", "last_touch",
+          "poc_low", "poc_close", "poc_high", "box_top_1p")
+FA = {"box_top": "سقفِ باکس", "touch_low": "کفِ کندل‌های لمس‌کننده",
+      "touch_close": "کمینهٔ کلوزِ همان‌ها",
+      "last_touch": "کفِ آخرین کندلِ لمس‌کننده",
+      "poc_low": "کفِ کندلِ سازندهٔ ناحیه",
+      "poc_close": "کلوزِ کندلِ سازندهٔ ناحیه",
+      "poc_high": "سقفِ کندلِ سازندهٔ ناحیه",
+      "box_top_1p": "سقفِ باکس +۱٪ (کنترل)"}
 
 
 def entry_levels(bars, box):
-    """پنج سطحِ ورود از روی کندل‌های دورهٔ ساختِ باکس."""
+    """سطوحِ ورود از روی کندل‌های دورهٔ ساختِ باکس.
+
+    `poc_*` دقیق‌ترین خوانشِ حرفِ مصطفی است: **آن** کندلی که ناحیه را
+    ساخته، نه هر کندلی که لمسش کرده. سهمِ حجمِ هر کندل از بازهٔ باکس
+    به نسبتِ هم‌پوشانی حساب می‌شود (همان قاعدهٔ پخشِ حجم در
+    `vp_box`), و کندلی که بیشترین سهم را داده «کندلِ سازندهٔ ناحیه»
+    است.
+    """
     lo, hi = box
     # کندلی «باکس را لمس کرده» که رنجش با باکس اشتراک دارد
     touch = [b for b in bars if b.l <= hi and b.h >= lo]
@@ -49,6 +64,17 @@ def entry_levels(bars, box):
         out["touch_low"] = min(b.l for b in touch)
         out["touch_close"] = min(b.c for b in touch)
         out["last_touch"] = touch[-1].l
+        best, bv = None, 0.0
+        for b in touch:
+            br = b.h - b.l
+            share = (b.v if br <= 0
+                     else b.v * max(0.0, min(hi, b.h) - max(lo, b.l)) / br)
+            if share > bv:
+                best, bv = b, share
+        if best is not None:
+            out["poc_low"] = best.l
+            out["poc_close"] = best.c
+            out["poc_high"] = best.h
     return out
 
 
@@ -71,6 +97,65 @@ def trade(fwd, entry, stop, target):
     return "خالی"
 
 
+
+def _bootstrap(per, a, b, iters=4000, seed=5):
+    """بوت‌استرپِ خوشه‌ایِ اختلافِ (نرخِ برد، نرخِ پرشدن) بینِ دو سطح.
+
+    خوشه = نماد. سیگنال‌های یک نماد هم‌بسته‌اند، پس نمونه‌گیری روی
+    نماد است. خروجی: (اختلافِ واقعی، بازهٔ ۵–۹۵٪، سهمِ بازنمونه‌هایی
+    که علامتشان برعکس است).
+    """
+    import random
+    syms = [k for k in per if per[k].get(a) and per[k].get(b)]
+    if len(syms) < 8:
+        return None
+
+    def stat(pool):
+        o = {}
+        for k in (a, b):
+            t = sum(r.count("تارگت") for r in pool[k])
+            st = sum(r.count("استاپ") for r in pool[k])
+            n = sum(len(r) for r in pool[k])
+            f = n - sum(r.count("خالی") for r in pool[k])
+            o[k] = (t / (t + st) * 100 if t + st else None,
+                    f / n * 100 if n else None)
+        if o[a][0] is None or o[b][0] is None:
+            return None
+        return o[b][0] - o[a][0], o[b][1] - o[a][1]
+
+    def pool_of(ss):
+        o = {a: [], b: []}
+        for x in ss:
+            for k in (a, b):
+                o[k].append(per[x][k])
+        return o
+
+    real = stat(pool_of(syms))
+    if real is None:
+        return None
+    rnd = random.Random(seed)
+    dw, df, flip = [], [], 0
+    for _ in range(iters):
+        ss = [rnd.choice(syms) for _ in syms]
+        v = stat(pool_of(ss))
+        if v is None:
+            continue
+        dw.append(v[0])
+        df.append(v[1])
+        if (v[0] > 0) != (real[0] > 0):
+            flip += 1
+    if not dw:
+        return None
+    dw.sort()
+    df.sort()
+    return {"win": real[0], "fill": real[1], "n_sym": len(syms),
+            "win_lo": dw[int(.05 * len(dw))],
+            "win_hi": dw[int(.95 * len(dw))],
+            "fill_lo": df[int(.05 * len(df))],
+            "fill_hi": df[int(.95 * len(df))],
+            "flip": flip / len(dw)}
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--data", default="data_auto")
@@ -81,6 +166,10 @@ def main():
     args = ap.parse_args()
 
     res = {k: defaultdict(int) for k in LEVELS}
+    # برای بوت‌استرپِ خوشه‌ای: نتیجهٔ هر سطح، خوشه‌بندی‌شده به نماد.
+    # سیگنال‌های یک نماد مستقل نیستند؛ بوت‌استرپِ ساده t را بزرگ‌نمایی
+    # می‌کند. پس نمونه‌گیری روی **نماد** است نه روی معامله.
+    per = defaultdict(lambda: defaultdict(list))
     gap = {k: [] for k in LEVELS}       # فاصلهٔ درصدیِ سطح تا کلوزِ ورود
     seen, fps = set(), {}
     nsig = 0
@@ -117,9 +206,21 @@ def main():
                 e = lv.get(k)
                 if e is None or e <= 0:
                     continue
-                r = trade(fwd[1:], e, box[0], e + height)
+                # ── استاپ باید **زیرِ** ورود باشد ────────────────
+                # نسخهٔ قبلیِ این ابزار استاپ را همیشه کفِ باکس
+                # می‌گذاشت. ولی کفِ کندلِ لمس‌کننده معمولاً **پایین‌تر
+                # از کفِ باکس** است، پس ورود زیرِ استاپ می‌افتاد و
+                # معامله در همان لحظه «استاپ» می‌خورد. عددِ ۵٫۷٪
+                # بردِ touch_low نتیجهٔ همین بود — ایرادِ آزمون، نه
+                # یافته. حالا هندسه برای همه یکسان است: استاپ یک
+                # ارتفاعِ باکس زیرِ ورود، تارگت یک ارتفاع بالا.
+                st_ = min(box[0], e - height) if e < box[0] else box[0]
+                if st_ >= e:
+                    continue
+                r = trade(fwd[1:], e, st_, e + (e - st_))
                 res[k][r] += 1
                 gap[k].append((px - e) / px * 100)
+                per[sym][k].append(r)
 
     print("=" * 78)
     w = "هفتگی" if args.window == "week" else "ماهانه"
@@ -146,6 +247,25 @@ def main():
                     "same_bar": d["هم‌کندل"], "open": d["باز"],
                     "fill_pct": filled / tot * 100, "win": win,
                     "median_gap": g}
+
+    # ── مقایسهٔ خوشه‌ای با خطِ پایه ────────────────────────────────
+    print("\n" + "─" * 78)
+    print("مقایسه با «سقفِ باکس» — بوت‌استرپِ خوشه‌ای روی نماد")
+    print("─" * 78)
+    print(f"{'سطح ورود':<30}{'Δبرد':>8}{'بازهٔ ۵–۹۵٪':>20}"
+          f"{'Δپرشدن':>10}{'علامتِ برعکس':>14}")
+    for k in LEVELS:
+        if k == "box_top":
+            continue
+        bs = _bootstrap(per, "box_top", k)
+        if not bs:
+            continue
+        rng = f"{bs['win_lo']:+.1f} تا {bs['win_hi']:+.1f}"
+        print(f"{FA.get(k, k):<30}{bs['win']:>+8.1f}{rng:>20}"
+              f"{bs['fill']:>+9.1f}{bs['flip']:>13.0%}")
+    print("\nΔ مثبت یعنی بهتر از سقفِ باکس. «علامتِ برعکس» سهمِ "
+          "بازنمونه‌هایی است\nکه جهت را عوض کردند — هرچه کمتر، یافته "
+          "پایدارتر. بالای ۱۰٪ یعنی\nاز تصادف جدا نشد.")
 
     bt, tl = rowsj.get("box_top"), rowsj.get("touch_low")
     ctl = rowsj.get("box_top_1p")
