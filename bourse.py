@@ -21,6 +21,7 @@
 ──────────────────────────────────────────────────────────────────────
 """
 import argparse
+import bisect
 import csv
 import gzip
 import io
@@ -1652,8 +1653,21 @@ def build_book(rows, capital):
     # و آزمونِ نیمه‌به‌نیمه: فقط N=۶ و N=۸ در **هر دو** نیمهٔ پنجره از
     # کهربا جلو زدند. چینش‌های متمرکز (۱ تا ۴) در نیمهٔ اول باختند —
     # یعنی بردشان از یک پنجرهٔ خوش‌شانس بود.
+    #
+    # ── و محورِ دومِ اولویت: محرکِ جهانیِ خودِ نماد ──────────────────
+    # مصطفی: «بازارهای جهانی تأثیرپذیرش را مدّ نظر قرار بده، و
+    # همچنین میزان بازدهی که به طور میانگین داشته‌اند اولویت باشد.»
+    # اندازه‌گیری شد (`tools/driver_rank.py`, `docs/33`). امتیاز
+    # می‌شود «مازادِ کهربا + پاسخِ محرک» — و **نه** دروازه:
+    #
+    #   مازاد به‌تنهایی        ۱٫۱۵۲   صدکِ ۹۸ از ترتیبِ تصادفی
+    #   مازاد + پاسخِ محرک     ۱٫۱۹۱   صدکِ ۹۹٫۵
+    #   حذفِ محرکِ منفی        ۱٫۰۶۴   ← حذف در هر شکلی ضرر داد
+    #
+    # و در **هر ۱۲** ترکیبِ (N، سقفِ وزن) که جارو شد، و در هر دو
+    # نیمهٔ پنجره، نسخهٔ با محرک جلو بود. یک سلولِ خوش‌شانس نیست.
     pool = elig + [r for r in half if r not in elig]
-    pool.sort(key=lambda r: (-(r.get("bx") if r.get("bx") is not None
+    pool.sort(key=lambda r: (-(pick_score(r) if pick_score(r) is not None
                                else -1e9), -r["value_bn"]))
     picks = pool[:MAX_PICKS]
 
@@ -2016,6 +2030,170 @@ def bench_excess(rows, look=None):
         r["bx"] = ((h[d1] / h[d0]) - (kb[d1] / kb[d0])) * 100
 
 
+# ── محرکِ جهانی: کدام بازار این نماد را حرکت می‌دهد ────────────────
+# مصطفی: «انتخاب بین چند سیگنال منظورم این هست که بازارهای جهانی
+# تأثیرپذیرش را مدّ نظر قرار بده، و همچنین میزان بازدهی که به طور
+# میانگین داشته‌اند اولویت باشد.»
+#
+# دو محور است. محورِ دوم (بازدهیِ تاریخی) همان `bx` بالاست و از قبل
+# کار می‌کرد. محورِ اول اینجا اندازه‌گیری شد — `tools/driver_rank.py`,
+# `docs/33`. خلاصهٔ آنچه درآمد:
+#
+#   هفتگی، ۳۵ دوره، معیارِ واحدِ کهربا، N=۶ · سقفِ وزن ۲۵٪
+#     مازادِ کهربا به‌تنهایی (قاعدهٔ قبلی)   ۱٫۱۵۲   نیمه‌ها ۱٫۰۲۹ / ۱٫۱۲۸
+#     مازاد + **پاسخِ محرک** (نگاهِ ۱۰ روز) ۱٫۱۹۱   نیمه‌ها ۱٫۰۴۵ / ۱٫۱۵۰
+#     فقط شتابِ محرک                        ۱٫۱۴۵
+#     حذفِ نمادی که محرکش منفی است          ۱٫۰۶۴   ← **بدتر**
+#     حذفِ نمادی که محرکش زیرِ باکس است     ۱٫۰۵۶   ← **بدتر**
+#
+# پس محرک **دروازه نیست، وزنه است.** حذف‌کردن بر اساسِ محرک در هر
+# شکلی ضرر داد؛ اضافه‌کردنش به امتیاز سود داد.
+#
+# «پاسخِ محرک» = شتابِ ۱۰ روزهٔ محرک × حساسیتِ اندازه‌گیری‌شدهٔ نماد.
+# یعنی صندوق طلایی با همبستگیِ ۰٫۹۴ کلِ حرکتِ طلا را می‌گیرد و
+# سینرژی با ۰٫۳۳ یک‌سومِ حرکتِ دلار را — نه اینکه هر دو یکی باشند.
+#
+# ⚠️ شواهد **جهت‌دار است، نه محکم**: rho درون‌دوره‌ای فقط +۰٫۰۳
+# (p=۰٫۶۱، ۶۳۲ مشاهده)، و پنجرهٔ داده ۳۵ هفته است. ماهانه اصلاً از
+# ترتیبِ تصادفی جدا نشد (۴۵٪ بذرهای تصادفی بهتر بودند).
+DRV_DIR = HERE / "data" / "drivers_daily"
+# محرک‌هایی که به وقتِ نیویورک/لندن بسته می‌شوند: کلوزِ روزِ d آن‌ها
+# ساعتِ ۱۲:۳۰ تهرانِ همان روز هنوز منتشر نشده. پس فقط روزِ **قبل**.
+DRV_GLOBAL = {"اونس_طلا", "اونس_نقره", "نفت_برنت", "مس"}
+DRV_LOOK = 10             # نگاهِ شتابِ محرک، اندازه‌گیری‌شده
+DRV_MIN_CORR = 0.15       # زیرِ این، نماد «بی‌محرکِ روشن» می‌ماند
+DRV_STALE = 5             # اختلافِ روزِ مجاز با کلوزِ نمادها
+
+
+def drv_load():
+    """محرک‌ها از data/drivers_daily. خروجی: {نام: {تاریخ: کلوز}}."""
+    out = {}
+    if not DRV_DIR.exists():
+        return out
+    for f in sorted(DRV_DIR.glob("*_daily.csv")):
+        ser = {}
+        try:
+            with f.open(encoding="utf-8-sig", newline="") as fh:
+                for row in csv.DictReader(fh):
+                    try:
+                        d = date.fromisoformat(str(row["date"])[:10])
+                        c = float(row["close"])
+                    except (KeyError, TypeError, ValueError):
+                        continue
+                    if c > 0:
+                        ser[d] = c
+        except OSError:
+            continue
+        if len(ser) >= 200:
+            out[f.stem[:-6]] = ser
+    return out
+
+
+def _drv_prev(ks, d, strict):
+    i = (bisect.bisect_left(ks, d) if strict else bisect.bisect_right(ks, d))
+    return ks[i - 1] if i else None
+
+
+def _drv_pairs(dser, fdays, strict):
+    """بازدهِ محرک روی **همان بازهٔ تقویمیِ** هر روزِ معاملاتیِ نماد.
+
+    همبستگیِ سادهٔ هم‌روز کار نمی‌کند: هفتهٔ ایران شنبه تا چهارشنبه
+    است و هفتهٔ جهانی دوشنبه تا جمعه، پس نصفِ نمونه می‌سوزد. و اونس
+    شبانه حرکت می‌کند و تهران صبح واکنش می‌دهد — جهتِ درست «محرکِ
+    تا قبل از امروز → بازدهِ امروز» است.
+    """
+    ks = sorted(dser)
+    out, fd = {}, sorted(fdays)
+    for i in range(1, len(fd)):
+        a = _drv_prev(ks, fd[i - 1], strict)
+        b = _drv_prev(ks, fd[i], strict)
+        if a is None or b is None or a == b:
+            continue
+        out[fd[i]] = math.log(dser[b] / dser[a])
+    return out
+
+
+def _corr(a, b, need=60):
+    ks = sorted(set(a) & set(b))
+    if len(ks) < need:
+        return None
+    x, y = [a[k] for k in ks], [b[k] for k in ks]
+    mx = sum(x) / len(x)
+    my = sum(y) / len(y)
+    sx = math.sqrt(sum((v - mx) ** 2 for v in x))
+    sy = math.sqrt(sum((v - my) ** 2 for v in y))
+    if sx <= 0 or sy <= 0:
+        return None
+    return sum((u - mx) * (v - my) for u, v in zip(x, y)) / (sx * sy)
+
+
+def drv_attach(rows, look=None):
+    """به هر ردیف محرکش، حساسیتش، و «پاسخِ محرک» را می‌چسباند.
+
+    هیچ نمادی به خاطرِ محرک حذف نمی‌شود — اندازه‌گیری گفت حذف ضرر
+    می‌دهد. فقط امتیازِ انتخاب جابه‌جا می‌شود و ستونش نشان داده
+    می‌شود.
+    """
+    lk = look or DRV_LOOK
+    drv = drv_load()
+    if not drv:
+        return {"ok": False, "why": f"پوشهٔ {DRV_DIR.name} نیست"}
+    fresh = max(max(v) for v in drv.values())
+    stamp = max((r["date"] for r in rows if r.get("date")), default="")
+    lag = None
+    if stamp:
+        try:
+            lag = (date.fromisoformat(stamp) - fresh).days
+        except ValueError:
+            lag = None
+    # شتابِ هر محرک، یک‌بار
+    mom, dd = {}, {}
+    for k, ser in drv.items():
+        ks = sorted(ser)
+        dd[k] = ks[-1]
+        if len(ks) > lk:
+            mom[k] = (ser[ks[-1]] / ser[ks[-1 - lk]] - 1) * 100
+    for r in rows:
+        h = r.get("hist")
+        if not h or len(h) < 70:
+            continue
+        sr = {}
+        ds = sorted(h)
+        for i in range(1, len(ds)):
+            a, b = ds[i - 1], ds[i]
+            if h[a] > 0 and h[b] > 0:
+                sr[b] = math.log(h[b] / h[a])
+        best, bc = None, 0.0
+        for k, ser in drv.items():
+            c = _corr(sr, _drv_pairs(ser, set(h), k in DRV_GLOBAL))
+            if c is not None and abs(c) > abs(bc):
+                best, bc = k, c
+        if best is None or abs(bc) < DRV_MIN_CORR:
+            r["drv"] = None
+            r["drv_corr"] = bc
+            continue
+        r["drv"] = best
+        r["drv_corr"] = bc
+        r["drv_mom"] = mom.get(best)
+        if r["drv_mom"] is not None:
+            r["drv_resp"] = r["drv_mom"] * bc
+    return {"ok": True, "n": len(drv), "date": fresh.isoformat(),
+            "lag": lag, "look": lk,
+            "stale": lag is not None and lag > DRV_STALE,
+            "mom": mom, "dates": {k: v.isoformat() for k, v in dd.items()}}
+
+
+def pick_score(r):
+    """امتیازِ انتخاب: مازادِ کهربا + پاسخِ محرک.
+
+    اگر محرکی اندازه‌گیری نشد، فقط مازاد — همان رفتارِ قبلی.
+    """
+    bx = r.get("bx")
+    if bx is None:
+        return None
+    return bx + (r.get("drv_resp") or 0.0)
+
+
 def holdings_load():
     """سبدِ فعلی: از فایل، وگرنه از ثابتِ HOLDING بالای فایل.
 
@@ -2270,7 +2448,8 @@ def telegram(text):
 
 # ══ ۵. صفحه ═════════════════════════════════════════════════════════
 def html(rows, book, capital, stamp, last_date, buy=(), sell=(),
-         comp=None, sells=(), buys=(), nopx=(), pos=(), rr=None):
+         comp=None, sells=(), buys=(), nopx=(), pos=(), rr=None,
+         drv=None):
     """داشبورد — با همان فرمتِ فایلی که مصطفی فرستاد.
 
     `dashboard_monthly.html` او: تمِ تیره، تب‌های قرصی، کاشیِ آمار،
@@ -2491,6 +2670,33 @@ def html(rows, book, capital, stamp, last_date, buy=(), sell=(),
         return '<span class="badge b-y">بالای نوار</span>'
 
     # ── تبِ ۱: سیگنال — رتبه‌بندی‌شده ──
+    def drvcell(r):
+        """محرکِ نماد، حساسیتش، و پاسخِ امروزِ آن محرک.
+
+        این ستون **دروازه نیست**. اندازه‌گیری (`docs/33`) گفت حذف بر
+        اساسِ محرک در هر شکلی ضرر می‌دهد — ولی اضافه‌کردنش به امتیازِ
+        انتخاب سود می‌دهد. پس اینجا فقط دیده می‌شود، و در دفتر روی
+        ترتیب اثر می‌گذارد.
+        """
+        k = r.get("drv")
+        if not k:
+            c = r.get("drv_corr")
+            t = (f"بیشترین همبستگی {c:+.2f} بود، زیرِ آستانهٔ "
+                 f"{DRV_MIN_CORR:.2f}" if c else "اندازه‌گیری نشد")
+            return f'<span class="sub" title="{t}">—</span>'
+        nm = k.replace("_", " ")
+        cc = r.get("drv_corr") or 0.0
+        m, resp = r.get("drv_mom"), r.get("drv_resp")
+        if m is None:
+            return (f'<span class="dv dv-n" title="حساسیت {cc:+.2f} · '
+                    f'شتابِ محرک در دسترس نیست">{nm}</span>')
+        cls = "dv-u" if (resp or 0) > 0 else "dv-d" if (resp or 0) < 0 else "dv-n"
+        return (f'<span class="dv {cls}" title="{nm} در '
+                f'{DRV_LOOK} روزِ گذشته {m:+.1f}٪ · حساسیتِ '
+                f'اندازه‌گیری‌شدهٔ {r["sym"]} به آن {cc:+.2f} · '
+                f'پاسخ = {m:+.1f} × {cc:+.2f} = {resp:+.2f}">'
+                f'{nm} <b>{resp:+.1f}</b></span>')
+
     def sigrow(i, r, key):
         z = r[key]
         nn, win, avg = wr(r, key)
@@ -2507,6 +2713,7 @@ def html(rows, book, capital, stamp, last_date, buy=(), sell=(),
                 f'<td class="td">{bdg(r["mst"])}</td>'
                 f'<td class="td">{bdg(r["wst"])}</td>'
                 f'<td class="td">{vlevcell(r)}</td>'
+                f'<td class="td">{drvcell(r)}</td>'
                 f'<td class="td">{flagcell(r)}</td></tr>')
 
     # مصطفی: «طراحی نمی‌کنی که صندوق‌ها تفکیک شده باشن، این‌جوری
@@ -2539,13 +2746,55 @@ def html(rows, book, capital, stamp, last_date, buy=(), sell=(),
             hot = sum(1 for r in rs if in_band(r, key))
             liq = sum(1 for r in rs if r["value_bn"] >= MIN_VALUE_BN)
             out.append(
-                f'<tr class="grp" data-c="{c}"><td class="td" colspan="13">'
+                f'<tr class="grp" data-c="{c}"><td class="td" colspan="14">'
                 f'<span class="gname">{"بدون دسته" if c == "؟" else c}</span>'
                 f'<span class="gmeta">{len(rs)} نماد · '
                 f'<b class="g">{hot}</b> در نوار · '
                 f'{liq} با حجمِ کافی</span></td></tr>')
             out += [sigrow(i, r, key) for i, r in enumerate(rs, 1)]
         return "".join(out)
+
+    # ── تبِ محرک‌های جهانی ────────────────────────────────────────
+    # مصطفی این را خواست: «بازارهای جهانی تأثیرپذیرش را مدّ نظر قرار
+    # بده.» اندازه‌گیری شد و جوابش اینجاست — با عددش، نه با ادعا.
+    def _drvbox():
+        if not drv or not drv.get("ok"):
+            return ('<div class="note">محرک‌ها خوانده نشدند'
+                    f' ({drv.get("why") if drv else "—"}). رتبه‌بندیِ '
+                    'دفتر فقط با مازادِ کهرباست.</div>')
+        mom = drv.get("mom") or {}
+        dts = drv.get("dates") or {}
+        # چند نماد به هر محرک وصل است — بدونِ این، «نفت +۳٪» معلوم
+        # نیست روی کدام ردیفِ دفتر اثر دارد.
+        cnt = defaultdict(list)
+        for r in rows:
+            if r.get("drv"):
+                cnt[r["drv"]].append(r["sym"])
+        cards = []
+        for k in sorted(mom, key=lambda k: -abs(mom[k])):
+            m = mom[k]
+            cls = "g" if m > 0 else "r" if m < 0 else ""
+            who = cnt.get(k) or []
+            ex = "، ".join(who[:4]) + (f" +{len(who) - 4}"
+                                       if len(who) > 4 else "")
+            cards.append(
+                f'<div class="drvc"><div class="nm">'
+                f'{k.replace("_", " ")}</div>'
+                f'<div class="mv {cls}">{m:+.2f}٪</div>'
+                f'<div class="sb">{DRV_LOOK} روزِ گذشته · '
+                f'تا {dts.get(k, "—")}</div>'
+                f'<div class="sb">{len(who)} نماد'
+                + (f" — {ex}" if who else "") + '</div></div>')
+        warn = ""
+        if drv.get("stale"):
+            warn = ('<div class="feebox">⚠️ دادهٔ محرک '
+                    f'<b>{drv["lag"]} روز</b> از کلوزِ نمادها عقب است '
+                    f'(محرک تا {drv["date"]}، نمادها تا {stamp}). '
+                    'ستونِ «پاسخ» کهنه است. فایل‌های '
+                    '<code>data/drivers_daily/</code> را از چارتیکس '
+                    'دوباره export کن.</div>')
+        return (warn + '<div class="drvgrid">' + "".join(cards)
+                + '</div>')
 
     # ── بنرِ آلارم، بالای همه‌چیز ──
     def _albox():
@@ -2568,6 +2817,8 @@ def html(rows, book, capital, stamp, last_date, buy=(), sell=(),
         return f'<div class="alarm">{"".join(rowsh)}</div>'
 
     alarm_box = _albox()
+    drv_box = _drvbox()
+    DRVN = (drv or {}).get('n', 0)
 
     # ── قطب‌نما ───────────────────────────────────────────────────
     # شکل از کارِ داده می‌آید: یک عددِ سرخط (مازادِ امروز) + یک سری
@@ -2851,7 +3102,7 @@ def html(rows, book, capital, stamp, last_date, buy=(), sell=(),
 
     SIGH = ("رتبه|نماد|آلارم|کلوز|نقطهٔ ورود|حدضرر|حدسود|ریسک|"
             "بک‌تستِ وضعیت|ماهانه|هفتگی|"
-            "تریگرِ حجمی (٪)|تارگتِ میله و پرچم")
+            "تریگرِ حجمی (٪)|محرک (پاسخ)|تارگتِ میله و پرچم")
 
     # ── تبِ ۲: دفتر ──
     def bkrow(r):
@@ -3096,6 +3347,18 @@ font-size:.78rem;vertical-align:middle}}
 .vv-u{{background:var(--green);color:#0b1220}}
 .vv-i{{background:var(--yellow);color:#0b1220}}
 .vv-d{{background:var(--red);color:#0b1220}}
+.dv{{display:inline-block;padding:2px 6px;border-radius:6px;
+font-size:.68rem;font-weight:600;white-space:nowrap}}
+.dv-n{{background:var(--th);color:var(--muted)}}
+.dv-u{{background:rgba(61,214,140,.13);color:var(--green)}}
+.dv-d{{background:rgba(245,101,101,.13);color:var(--red)}}
+.drvgrid{{display:grid;grid-template-columns:repeat(auto-fill,
+minmax(210px,1fr));gap:10px;margin:14px 0}}
+.drvc{{background:var(--card);border:1px solid var(--border);
+border-radius:12px;padding:12px 14px}}
+.drvc .nm{{font-size:.82rem;font-weight:700;color:var(--text)}}
+.drvc .mv{{font-size:1.25rem;font-weight:800;margin-top:4px}}
+.drvc .sb{{font-size:.7rem;color:var(--muted);margin-top:3px}}
 .vl-u{{background:rgba(61,214,140,.15);color:var(--green)}}
 .vl-i{{background:rgba(236,201,75,.18);color:var(--yellow)}}
 .vl-d{{background:rgba(245,101,101,.15);color:var(--red)}}
@@ -3152,6 +3415,7 @@ font-size:.78rem;color:var(--muted);max-width:72ch}}
   <button class="tab" data-t="p7">پوزیشن‌های من</button>
   <button class="tab" data-t="p8">ریسک منیجر</button>
   <button class="tab" data-t="p6">خرید و فروشِ امروز</button>
+  <button class="tab" data-t="p9">محرک‌های جهانی</button>
   <button class="tab" data-t="p4">وضعیت همهٔ نمادها</button>
   <button class="tab" data-t="p5">بک‌تست</button>
 </div>
@@ -3237,6 +3501,33 @@ font-size:.78rem;color:var(--muted);max-width:72ch}}
 </div>
 
 <div class="panel" id="p7">{positions_box}</div>
+
+<div class="panel" id="p9">
+  <div class="sub"><b>محرک هر نماد اندازه‌گیری شده، نه برچسب‌خورده.</b>
+  همبستگیِ بازدهِ روزانهٔ نماد با هر یک از {DRVN} سری، روی همان
+  پنجرهٔ داده؛ بزرگ‌ترین به اسمش می‌خورد و زیرِ {DRV_MIN_CORR:.2f}
+  «بی‌محرک» می‌ماند. جهتِ محاسبه <i>محرکِ تا قبل از امروز ← بازدهِ
+  امروز</i> است: اونس و نفت شبانه حرکت می‌کنند و تهران صبح واکنش
+  می‌دهد، پس کلوزِ هم‌روزشان ساعتِ تصمیم اصلاً منتشر نشده.
+  <br><b>این دروازه نیست، وزنه است.</b> اندازه‌گیری روی ۳۵ هفته،
+  معیارِ واحدِ کهربا، N=۶ · سقفِ وزن ۲۵٪:
+  <br>&nbsp;&nbsp;مازادِ کهربا به‌تنهایی (قاعدهٔ قبلی) <b>۱٫۱۵۲</b>
+  &nbsp;·&nbsp; مازاد + <b>پاسخِ محرک</b> <b class="g">۱٫۱۹۱</b>
+  &nbsp;·&nbsp; فقط شتابِ محرک ۱٫۱۴۵
+  &nbsp;·&nbsp; <span class="r">حذفِ نمادی که محرکش منفی است ۱٫۰۶۴</span>
+  &nbsp;·&nbsp; <span class="r">حذفِ محرکِ زیرِ باکس ۱٫۰۵۶</span>
+  <br>حذف در هر شکلی ضرر داد؛ اضافه‌کردن به امتیاز سود داد. و در
+  <b>هر ۱۲</b> ترکیبِ (N، سقفِ وزن) که جارو شد — و در هر دو نیمهٔ
+  پنجره — نسخهٔ با محرک جلو بود. در برابرِ ۲۰۰ ترتیبِ تصادفی:
+  قاعدهٔ قبلی صدکِ ۹۸، با محرک صدکِ ۹۹٫۵.
+  <br>⚠️ <b>شواهد جهت‌دار است، نه محکم.</b> rho درون‌دوره‌ای فقط
+  ‎+۰٫۰۳ با p=۰٫۶۱ روی ۶۳۲ مشاهده، و پنجره ۳۵ هفته است. روی
+  <b>ماهانه</b> هیچ‌کدام از ترتیبِ تصادفی جدا نشد (۴۵٪ بذرهای تصادفی
+  از قاعده بهتر بودند، ۹ دوره) — پس در تصمیمِ ماهانه به این ستون
+  تکیه نکن. بازسازی: <code>python3 tools/driver_rank.py</code>،
+  شرحِ کامل در <code>docs/33</code>.</div>
+  {drv_box}
+</div>
 
 <div class="panel" id="p8">{risk_box}</div>
 
@@ -3670,6 +3961,17 @@ def main():
                   f"--capital بده.")
 
     bench_excess(rows)
+    DRV = drv_attach(rows)
+    if not DRV.get("ok"):
+        print(f"      ⚠️  محرک‌ها خوانده نشدند ({DRV.get('why')}) — "
+              f"رتبه‌بندی فقط با مازادِ کهرباست.")
+    else:
+        nd = sum(1 for r in rows if r.get("drv"))
+        print(f"      محرک‌ها: {DRV['n']} سری تا {DRV['date']} · "
+              f"{nd} از {len(rows)} نماد محرکِ روشن دارند")
+        if DRV.get("stale"):
+            print(f"      ⚠️  دادهٔ محرک {DRV['lag']} روز از کلوزِ "
+                  f"نمادها عقب است — «پاسخِ محرک» کهنه است.")
     elig, book = build_book(rows, capital)
 
     # ── بازرس: هیچ ردیفی که ثابت‌های دفتر را نقض کند نباید رد شود ──
@@ -3734,7 +4036,8 @@ def main():
     rr = risk_report(book, pos, capital, comp)
     buy, sell = alarms(rows, book, hu)
     OUT.write_text(html(rows, book, capital, stamp, last_date,
-                        buy, sell, comp, sells, buys, nopx, pos, rr),
+                        buy, sell, comp, sells, buys, nopx, pos, rr,
+                        DRV),
                    encoding="utf-8")
     print(f"      {OUT}")
 
