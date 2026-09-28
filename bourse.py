@@ -3242,7 +3242,33 @@ def html(rows, book, capital, stamp, last_date, buy=(), sell=(),
                 f'<br>بعد از اجرای واقعی یک بار '
                 f'<code>python bourse.py --adopt</code> را بزن تا قطب‌نما '
                 f'از فردا همین سبد را دنبال کند.</div>'
-                + tbl(sells, "s") + tbl(buys, "b"))
+                + _turnbox() + tbl(sells, "s") + tbl(buys, "b"))
+
+    def _turnbox():
+        """هزینهٔ گردش، **قبل از** اجرا.
+
+        قاعدهٔ انتخاب هیسترزیس ندارد؛ نمادی که از رتبهٔ ۶ به ۷ بیفتد
+        کاملاً فروخته می‌شود. بک‌تست همین است و هزینهٔ گردش در عددش
+        هست (`cost × Σ|Δw| / 2`) — ولی روی کاغذ دیده نمی‌شد.
+        """
+        sv = sum(x["amt"] for x in sells)
+        bv = sum(x["amt"] for x in buys)
+        if not (sv or bv) or capital <= 0:
+            return ""
+        fee = (COST_STOCK if STOCK else COST_FUND)
+        cost_r = (sv + bv) * fee / 2 / 100
+        tr = (sv + bv) / capital * 100
+        big = ('<br>⚠️ <b>این یک چرخشِ کامل است.</b> اگر بخشی از فروش '
+               'و خرید در <b>یک دسته</b>\u200cاند، داری کارمزد می‌دهی تا '
+               'همان ریسک را نگه داری. قاعدهٔ انتخاب عمداً هیسترزیس '
+               'ندارد و بک‌تست هم همین‌طور بسته شده — ولی تصمیمِ '
+               'اجرا با توست.' if tr > 120 else "")
+        cls = "feebox" if tr > 120 else "note"
+        return (f'<div class="{cls}">گردشِ امروز <b>{n(tr, 0)}٪</b> '
+                f'سرمایه ({n((sv + bv) / 1e6)} میلیون ریال). کارمزدش '
+                f'~<b>{n(cost_r / 1e6)}</b> میلیون ریال = '
+                f'<b>{cost_r / capital * 100:.2f}٪</b> سرمایه، با '
+                f'{fee}٪ رفت‌وبرگشت.{big}</div>')
 
     orders_box = _orders()
 
@@ -4505,6 +4531,30 @@ def main():
                       f"{x['px']:>12,.0f}{x['amt']/1e6:>14,.0f}{tag}")
             print(f"  {'جمعِ خرید':<12}{'':>14}{'':>12}"
                   f"{sum(x['amt'] for x in buys)/1e6:>14,.0f}")
+        # ── هزینهٔ گردش، **قبل از** اجرا ───────────────────────
+        # قاعدهٔ انتخاب هیسترزیس ندارد: نمادی که از رتبهٔ ۶ به ۷
+        # بیفتد کاملاً فروخته می‌شود. بک‌تست همین را دارد و هزینه‌اش
+        # را هم حساب کرده (`cost × Σ|Δw| / 2`) — یعنی عددِ ۱٫۱۹۱
+        # **خالص** است. ولی روی کاغذ دیده نمی‌شد. حالا می‌شود.
+        sv = sum(x["amt"] for x in sells)
+        bv = sum(x["amt"] for x in buys)
+        if (sv or bv) and capital > 0:
+            fee = (COST_STOCK if STOCK else COST_FUND) / 2 / 100
+            cost_r = (sv + bv) * fee
+            print(f"\n  گردشِ امروز: {(sv + bv)/1e6:,.0f} میلیون ریال "
+                  f"= {(sv + bv)/capital*100:.0f}٪ سرمایه")
+            print(f"  کارمزدش: ~{cost_r/1e6:,.0f} میلیون ریال "
+                  f"({cost_r/capital*100:.2f}٪ سرمایه، با "
+                  f"{COST_STOCK if STOCK else COST_FUND}٪ رفت‌وبرگشت)")
+            if (sv + bv) / capital > 1.2:
+                print("  ⚠️  این یک چرخشِ کامل است. قاعدهٔ انتخاب "
+                      "هیسترزیس ندارد —")
+                print("      بک‌تست هم همین‌طور بسته شده و هزینهٔ "
+                      "گردش در عددش هست.")
+                print("      ولی اگر بخشی از فروش و خرید در **یک "
+                      "دسته**اند،")
+                print("      عملاً داری هزینه می‌دهی تا همان ریسک "
+                      "را نگه داری. خودت ببین.")
         if nopx:
             print(f"\n  ⚠️  قیمتِ {'، '.join(nopx)} پیدا نشد، پس در "
                   f"فهرستِ بالا نیستند.")
