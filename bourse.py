@@ -1828,6 +1828,64 @@ def positions(rows, units, px):
     return out
 
 
+def risk_report(book, pos, capital, comp=None):
+    """ریسک منیجر — **گزارش‌گر**، نه قیدگذار. و دلیلش اندازه‌گیری است.
+
+    مصطفی: «ریسک منیجر هم اضافه می‌شود.»
+
+    سه شکلِ استانداردِ ریسک منیجر سنجیده شد (۳۵ هفته، معیارِ واحدِ
+    کهربا) و **هر سه ضرر دادند**:
+
+      وزن‌دهی
+        هم‌وزن                 ۱٫۱۵۲   (نیمه‌ها ۱٫۰۲۹ / ۱٫۱۲۸)
+        وارونِ جذرِ ریسک        ۱٫۰۸۰   (۱٫۰۰۳ / ۱٫۰۸۶)
+        وارونِ ریسک            ۱٫۰۳۴   (۰٫۹۸۹ / ۱٫۰۵۴)  ← نیمهٔ اول را می‌بازد
+
+      سقفِ ریسکِ هر نماد
+        زیرِ ۳٪  ۰٫۸۳۴ · زیرِ ۵٪  ۰٫۸۱۳ · زیرِ ۸٪  ۰٫۸۱۴ · بی‌قید ۱٫۱۵۲
+
+      سقفِ ریسکِ کلِ سبد        واحد    بیشینه افت
+        ۲٪                     ۰٫۹۶۴    −۱۶٫۹٪
+        ۵٪                     ۱٫۰۴۵     −۹٫۵٪
+        بی‌قید                 ۱٫۱۵۲     −۷٫۲٪   ← هم بهتر، هم کم‌افت‌تر
+
+    آخری غیرشهودی است و علتش روشن: سقفِ ریسک پول را می‌برد روی کهربا،
+    و خودِ کهربا در این پنجره افتِ بیشتری از سبدِ شش‌تایی داشت. یعنی
+    «کم کردنِ ریسک» با این تعریف، ریسکِ واقعی را **زیاد** کرد.
+
+    پس قیدی که اندازه‌گیری تأییدش نکرده تحمیل نمی‌شود. آن‌چه می‌ماند
+    **دیدن** است: اگر همهٔ استاپ‌ها بخورند چقدر می‌بازی، کدام قلم
+    سنگین‌ترین ریسک را دارد، و چقدر متمرکزی.
+
+    با `--risk-cap N` می‌شود سقف گذاشت — ولی هزینه‌اش چاپ می‌شود.
+    """
+    out = {"lines": []}
+    if book:
+        tot = sum(r["w"] * r["z"]["risk_pct"] / 100 for r in book
+                  if not r.get("hold_only"))
+        out["port_risk"] = tot
+        out["rial"] = capital * tot / 100
+        worst = max((r for r in book if not r.get("hold_only")),
+                    key=lambda r: r["w"] * r["z"]["risk_pct"], default=None)
+        out["worst"] = worst
+        cc = defaultdict(float)
+        for r in book:
+            cc[r["cat"]] += r["w"]
+        out["conc"] = max(cc.items(), key=lambda kv: kv[1]) if cc else None
+        out["cats"] = dict(cc)
+    # افتِ واقعی از تاریخچهٔ قطب‌نما
+    if comp and comp.get("hist"):
+        vals = [float(x["port"]) for x in comp["hist"] if x.get("port")]
+        peak, dd = 0.0, 0.0
+        for v in vals:
+            peak = max(peak, v)
+            if peak:
+                dd = min(dd, v / peak - 1)
+        out["dd"] = dd * 100
+        out["dd_n"] = len(vals)
+    return out
+
+
 def audit(rows, book):
     """بازرسِ دفتر — هر اجرا، قبل از اینکه چیزی نشان داده شود.
 
@@ -2212,7 +2270,7 @@ def telegram(text):
 
 # ══ ۵. صفحه ═════════════════════════════════════════════════════════
 def html(rows, book, capital, stamp, last_date, buy=(), sell=(),
-         comp=None, sells=(), buys=(), nopx=(), pos=()):
+         comp=None, sells=(), buys=(), nopx=(), pos=(), rr=None):
     """داشبورد — با همان فرمتِ فایلی که مصطفی فرستاد.
 
     `dashboard_monthly.html` او: تمِ تیره، تب‌های قرصی، کاشیِ آمار،
@@ -2726,6 +2784,50 @@ def html(rows, book, capital, stamp, last_date, buy=(), sell=(),
 
     positions_box = _positions()
 
+    def _risk():
+        if not rr or rr.get("port_risk") is None:
+            return ""
+        w2 = rr.get("worst")
+        c2 = rr.get("conc")
+        tiles2 = [
+            ("اگر همهٔ استاپ‌ها بخورند", f'{rr["port_risk"]:.2f}٪',
+             f'{n(rr["rial"] / 1e6)} میلیون ریال', "r"),
+        ]
+        if w2:
+            tiles2.append(
+                ("سنگین‌ترین قلم", w2["sym"],
+                 f'وزنِ {w2["w"]:.0f}٪ × ریسکِ '
+                 f'{w2["z"]["risk_pct"]:.1f}٪ = '
+                 f'{w2["w"] * w2["z"]["risk_pct"] / 100:.2f}٪', ""))
+        if c2:
+            tiles2.append(("تمرکز", f'{c2[1]:.0f}٪',
+                           f'در دستهٔ «{c2[0]}»',
+                           "r" if c2[1] >= 60 else ""))
+        if rr.get("dd") is not None and rr.get("dd_n", 0) >= 3:
+            tiles2.append(("بیشینه افتِ واقعی", f'{rr["dd"]:.1f}٪',
+                           f'{rr["dd_n"]} روز تاریخچه', "r"))
+        body = "".join(
+            f'<div class="stat"><div class="k">{k}</div>'
+            f'<div class="v {cl2}" dir="ltr">{v}</div>'
+            f'<div class="d">{d2}</div></div>'
+            for k, v, d2, cl2 in tiles2)
+        return (f'<div class="stats">{body}</div>'
+                '<div class="feebox">⚠️ <b>هیچ قیدِ ریسکی تحمیل نشده، و '
+                'دلیلش اندازه‌گیری است.</b> سه شکلِ استانداردِ ریسک '
+                'منیجر روی ۳۵ هفته سنجیده شد و هر سه ضرر دادند '
+                '(معیار: واحدِ کهربا، هولدِ کهربا = ۱٫۰۰):<br>'
+                '· وزن‌دهیِ وارونِ ریسک: ۱٫۱۵۲ → ۱٫۰۳۴<br>'
+                '· سقفِ ریسکِ هر نماد ۵٪: ۱٫۱۵۲ → ۰٫۸۱۳<br>'
+                '· سقفِ ریسکِ کلِ سبد ۵٪: ۱٫۱۵۲ → ۱٫۰۴۵ — و بیشینه افت '
+                'از ‎−۷٫۲٪ به ‎−۹٫۵٪ <b>بدتر</b> شد.<br>'
+                'آخری غیرشهودی است: سقف پول را می‌برد روی کهربا، و '
+                'کهربا در این پنجره افتِ بیشتری از سبدِ شش‌تایی داشت. '
+                'یعنی «کم کردنِ ریسک» با این تعریف ریسکِ واقعی را زیاد '
+                'کرد. با <code>--risk-cap N</code> می‌شود تحمیلش کرد.'
+                '</div>')
+
+    risk_box = _risk()
+
     UNIV = "سهامِ بورس" if STOCK else "صندوق‌های ETF"
     BTSRC = (f"از خودِ همین {len(ok_rows)} سهم ساخته شد، در همین اجرا."
              if STOCK else "۱۲۱ صندوق، ۴۲ هفته و ۱۱ ماه.")
@@ -3048,6 +3150,7 @@ font-size:.78rem;color:var(--muted);max-width:72ch}}
   <button class="tab" data-t="p2">سیگنال هفتگی</button>
   <button class="tab" data-t="p3">دفترِ پیشنهادی</button>
   <button class="tab" data-t="p7">پوزیشن‌های من</button>
+  <button class="tab" data-t="p8">ریسک منیجر</button>
   <button class="tab" data-t="p6">خرید و فروشِ امروز</button>
   <button class="tab" data-t="p4">وضعیت همهٔ نمادها</button>
   <button class="tab" data-t="p5">بک‌تست</button>
@@ -3134,6 +3237,8 @@ font-size:.78rem;color:var(--muted);max-width:72ch}}
 </div>
 
 <div class="panel" id="p7">{positions_box}</div>
+
+<div class="panel" id="p8">{risk_box}</div>
 
 <div class="panel" id="p6">{orders_box}</div>
 
@@ -3244,6 +3349,9 @@ def main():
                     help=f"پنجرهٔ مقایسه با {BENCH}؛ پیش‌فرض "
                          f"{BENCH_LOOK} روز (اندازه‌گیری‌شده — ۲۰ روز "
                          f"برعکس عمل می‌کند)")
+    ap.add_argument("--risk-cap", type=float, default=0.0,
+                    help="سقفِ ریسکِ کلِ سبد به درصد؛ ۰ یعنی بی‌قید "
+                         "(پیش‌فرض — اندازه‌گیری‌شده)")
     ap.add_argument("--adopt", action="store_true",
                     help="سفارشِ امروز را به‌عنوانِ سبدِ فعلی ثبت کن "
                          "(بعد از اجرای واقعیِ معاملات)")
@@ -3590,6 +3698,28 @@ def main():
     comp = compass(PX, hu, hc, stamp)
     sells, buys, nopx = rebalance(hu, hc, book, PX, capital)
     pos = positions(rows, hu, PX)
+    # سقفِ اختیاریِ ریسکِ کلِ سبد. پیش‌فرض خاموش است، چون اندازه‌گیری
+    # نشان داد هم بازده و هم افتِ سرمایه را بدتر می‌کند.
+    if args.risk_cap:
+        pr = sum(r["w"] * r["z"]["risk_pct"] / 100 for r in book
+                 if not r.get("hold_only"))
+        if pr > args.risk_cap:
+            k = args.risk_cap / pr
+            bfill = 0.0
+            for r in book:
+                if r.get("hold_only"):
+                    continue
+                cut = r["w"] * (1 - k)
+                r["w"] -= cut
+                bfill += cut
+                r["amt"] = capital * r["w"] / 100
+                r["units"] = r["amt"] / r["z"]["aim"]
+                r["loss"] = r["amt"] * r["z"]["risk_pct"] / 100
+            print(f"\n      ⚠️  سقفِ ریسکِ {args.risk_cap:.1f}٪ اعمال شد "
+                  f"({pr:.1f}٪ → {args.risk_cap:.1f}٪).")
+            print("      اندازه‌گیری: این کار در ۳۵ هفته هم بازده را کم")
+            print("      کرد (۱٫۱۵۲ → ۱٫۰۴۵) و هم افتِ سرمایه را بیشتر")
+            print("      (−۷٫۲٪ → −۹٫۵٪). با حذفِ --risk-cap برمی‌گردد.")
 
     if args.adopt:
         # سفارشِ دفتر را به‌عنوانِ سبدِ فعلی ثبت کن — بعد از اینکه
@@ -3601,9 +3731,10 @@ def main():
         for k, v in nu.items():
             print(f"        {k:<10}{v:>14,} واحد")
 
+    rr = risk_report(book, pos, capital, comp)
     buy, sell = alarms(rows, book, hu)
     OUT.write_text(html(rows, book, capital, stamp, last_date,
-                        buy, sell, comp, sells, buys, nopx, pos),
+                        buy, sell, comp, sells, buys, nopx, pos, rr),
                    encoding="utf-8")
     print(f"      {OUT}")
 
@@ -3644,6 +3775,19 @@ def main():
             print("\n  ⚠️  امروز هیچ نمادی واجد شرطِ خرید نیست.")
             print("      ردیف‌های «نگه‌دار» سیگنال نیستند — قاعدهٔ")
             print("      «هرگز نقد نشو» آن‌ها را نگه می‌دارد. نخر.")
+        # ── آهنگِ آپدیت ────────────────────────────────────────────
+        # مصطفی: «پرتفوی هدفِ روزانه ساخته می‌شود بر اساسِ نواحی هفتگی
+        # و ماهانه، که ماهانه فقط در پایانِ ماه است ولی هفتگی می‌بایست
+        # آپدیت شود.» این را صریح بنویس تا معلوم باشد کدام عدد تا کی
+        # ثابت می‌ماند.
+        nw = len([r for r in book if r["band"] == "week"])
+        nm = len(book) - nw
+        nxt_w = (DECIDE_FUND - last_date.weekday()) % 7 or 7
+        print(f"\n  آهنگِ آپدیت: {nw} قلم روی نوارِ **هفتگی** "
+              f"(تا {nxt_w} روزِ دیگر ثابت) · "
+              f"{nm} قلم روی نوارِ **ماهانه** (تا پایانِ ماه ثابت).")
+        print("  پرتفوی هدف هر روز بازسازی می‌شود، ولی نوارِ ماهانه فقط")
+        print("  اولِ ماهِ میلادی عوض می‌شود — بند ۲ راهنما.")
         cash_pct = max(0.0, 100 - sum(r["w"] for r in book))
         print(f"\n  نقد: {cash_pct:.0f}٪")
         # ── تمرکزِ دسته ────────────────────────────────────────────
@@ -3697,6 +3841,34 @@ def main():
         print("    ۲. تارگتِ میله و پرچم، اگر هنوز نخورده باشد.")
         print("  تارگتِ ۱:۱ اینجا نیست: از نوارِ ورود حساب می‌شود و")
         print("  برای پوزیشنی که از نوار گذشته عددی پشتِ سر است.")
+
+    # ── ریسک منیجر ────────────────────────────────────────────────
+    if rr.get("port_risk") is not None:
+        print("\n" + "=" * 64)
+        print("  ریسک منیجر")
+        print("=" * 64)
+        print(f"\n  اگر همهٔ استاپ‌ها بخورند: "
+              f"{rr['port_risk']:.2f}٪ سرمایه = "
+              f"{rr['rial'] / 1e6:,.0f} میلیون ریال")
+        w = rr.get("worst")
+        if w:
+            print(f"  سنگین‌ترین قلم: {w['sym']} — وزنِ {w['w']:.0f}٪ × "
+                  f"ریسکِ {w['z']['risk_pct']:.1f}٪ = "
+                  f"{w['w'] * w['z']['risk_pct'] / 100:.2f}٪ سرمایه")
+        c = rr.get("conc")
+        if c:
+            print(f"  تمرکز: {c[1]:.0f}٪ در دستهٔ «{c[0]}»")
+        if rr.get("dd") is not None and rr.get("dd_n", 0) >= 3:
+            print(f"  بیشینه افتِ واقعی تا حالا: {rr['dd']:.1f}٪ "
+                  f"({rr['dd_n']} روز)")
+        print("\n  ⚠️ هیچ قیدِ ریسکی تحمیل نشده، و دلیلش اندازه‌گیری است:")
+        print("     وزن‌دهیِ وارونِ ریسک   ۱٫۱۵۲ → ۱٫۰۳۴")
+        print("     سقفِ ریسکِ هر نماد ۵٪   ۱٫۱۵۲ → ۰٫۸۱۳")
+        print("     سقفِ ریسکِ کلِ سبد ۵٪    ۱٫۱۵۲ → ۱٫۰۴۵، و افت از")
+        print("                            −۷٫۲٪ به −۹٫۵٪ **بدتر** شد")
+        print("     سقف پول را می‌برد روی کهربا، و کهربا در این پنجره")
+        print("     افتِ بیشتری از سبدِ شش‌تایی داشت. با --risk-cap N")
+        print("     می‌شود تحمیلش کرد.")
 
     # ── دقیقاً چه بفروش، چه بخر ───────────────────────────────────
     if sells or buys:
