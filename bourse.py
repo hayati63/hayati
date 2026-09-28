@@ -369,12 +369,28 @@ DISPLAY = {norm(k): k for k in SYM_CAT}
 
 # پرتفوی، از بند ۷ راهنما. برای **آلارمِ خروج** لازم است: تا ندانیم
 # چه داریم، نمی‌شود گفت کِی بفروش.
-HOLDING = {"نقران": 4238989, "کهربا": 157741, "سمازن": 129712,
-           "دوایکس": 111801, "شاراک": 34835, "سقاین": 29021,
-           "فباهنر": 1}
+# ── پرتفوی واقعی، از دو حسابِ کارگزاری (۱۴۰۵/۰۷/۰۶) ────────────────
+# حسابِ «مصطفی حیاتی وادقانی» ستونِ مانده را مستقیم می‌دهد؛ حسابِ
+# «منا محمدی» تعداد ندارد، پس از بهای تمام شده ÷ میانگین خرید درآمد —
+# هر پنج قلم به عددِ صحیح رسید، که یعنی خوانش درست است.
+#
+#   نماد      مصطفی      منا      مجموع
+#   نقران    452,604       —     452,604
+#   سینرژی   334,888    78,164   413,052
+#   کهربا    219,141       —     219,141
+#   نهال     115,046       —     115,046
+#   عیار      20,444    13,000    33,444
+#   دوایکس       529     4,535     5,064
+#   وسپه           —       416       416
+#   فباهنر         1       —           1
+#   شکربن          —         1         1
+HOLDING = {"نقران": 452604, "سینرژی": 413052, "کهربا": 219141,
+           "نهال": 115046, "عیار": 33444, "دوایکس": 5064,
+           "وسپه": 416, "فباهنر": 1, "شکربن": 1}
 NORM_HOLD = {norm(k): v for k, v in HOLDING.items()}
 # نقدِ بند ۷ راهنما. اگر عوض شد، یا اینجا، یا data_bourse/capital.txt
-CASH = 6_544_941_269
+# قدرتِ خریدِ حسابِ مصطفی. حسابِ منا نقدش معلوم نیست.
+CASH = 11_588_547_959
 
 # ── نمادهای پرتفو که **صندوق نیستند** ──────────────────────────────
 # سمازن، شاراک، سقاین و فباهنر سهم‌اند. `discover()` فقط نمادهایی را
@@ -385,8 +401,11 @@ CASH = 6_544_941_269
 # ⚠️ این‌ها فقط برای **ارزش‌گذاری** گرفته می‌شوند، نه برای سیگنال:
 # استراتژی روی صندوق اعتبارسنجی شده و بند ۹ راهنما می‌گوید با کارمزدِ
 # واقعیِ سهام (~۱٫۲٪) مزیت روی سهام منفی می‌شود.
-HOLD_INS = {"سمازن": "33808206014018431", "شاراک": "7711282667602555",
-            "سقاین": "60654872678917533", "فباهنر": "66772024744156373"}
+# سمازن، شاراک و سقاین دیگر در پرتفو نیستند. مانده‌ها: فباهنر (۱ واحد)
+# و وسپه و شکربن که insCode ندارم — ولی جمعاً ۳٫۱ میلیون ریال‌اند،
+# یعنی ۰٫۰۰۲٪ پرتفو. نبودنشان عدد را عوض نمی‌کند، و برنامه هم
+# بی‌صدا ردشان نمی‌کند: نامشان با هشدار چاپ می‌شود.
+HOLD_INS = {"فباهنر": "66772024744156373"}
 
 
 # ══ ۱. دانلود ═══════════════════════════════════════════════════════
@@ -1465,6 +1484,7 @@ def analyse(sym, rows, ins=None, allow_ticks=False):
             "w4": state4(dec_w, wb), "m4": state4(px, mb),
             "vgap": vgap_state(rows, px),
             "vlev": vgap_levels(rows, px),
+            "hist": {b["d"]: b["c"] for b in rows[-140:]},
             # فقط **هفتگی** روی کلوزِ روزِ تصمیم است. دو تای دیگر نه:
             #  · باکسِ ماهِ جاری اگر با کلوزِ اولِ ماه سنجیده شود بی‌معنی
             #    است — آن باکس هنوز تقریباً خالی است. کارش دیدنِ مقاومتی
@@ -1524,6 +1544,10 @@ def build_book(rows, capital):
         if not (r["cat"] in wide or norm(r["sym"]) in NORM_EXEMPT):
             return 0
         if r["mst"] != "بالا":
+            return 0
+        # ── از کهربا عقب است → سیگنال نکن ─────────────────────────
+        # قاعدهٔ خودِ مصطفی. پنجره اندازه‌گیری شد نه حدس (بالای فایل).
+        if BENCH_FILTER and r.get("bx") is not None and r["bx"] < 0:
             return 0
         # استاپِ هر دو افق خورده → اصلاً قابلِ اجرا نیست
         if r.get("w_dead") and r.get("m_dead"):
@@ -1597,12 +1621,46 @@ def build_book(rows, capital):
             r["tier"] = 3               # «پرکننده» — نگه‌دار، نه خرید
     if not picks:
         return elig, []
+    # ── باقی‌ماندهٔ بودجه → **خودِ کهربا** ──────────────────────────
+    # فیلترِ مبنا + سقفِ وزنِ هر نماد می‌تواند بیشترِ پول را نقد بگذارد،
+    # که خلافِ قاعدهٔ اندازه‌گیری‌شدهٔ «هرگز نقد نشو» است.
+    #
+    # جوابِ درست از خودِ هدف می‌آید: معیار **تعدادِ واحدِ کهرباست**.
+    # اگر هیچ نمادی بهتر از کهربا نیست، کهربا را نگه دار — آن‌وقت
+    # دست‌کم هم‌پای مبنا می‌مانی. نقد ماندن یعنی عقب افتادن از آن.
+    #
+    # سقفِ MAX_WEIGHT روی این ردیف اعمال نمی‌شود: نگه داشتنِ مبنا
+    # شرط‌بندیِ متمرکز نیست، حالتِ خنثی است.
+    bench_fill = 0.0
+    if not STOCK:
+        u0 = sum(1.0 if r["tier"] in (1, 3) else 0.5 for r in picks)
+        used = sum(min(MAX_WEIGHT, MAX_INVESTED / u0
+                       * (1.0 if r["tier"] in (1, 3) else 0.5))
+                   for r in picks) if u0 else 0.0
+        rest = MAX_INVESTED - used
+        if rest > 1.0:
+            bench_fill = rest
+            if not any(norm(r["sym"]) == norm(BENCH) for r in picks):
+                br = next((r for r in rows
+                           if norm(r["sym"]) == norm(BENCH)), None)
+                if br is not None:
+                    picks.append({**br, "tier": 4})
+                else:
+                    bench_fill = 0.0
+
     # نیمه‌سیگنال نصفِ وزن می‌گیرد — مزیتش هم حدودِ یک‌سوم است
-    units = sum(1.0 if r["tier"] in (1, 3) else 0.5 for r in picks)
+    units = sum(1.0 if r["tier"] in (1, 3) else 0.5
+                for r in picks if r["tier"] != 4)
     book = []
     for r in picks:
-        w = min(MAX_WEIGHT, MAX_INVESTED / units
-                * (1.0 if r["tier"] in (1, 3) else 0.5))
+        w = (bench_fill if r["tier"] == 4 else
+             min(MAX_WEIGHT, MAX_INVESTED / units
+                 * (1.0 if r["tier"] in (1, 3) else 0.5)))
+        # اگر خودِ مبنا سیگنالِ واقعی هم هست، باقی‌مانده رویش اضافه
+        # می‌شود — نه یک ردیفِ دوم، که در جدول گیج‌کننده بود.
+        if r["tier"] != 4 and norm(r["sym"]) == norm(BENCH):
+            w += bench_fill
+            bench_fill = 0.0
         # باندی که استاپش داخلِ نوسانِ یک روز نمی‌نشیند. باکسِ هفتگی
         # میانهٔ پهنایش ۱٫۴۲٪ است و دامنهٔ یک روز ۲٫۶۲٪، پس استاپِ
         # هفتگیِ زیر ۱٪ عملاً داخلِ نویز می‌نشیند و باندِ ماهانه
@@ -1621,7 +1679,7 @@ def build_book(rows, capital):
         amt = capital * w / 100
         # پرکننده: **نگه‌دار**، نه خرید. قیمتِ مرجعش کلوزِ امروز است
         # نه نقطهٔ ورود، چون ورودی در کار نیست.
-        hold_only = r["tier"] == 3
+        hold_only = r["tier"] in (3, 4)
         ref = r["close"] if hold_only else z["aim"]
         book.append({**r, "band": band, "z": z, "w": w,
                      "hold_only": hold_only,
@@ -1657,7 +1715,7 @@ def audit(rows, book):
         # پرکننده (tier 3) عمداً سیگنال نیست — قاعدهٔ «هرگز نقد نشو».
         # پس شرط‌های وضعیت درباره‌اش معنا ندارند و فقط باید مطمئن شد
         # که مثلِ سیگنال **نمایش داده نمی‌شود**.
-        if r.get("tier") == 3:
+        if r.get("tier") in (3, 4):
             if not r.get("hold_only"):
                 bad.append((r["sym"],
                             ["پرکننده بدونِ علامتِ «نگه‌دار» — "
@@ -1710,6 +1768,55 @@ def audit(rows, book):
 #   holdings.json  سبدِ فعلی (با --adopt از دفتر پر می‌شود)
 #   track.csv      یک ردیف در روز — تاریخچه‌ای که نمودار از آن می‌آید
 BENCH = "کهربا"
+# ── فیلترِ مبنا: نمادی که از کهربا عقب است سیگنال نمی‌شود ───────────
+# مصطفی: «از بین نمادهایی که انتخاب کردی برو تو گذشته ببین میزان
+# بازدهی‌شان چقدر بوده و اگر از بازدهیِ کهربا پایین‌تر است سیگنال
+# نکن.»
+#
+# ولی **طولِ پنجره را نباید حدس زد**. اندازه‌گیری روی ۱۲۳ نماد و ۱۵۰
+# روز، مقایسهٔ مقطعیِ درون‌روز (جلوزده‌ها در برابر عقب‌مانده‌ها در
+# همان روز، که حرکتِ کلِ بازار را خنثی می‌کند):
+#
+#   نگاه   افقِ ۵ روز   ۱۰ روز   ۲۰ روز
+#   ۲۰      −۳٫۷۹      −۶٫۳۷    −۵٫۰۶    ← **برعکس** عمل می‌کند
+#   ۴۰      +۰٫۹۸      +۱٫۰۳    +۱٫۷۰    ← تنها پنجرهٔ پایدار
+#   ۶۰      +۱٫۷۲      +۳٫۱۲    −۸٫۲۰    ← ناپایدار
+#
+# برنده‌های ۲۰ روزه شدیداً برمی‌گردند. اگر پنجره را حدس زده بودم
+# احتمالش زیاد بود که همان ۲۰ را بردارم و فیلتر ضرر بدهد.
+#
+# ⚠️ پنجره‌ها هم‌پوشان‌اند و نمادها هم‌بسته، پس t بزرگ‌نمایی دارد.
+# چیزی که قابلِ اتکاست **جهت** است، نه عددِ t.
+BENCH_LOOK = 40
+BENCH_FILTER = True
+
+
+def bench_excess(rows, look=None):
+    """مازادِ بازدهِ هر نماد نسبت به کهربا در `look` روزِ گذشته.
+
+    روی **پنجرهٔ هم‌پوشان** حساب می‌شود، نه بازهٔ کاملِ هر نماد —
+    وگرنه نمادی که تاریخچه‌اش از جای دیگری شروع شده با بازهٔ دیگری
+    مقایسه می‌شود و عدد بی‌معنا می‌شود.
+    """
+    lk = look or BENCH_LOOK
+    kb = None
+    for r in rows:
+        if norm(r["sym"]) == norm(BENCH):
+            kb = r.get("hist")
+            break
+    if not kb:
+        return
+    for r in rows:
+        h = r.get("hist")
+        if not h:
+            continue
+        days = sorted(set(h) & set(kb))
+        if len(days) < lk + 1:
+            continue
+        d0, d1 = days[-lk - 1], days[-1]
+        if h[d0] <= 0 or kb[d0] <= 0:
+            continue
+        r["bx"] = ((h[d1] / h[d0]) - (kb[d1] / kb[d0])) * 100
 
 
 def holdings_load():
@@ -1775,6 +1882,15 @@ def compass(px, units, cash, stamp):
                       encoding="utf-8")
 
     bench_val = base["capital"] * (bpx / base["bench_px"])
+    # ── معیارِ اصلی: **تعدادِ واحدِ کهربا** ─────────────────────────
+    # مصطفی: «می‌خواهیم هر روز نسبت به صندوقِ کهربا بسنجیم که توانستیم
+    # تعدادِ واحدهامان را نسبت به آن افزایش بدهیم یا نه.»
+    #
+    # این از مازادِ ریالی دقیق‌تر بیان می‌کند چه اتفاقی افتاده: اگر کلِ
+    # پرتفو را امروز بفروشی، چند واحد کهربا می‌خری؟ و آن عدد از روزِ
+    # لنگر بیشتر شده یا کمتر؟ ریال بالا و پایین می‌رود، این نه.
+    u_now = pv / bpx
+    u_base = base["capital"] / base["bench_px"]
     out = {"date": stamp, "base_date": base["date"],
            "base_capital": base["capital"], "base_bench_px": base["bench_px"],
            "bench_px": bpx, "port": pv, "bench": bench_val,
@@ -1782,6 +1898,9 @@ def compass(px, units, cash, stamp):
            "excess_pct": (pv / bench_val - 1) * 100 if bench_val else 0.0,
            "port_pct": (pv / base["capital"] - 1) * 100,
            "bench_pct": (bpx / base["bench_px"] - 1) * 100,
+           "units_now": u_now, "units_base": u_base,
+           "units_d": u_now - u_base,
+           "units_pct": (u_now / u_base - 1) * 100 if u_base else 0.0,
            "missing": miss, "first_day": base["date"] == stamp}
 
     # ── تاریخچه: یک ردیف در روز، بدونِ تکرار ──────────────────────
@@ -1800,6 +1919,7 @@ def compass(px, units, cash, stamp):
                             if prev and float(prev.get("bench_px") or 0)
                             else 0.0)
     row = {"date": stamp, "port": f"{pv:.0f}", "bench_px": f"{bpx:.0f}",
+           "units": f"{u_now:.2f}",
            "bench": f"{bench_val:.0f}",
            "excess_rial": f"{pv - bench_val:.0f}",
            "excess_pct": f"{out['excess_pct']:.4f}"}
@@ -2119,6 +2239,8 @@ def html(rows, book, capital, stamp, last_date, buy=(), sell=(),
             why_ = "زیرِ ماه قبل"
         elif r["wst"] == "زیر":
             why_ = "زیرِ هفتگی"
+        elif (BENCH_FILTER and r.get("bx") is not None and r["bx"] < 0):
+            why_ = f'{r["bx"]:+.0f} واحد عقبِ {BENCH}'
         elif not (r.get("cat_wide", True)
                   or norm(r["sym"]) in NORM_EXEMPT):
             why_ = "دسته‌اش منفی است"
@@ -2259,7 +2381,10 @@ def html(rows, book, capital, stamp, last_date, buy=(), sell=(),
             return (f'<div class="compass"><div class="cmp-h">'
                     f'قطب‌نما — در برابرِ {BENCH}</div>'
                     f'<div class="sub">امروز روزِ <b>لنگر</b> است '
-                    f'({comp["date"]}). سرمایهٔ مبنا '
+                    f'({comp["date"]}). کلِ پرتفو امروز '
+                    f'<b>{n(comp["units_base"])} واحدِ {BENCH}</b> است — '
+                    f'سؤال از فردا این است که این عدد بیشتر می‌شود یا '
+                    f'کمتر. سرمایهٔ مبنا '
                     f'{n(comp["base_capital"] / 1e9, 1)} میلیارد ریال · '
                     f'{BENCH} {n(comp["base_bench_px"])} ریال.<br>'
                     f'عددِ مازاد از <b>فردا</b> معنا پیدا می‌کند — امروز '
@@ -2325,7 +2450,13 @@ def html(rows, book, capital, stamp, last_date, buy=(), sell=(),
             f'قطب‌نما — در برابرِ {BENCH} · از {comp["base_date"]} '
             f'({comp["days"]} روز)</div>'
             f'<div class="stats cmp-s">'
-            f'<div class="stat"><div class="k">مازاد نسبت به {BENCH}</div>'
+            f'<div class="stat"><div class="k">واحدِ {BENCH}</div>'
+            f'<div class="v {cls}" dir="ltr">'
+            f'{comp["units_d"]:+,.0f}</div>'
+            f'<div class="d">{word} · '
+            f'{n(comp["units_base"])} ← {n(comp["units_now"])} واحد '
+            f'({comp["units_pct"]:+.2f}٪)</div></div>'
+            f'<div class="stat"><div class="k">مازادِ ریالی</div>'
             f'<div class="v {cls}" dir="ltr">{ex:+.2f}٪ {arrow}</div>'
             f'<div class="d">{word} · {n(rial / 1e6)} میلیون ریال</div></div>'
             f'<div class="stat"><div class="k">سود/زیانِ امروز</div>'
@@ -2465,6 +2596,8 @@ def html(rows, book, capital, stamp, last_date, buy=(), sell=(),
             return ("b-g", "در دفتر" + tag)
         if r.get("w_dead") and r.get("m_dead"):
             return ("b-r", "استاپ خورده")
+        if BENCH_FILTER and r.get("bx") is not None and r["bx"] < 0:
+            return ("b-r", f'عقبِ {BENCH} ({r["bx"]:+.0f})')
         if r["mst"] != "بالا":
             return ("b-r", "زیرِ ماه قبل")
         if r["wst"] != "بالا":
@@ -2861,6 +2994,7 @@ font-size:.78rem;color:var(--muted);max-width:72ch}}
 def main():
     global REQUIRE_CUR_MONTH, MAX_INVESTED, MAX_WEIGHT
     global STOCK, DATA, OUT, MIN_VALUE_BN, WINRATE, LIVE_STATE, BOX_KIND
+    global BENCH_FILTER, BENCH_LOOK
     ap = argparse.ArgumentParser()
     ap.add_argument("--capital", type=float, default=0,
                     help="سرمایه به ریال؛ ۰ یعنی از data_bourse/capital.txt")
@@ -2894,6 +3028,13 @@ def main():
     ap.add_argument("--box", choices=("valley", "poc"), default="valley",
                     help="valley = ردیفِ دره (پیش‌فرض) · "
                          "poc = ناحیهٔ پرحجمِ حولِ POC")
+    ap.add_argument("--no-bench-filter", dest="benchf",
+                    action="store_false",
+                    help=f"فیلترِ «از {BENCH} عقب نباشد» را خاموش کن")
+    ap.add_argument("--bench-look", type=int, default=BENCH_LOOK,
+                    help=f"پنجرهٔ مقایسه با {BENCH}؛ پیش‌فرض "
+                         f"{BENCH_LOOK} روز (اندازه‌گیری‌شده — ۲۰ روز "
+                         f"برعکس عمل می‌کند)")
     ap.add_argument("--adopt", action="store_true",
                     help="سفارشِ امروز را به‌عنوانِ سبدِ فعلی ثبت کن "
                          "(بعد از اجرای واقعیِ معاملات)")
@@ -2918,6 +3059,8 @@ def main():
     STOCK = args.stocks
     LIVE_STATE = args.now
     BOX_KIND = args.box
+    BENCH_FILTER = args.benchf
+    BENCH_LOOK = args.bench_look
     if args.min_value is not None:
         MIN_VALUE_BN = args.min_value
     if STOCK:
@@ -3209,6 +3352,7 @@ def main():
             print(f"      عددِ درست را در {capfile} بنویس یا "
                   f"--capital بده.")
 
+    bench_excess(rows)
     elig, book = build_book(rows, capital)
 
     # ── بازرس: هیچ ردیفی که ثابت‌های دفتر را نقض کند نباید رد شود ──
@@ -3336,6 +3480,9 @@ def main():
         print("=" * 64)
         if comp["first_day"]:
             print(f"\n  امروز روزِ **لنگر** است ({comp['date']}).")
+            print(f"  کلِ پرتفو امروز = {comp['units_base']:,.0f} واحدِ "
+                  f"{BENCH}. سؤال از فردا این است که این عدد")
+            print("  بیشتر می‌شود یا کمتر.")
             print(f"  سرمایهٔ مبنا {comp['base_capital']/1e9:,.1f} "
                   f"میلیارد ریال · {BENCH} "
                   f"{comp['base_bench_px']:,.0f} ریال")
@@ -3343,6 +3490,13 @@ def main():
             print("  است و باید صفر باشد.")
         else:
             sign = "جلو" if comp["excess_rial"] >= 0 else "عقب"
+            ud = comp["units_d"]
+            print(f"\n  ══ تعدادِ واحدِ {BENCH} ══")
+            print(f"  روزِ لنگر   {comp['units_base']:>14,.0f} واحد")
+            print(f"  امروز      {comp['units_now']:>14,.0f} واحد")
+            print(f"  تغییر      {ud:>+14,.0f} واحد "
+                  f"({comp['units_pct']:+.2f}٪)  ← "
+                  f"{'بیشتر شد ✓' if ud >= 0 else 'کمتر شد ✗'}")
             print(f"\n  از {comp['base_date']} تا {comp['date']} "
                   f"({comp['days']} روز)\n")
             print(f"  {'پرتفو':<14}{comp['port']/1e9:>10,.2f} م‌لیارد"
