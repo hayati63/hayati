@@ -1748,6 +1748,71 @@ def build_book(rows, capital):
     return elig, book
 
 
+def positions(rows, units, px):
+    """پوزیشن‌های فعلی — حد ضرر و حد سود، **هر روز آپدیت‌شده**.
+
+    مصطفی: «حد ضرر و حد سودمان باید در پایانِ هر روز آپدیت بشود.
+    حد ضرر می‌شود هرگاه یک کندلِ دیلی پایینِ ناحیه کاملاً کلوز بدهد،
+    پس فردای آن روز فروشنده خواهیم بود.»
+
+    سه چیز اندازه‌گیری شد (`tools/exitrule.py`، ۱۱۲ نماد):
+
+    ۱. **خروج درست است.** زیرِ کفِ باکس بازدهِ ۵ روزِ بعد +۰٫۲۲٪ با
+       ۵۰٪ مثبت، در برابر +۳٫۲۸٪ با ۷۳٪ بالای کف — اختلافِ ۳٫۰۶ واحد
+       با t=−۲۲٫۳۶.
+    ۲. **صبر کردن هزینه دارد.** خروج فردا ۰٫۱۹ واحد بدتر از امروز، و
+       صبر برای پولبک ۰٫۳۰ واحد بدتر (۳٬۴۱۲ رویداد).
+    ۳. ولی +۰٫۲۲٪ **منفی نیست**. یعنی خروج باید **چرخش** باشد نه نقد
+       شدن — همان آلارمِ «عوض کن».
+
+    پس هر دو سطح نشان داده می‌شود: کلوزِ امروز (بهترین از نظرِ عدد) و
+    کفِ باکس (جایی که در عمل می‌شود فروخت، چون در صفِ فروش کلوز در
+    دسترس نیست — بند ۸ راهنما).
+    """
+    out = []
+    for r in rows:
+        if not r.get("ok"):
+            continue
+        u = None
+        for k, v in units.items():
+            if norm(k) == norm(r["sym"]):
+                u = v
+                break
+        if not u:
+            continue
+        c = px.get(norm(r["sym"])) or r["close"]
+        wz, mz = r["week"], r["month"]
+        # «کندلِ دیلی کاملاً زیرِ ناحیه» — دو تعریف، هر دو اندازه‌گیری
+        # شدند و هر دو کار می‌کنند؛ کلوز حساس‌تر است (۳٬۴۱۲ رویداد در
+        # برابر ۲٬۶۲۱) و مزیتش هم بیشتر.
+        below = c < wz["stop"]
+        out.append({
+            "sym": r["sym"], "units": u, "px": c,
+            "value": u * c,
+            "zone_lo": wz["stop"], "zone_hi": wz["lo"],
+            "wst": r["wst"], "mst": r["mst"],
+            "below": below,
+            "dist_stop": (c / wz["stop"] - 1) * 100 if wz["stop"] else 0,
+            # ── دو اصلِ حد سود ────────────────────────────────────
+            # مصطفی: «حد سود می‌بایست بر دو اصل فعال بشود.» و جای
+            # دیگر: «مگر قرار نشد حد سود مصادف بشه با وقتی که باکسِ
+            # هفتگی خلاف صادر بشه؟»
+            #
+            # اصلِ ۱ = شکستِ ناحیه. همان کفِ باکس، همان حد ضرر — برای
+            #   پوزیشنی که در سود است، خروج روی شکستِ ناحیه سیو سود است.
+            # اصلِ ۲ = تارگتِ میله و پرچم، اگر هنوز نخورده باشد.
+            #
+            # تارگتِ ۱:۱ عمداً اینجا نیست: از **نوارِ ورود** حساب
+            # می‌شود و برای پوزیشنی که از نوار گذشته، عددی پشتِ سر
+            # است. نشان دادنش گمراه‌کننده بود.
+            "flag": next((f for f in (r.get("flags") or [])
+                          if f["target"] > c), None),
+            "bx": r.get("bx"),
+        })
+    out.sort(key=lambda x: -x["value"])
+    return out
+
+
 def audit(rows, book):
     """بازرسِ دفتر — هر اجرا، قبل از اینکه چیزی نشان داده شود.
 
@@ -2046,7 +2111,7 @@ def rebalance(units, cash, book, px, capital):
 
 
 # ══ ۴. آلارم ════════════════════════════════════════════════════════
-def alarms(rows, book):
+def alarms(rows, book, units=None):
     """آلارمِ ورود و خروج.
 
     مصطفی: «آلارمِ ورود و خروج بذار. امروز اگه آلارم فعال بود من
@@ -2072,7 +2137,13 @@ def alarms(rows, book):
         if not r.get("ok"):
             continue
         n = norm(r["sym"])
-        if n not in NORM_HOLD:
+        # ⚠️ از **سبدِ واقعی** بخوان نه از ثابتِ HOLDING. حالا که سبد
+        # با --adopt در فایل نوشته می‌شود، NORM_HOLD می‌تواند کهنه
+        # باشد و آلارمِ فروش روی نمادی که دیگر نداری روشن شود — یا
+        # بدتر، روی نمادی که داری روشن **نشود**.
+        held = ({norm(k): v for k, v in units.items()} if units
+                else NORM_HOLD)
+        if n not in held:
             continue
         if r["wst"] == "زیر" or r["mst"] == "زیر":
             which = []
@@ -2081,7 +2152,7 @@ def alarms(rows, book):
             if r["wst"] == "زیر":
                 which.append("هفتگی")
             sell.append((r["sym"], r["close"], " و ".join(which),
-                         NORM_HOLD[n]))
+                         held[n]))
     return buy, sell
 
 
@@ -2126,7 +2197,7 @@ def telegram(text):
 
 # ══ ۵. صفحه ═════════════════════════════════════════════════════════
 def html(rows, book, capital, stamp, last_date, buy=(), sell=(),
-         comp=None, sells=(), buys=(), nopx=()):
+         comp=None, sells=(), buys=(), nopx=(), pos=()):
     """داشبورد — با همان فرمتِ فایلی که مصطفی فرستاد.
 
     `dashboard_monthly.html` او: تمِ تیره، تب‌های قرصی، کاشیِ آمار،
@@ -2585,6 +2656,61 @@ def html(rows, book, capital, stamp, last_date, buy=(), sell=(),
 
     orders_box = _orders()
 
+    def _positions():
+        """پوزیشن‌های فعلی — حد ضرر و حد سود، آپدیتِ هر روز."""
+        if not pos:
+            return '<div class="sub">سبدی ثبت نشده است.</div>'
+        hit = [x for x in pos if x["below"]]
+        top = ""
+        if hit:
+            names = "، ".join(x["sym"] for x in hit)
+            top = ('<div class="feebox">⛔ <b>کندلِ دیلی زیرِ ناحیه '
+                   f'بسته: {names}</b> — فردا فروشنده‌ایم.<br>'
+                   'اندازه‌گیری (۳٬۴۱۲ رویداد): صبر تا فردا ۰٫۱۹ واحد و '
+                   'صبر برای پولبک ۰٫۳۰ واحد بدتر از خروجِ همین امروز '
+                   'است. ولی خروج <b>چرخش</b> است نه نقد شدن — زیرِ کفِ '
+                   'باکس بازدهِ ۵ روزِ بعد ‎+۰٫۲۲٪ است، یعنی صفر، نه '
+                   'منفی.</div>')
+        rows_ = "".join(
+            '<tr data-s="{sym}" data-c="{cat}">'
+            '<td class="td sym">{sym}{mk}</td>'
+            '<td class="td n">{u}</td><td class="td n">{px}</td>'
+            '<td class="td n r">{lo}</td>'
+            '<td class="td n {dc}">{ds:+.1f}٪</td>'
+            '<td class="td n g">{tg}</td>'
+            '<td class="td n">{bx}</td></tr>'.format(
+                sym=x["sym"], cat="",
+                mk=('<span class="gate">⛔ زیرِ ناحیه</span>'
+                    if x["below"] else ""),
+                u=n(x["units"]), px=n(x["px"]), lo=n(x["zone_lo"]),
+                dc="r" if x["below"] else "g", ds=x["dist_stop"],
+                tg=(f'{n(x["flag"]["target"])} '
+                    f'<span class="sub">({x["flag"]["up_pct"]:+.0f}٪ · '
+                    f'{x["flag"]["scale"]})</span>' if x["flag"]
+                    else '<span class="sub">شکستِ ناحیه</span>'),
+                bx=("—" if x.get("bx") is None
+                    else f'<b class="{"g" if x["bx"] >= 0 else "r"}">'
+                         f'{x["bx"]:+.0f}</b>'))
+            for x in pos)
+        return (top + '<div class="sub"><b>حد سود دو اصل دارد.</b> '
+                '۱) <b>شکستِ ناحیه</b> — همان حد ضرر؛ برای پوزیشنی که '
+                'در سود است، خروج روی شکستِ ناحیه یعنی سیو سود. '
+                '۲) <b>تارگتِ میله و پرچم</b>، اگر هنوز نخورده باشد. '
+                'تارگتِ ۱:۱ عمداً اینجا نیست: از نوارِ <i>ورود</i> حساب '
+                'می‌شود و برای پوزیشنی که از نوار گذشته عددی پشتِ سر '
+                f'است.<br>ستونِ آخر مازادِ {BENCH_LOOK} روزه نسبت به '
+                f'{BENCH} است — منفی یعنی این قلم از مبنا عقب است.'
+                '</div>'
+                '<div class="wrap"><table class="table"><thead><tr>'
+                '<th class="th">نماد</th><th class="th n">واحد</th>'
+                '<th class="th n">کلوز</th><th class="th n">حد ضرر</th>'
+                '<th class="th n">فاصله</th>'
+                '<th class="th n">حد سود (پرچم)</th>'
+                f'<th class="th n">در برابرِ {BENCH}</th>'
+                f'</tr></thead><tbody>{rows_}</tbody></table></div>')
+
+    positions_box = _positions()
+
     UNIV = "سهامِ بورس" if STOCK else "صندوق‌های ETF"
     BTSRC = (f"از خودِ همین {len(ok_rows)} سهم ساخته شد، در همین اجرا."
              if STOCK else "۱۲۱ صندوق، ۴۲ هفته و ۱۱ ماه.")
@@ -2906,6 +3032,7 @@ font-size:.78rem;color:var(--muted);max-width:72ch}}
   <button class="tab on" data-t="p1">سیگنال ماهانه</button>
   <button class="tab" data-t="p2">سیگنال هفتگی</button>
   <button class="tab" data-t="p3">دفترِ پیشنهادی</button>
+  <button class="tab" data-t="p7">پوزیشن‌های من</button>
   <button class="tab" data-t="p6">خرید و فروشِ امروز</button>
   <button class="tab" data-t="p4">وضعیت همهٔ نمادها</button>
   <button class="tab" data-t="p5">بک‌تست</button>
@@ -2990,6 +3117,8 @@ font-size:.78rem;color:var(--muted);max-width:72ch}}
   {thead("نماد|دسته|کلوز|ماه قبل|ماه جاری|هفتگی|حجم (م‌ر/روز)|وضعیت")}
   </tr></thead><tbody>{allr}</tbody></table></div>
 </div>
+
+<div class="panel" id="p7">{positions_box}</div>
 
 <div class="panel" id="p6">{orders_box}</div>
 
@@ -3445,6 +3574,7 @@ def main():
     hu, hc = holdings_load()
     comp = compass(PX, hu, hc, stamp)
     sells, buys, nopx = rebalance(hu, hc, book, PX, capital)
+    pos = positions(rows, hu, PX)
 
     if args.adopt:
         # سفارشِ دفتر را به‌عنوانِ سبدِ فعلی ثبت کن — بعد از اینکه
@@ -3456,9 +3586,9 @@ def main():
         for k, v in nu.items():
             print(f"        {k:<10}{v:>14,} واحد")
 
-    buy, sell = alarms(rows, book)
+    buy, sell = alarms(rows, book, hu)
     OUT.write_text(html(rows, book, capital, stamp, last_date,
-                        buy, sell, comp, sells, buys, nopx),
+                        buy, sell, comp, sells, buys, nopx, pos),
                    encoding="utf-8")
     print(f"      {OUT}")
 
@@ -3500,6 +3630,40 @@ def main():
             print("      ردیف‌های «نگه‌دار» سیگنال نیستند — قاعدهٔ")
             print("      «هرگز نقد نشو» آن‌ها را نگه می‌دارد. نخر.")
         print(f"\n  نقد: {100-sum(r['w'] for r in book):.0f}٪")
+
+    # ── پوزیشن‌های فعلی: حد ضرر و حد سود ──────────────────────────
+    if pos:
+        print("\n" + "=" * 64)
+        print("  پوزیشن‌های فعلی — حد ضرر و حد سود (آپدیتِ امروز)")
+        print("=" * 64)
+        hit = [x for x in pos if x["below"]]
+        if hit:
+            print("\n  ⛔ کندلِ دیلی زیرِ ناحیه بسته — فردا فروشنده‌ایم:")
+            for x in hit:
+                print(f"     {x['sym']:<10} کلوز {x['px']:>12,.0f} · "
+                      f"کفِ ناحیه {x['zone_lo']:>12,.0f} "
+                      f"({x['dist_stop']:+.1f}٪)")
+            print("     اندازه‌گیری: صبر تا فردا ۰٫۱۹ واحد و صبر برای")
+            print("     پولبک ۰٫۳۰ واحد بدتر از خروجِ همین امروز است.")
+            print("     ولی خروج = **چرخش**، نه نقد شدن.")
+        print(f"\n  {'نماد':<10}{'واحد':>13}{'کلوز':>12}"
+              f"{'حد ضرر':>12}{'فاصله':>8}   حد سود (پرچم)")
+        print("  " + "-" * 84)
+        for x in pos:
+            mark = " <" if x["below"] else ""
+            fl = x["flag"]
+            tgt = ("{:,.0f}  ({:+.0f}% . {})".format(
+                fl["target"], fl["up_pct"], fl["scale"])
+                if fl else "-- شکستِ ناحیه")
+            print(f"  {x['sym']:<10}{x['units']:>13,.0f}{x['px']:>12,.0f}"
+                  f"{x['zone_lo']:>12,.0f}{x['dist_stop']:>+7.1f}٪   "
+                  f"{tgt:<26}{mark}")
+        print("\n  حد سود دو اصل دارد:")
+        print("    ۱. شکستِ ناحیه — همان حد ضرر. برای پوزیشنی که در")
+        print("       سود است، خروج روی شکستِ ناحیه یعنی سیو سود.")
+        print("    ۲. تارگتِ میله و پرچم، اگر هنوز نخورده باشد.")
+        print("  تارگتِ ۱:۱ اینجا نیست: از نوارِ ورود حساب می‌شود و")
+        print("  برای پوزیشنی که از نوار گذشته عددی پشتِ سر است.")
 
     # ── دقیقاً چه بفروش، چه بخر ───────────────────────────────────
     if sells or buys:
