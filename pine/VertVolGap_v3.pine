@@ -1,0 +1,524 @@
+//@version=5
+// =====================================================================================
+// XAUUSD Vertical Volume Gap Cascade — v3
+// =====================================================================================
+// v3 changes (over v2) — calibrated for the canonical H1 -> M15 -> M5 -> M1 cascade
+// (topChoice defaults to "1 Hour"; picking a higher top TF still runs the cascade, but
+// the session-hour exclusion and M15-wait mechanics below are H1-specific):
+//
+//   1) PIN BAR MARKER (white): while any of the 4 entry boxes below is still open
+//      (unresolved), any bar that (a) is a genuine rejection pin bar in the box's bias
+//      direction (wick >= 2x body, wick on the rejecting side) AND (b) comes close to
+//      the box's near edge without actually closing inside it, gets marked. This is a
+//      first-pass heuristic (proximity = 30% of the box's own height) — tune visually.
+//
+//   2) SESSION-HOUR EXCLUSION: when topChoice == "1 Hour", an H1 gap candle that starts
+//      at 23:30 or 00:30 Tehran time (the two structurally thin-liquidity hours at the
+//      daily session boundary) is drawn GRAY and the cascade stops right there — no
+//      entry boxes are generated from it.
+//
+//   3) M15 WAIT-FOR-DIRECTION: if the confirming H1 candle's close lands INSIDE the H1
+//      zone (bias would otherwise be ambiguous), the script no longer abandons the
+//      signal immediately. It waits for up to 4 subsequent M15 candle closes; the first
+//      one that closes clearly outside the H1 zone fixes the bias (BUY/SELL), and the
+//      cascade continues from there using the ORIGINAL H1 window. If all 4 M15 candles
+//      still close inside, the signal is abandoned.
+//
+//   4) FOUR ENTRY POINTS instead of one: the H1 zone itself, the M15 zone, the M5 zone,
+//      and the M1 zone are ALL now persisting, independently-tracked entry boxes (not
+//      just diagnostic markers) — each extends until price touches it and gets its own
+//      BUY/SELL label (using the bias fixed back at step 2/3, never re-derived from the
+//      touching candle). Colors: H1 = its stage color (red by default), M15 = its stage
+//      color (orange by default), M5 = PINK (dedicated), M1 = turquoise (unchanged).
+//
+//   5) A-D GRADING + confluence score: once the cascade finishes, the current close is
+//      checked against all 4 zones. 0 zones contain it -> Grade A, 1 -> B, 2 -> C, 3 or
+//      4 -> D (worse = harder to trust the bias because price is already tangled inside
+//      several nested zones). Separately, every pair of the 4 zones that overlaps each
+//      other adds one confluence point, and price closing outside all 4 adds one bonus
+//      point — both shown alongside the letter grade for reference.
+//
+// Everything else (causal-safe top-stage check, Containment rule, "genuine local-min,
+// deepest wins" candle selection, gray "no gap here -> drop a level" handling) is
+// unchanged from v2. Attach to a 1-MINUTE chart.
+// =====================================================================================
+
+indicator("XAUUSD Vertical Volume Gap Cascade — v3", shorttitle = "VertVolGap-v3", overlay = true,
+     max_boxes_count = 500, max_labels_count = 500)
+
+// ============================= INPUTS =============================
+grpTF = "Cascade"
+topChoice = input.string("1 Hour", "Highest stage timeframe (new features below are calibrated for 1 Hour)",
+     options = ["Monthly", "Weekly", "Daily", "4 Hour", "1 Hour", "15 Minute", "5 Minute"], group = grpTF)
+
+grpHist = "History buffers"
+M1_HISTORY_CAP = input.int(50000, "Max M1 bars kept in memory", minval = 2000, maxval = 100000, group = grpHist)
+TF_HISTORY_CAP = input.int(3000, "Max bars kept per stage buffer", minval = 200, maxval = 20000, group = grpHist)
+
+grpVis = "Visualisation"
+showLabels = input.bool(true, "Show detail labels", group = grpVis)
+showPinBars = input.bool(true, "Show pin-bar reaction markers", group = grpVis)
+
+var color GRAYC   = color.rgb(120, 120, 120)  // "no volume gap here" / excluded-hour marker
+var color PINKC   = color.rgb(255, 20, 147)   // M5 entry box (dedicated)
+var color TEALC   = color.rgb(64, 224, 208)   // M1 entry box (unchanged)
+var color PINBARC = color.rgb(255, 255, 255)  // pin-bar reaction marker
+
+// Stage palette for H1 (stage0) / M15 (stage1) and any diagnostic stages beyond stage2.
+var color[] palette = array.from(color.red, color.orange, color.lime, color.yellow, color.blue, color.purple, color.maroon, color.navy)
+f_stageColor(i) =>
+    array.get(palette, math.min(i, array.size(palette) - 1))
+
+topIdx = topChoice == "Monthly" ? 0 : topChoice == "Weekly" ? 1 : topChoice == "Daily" ? 2 : topChoice == "4 Hour" ? 3 : topChoice == "1 Hour" ? 4 : topChoice == "15 Minute" ? 5 : 6
+
+// ============================= WARNING IF NOT ON M1 =============================
+if barstate.islast and timeframe.period != "1"
+    label.new(bar_index, high, "⚠ Attach this script to a 1-MINUTE chart!",
+         style = label.style_label_down, color = color.new(color.red, 0), textcolor = color.white, size = size.large)
+
+// ============================= ROLLING M1 HISTORY =============================
+var m1Time  = array.new_int(0)
+var m1TClo  = array.new_int(0)
+var m1High  = array.new_float(0)
+var m1Low   = array.new_float(0)
+var m1Vol   = array.new_float(0)
+
+if barstate.isconfirmed
+    array.push(m1Time, int(time))
+    array.push(m1TClo, int(time) + 60000)
+    array.push(m1High, high)
+    array.push(m1Low, low)
+    array.push(m1Vol, volume)
+    if array.size(m1Time) > M1_HISTORY_CAP
+        array.shift(m1Time), array.shift(m1TClo), array.shift(m1High), array.shift(m1Low), array.shift(m1Vol)
+
+// ============================= RUNG TYPE + HELPERS =============================
+type Rung
+    array<int> t
+    array<int> tc
+    array<float> h
+    array<float> l
+    array<float> c
+    array<float> v
+    string label
+
+f_indexRange(tArr, tcArr, fromT, toT) =>
+    n = array.size(tArr)
+    startIdx = -1
+    endIdx = -1
+    for i = 0 to n - 1
+        t  = array.get(tArr, i)
+        tc = array.get(tcArr, i)
+        if t >= fromT and tc <= toT
+            if startIdx == -1
+                startIdx := i
+            endIdx := i
+    [startIdx, endIdx]
+
+f_findVolumeGapByIndex(volArr, sa, sb) =>
+    n = array.size(volArr)
+    lo = math.max(sa, 1)
+    hi = math.min(sb, n - 2)
+    bestIdx = -1
+    float bestVol = 1e18
+    if hi >= lo
+        for i = lo to hi
+            v0 = array.get(volArr, i)
+            vL = array.get(volArr, i - 1)
+            vR = array.get(volArr, i + 1)
+            if v0 < vL and v0 < vR and v0 < bestVol
+                bestVol := v0
+                bestIdx := i
+    bestIdx
+
+f_isPinBar(o, h, l, c, dirBias) =>
+    body = math.abs(c - o)
+    upperWick = h - math.max(o, c)
+    lowerWick = math.min(o, c) - l
+    isBull = body > 0 and lowerWick >= 2 * body and lowerWick > upperWick
+    isBear = body > 0 and upperWick >= 2 * body and upperWick > lowerWick
+    dirBias == 1 ? isBull : dirBias == -1 ? isBear : false
+
+f_nearZonePinBar(zTop, zBot, dirBias) =>
+    band = (zTop - zBot) * 0.30
+    pin = f_isPinBar(open, high, low, close, dirBias)
+    nearOK = dirBias == 1 ? (low >= zBot - band and low < zBot and close < zBot) : dirBias == -1 ? (high <= zTop + band and high > zTop and close > zTop) : false
+    pin and nearOK
+
+f_zonesOverlap(top1, bot1, top2, bot2) =>
+    bot1 <= top2 and bot2 <= top1
+
+// ============================= 7 FIXED-TF BUFFERS (Monthly..5m) =============================
+// Monthly
+[hM, lM, cM, tM, tcM, vM] = request.security(syminfo.tickerid, "M", [high, low, close, time, time_close, volume], lookahead = barmerge.lookahead_off)
+var Rung rungM = Rung.new(array.new_int(0), array.new_int(0), array.new_float(0), array.new_float(0), array.new_float(0), array.new_float(0), "Monthly")
+var int pTm = na, var int pTCm = na
+var float pHm = na, var float pLm = na, var float pCm = na, var float pVm = na
+if not na(pTm) and tM != pTm
+    array.push(rungM.t, pTm), array.push(rungM.tc, pTCm), array.push(rungM.h, pHm), array.push(rungM.l, pLm), array.push(rungM.c, pCm), array.push(rungM.v, pVm)
+    if array.size(rungM.t) > TF_HISTORY_CAP
+        array.shift(rungM.t), array.shift(rungM.tc), array.shift(rungM.h), array.shift(rungM.l), array.shift(rungM.c), array.shift(rungM.v)
+pTm := tM, pTCm := tcM, pHm := hM, pLm := lM, pCm := cM, pVm := vM
+
+// Weekly
+[hW, lW, cW, tW, tcW, vW] = request.security(syminfo.tickerid, "W", [high, low, close, time, time_close, volume], lookahead = barmerge.lookahead_off)
+var Rung rungW = Rung.new(array.new_int(0), array.new_int(0), array.new_float(0), array.new_float(0), array.new_float(0), array.new_float(0), "Weekly")
+var int pTw = na, var int pTCw = na
+var float pHw = na, var float pLw = na, var float pCw = na, var float pVw = na
+if not na(pTw) and tW != pTw
+    array.push(rungW.t, pTw), array.push(rungW.tc, pTCw), array.push(rungW.h, pHw), array.push(rungW.l, pLw), array.push(rungW.c, pCw), array.push(rungW.v, pVw)
+    if array.size(rungW.t) > TF_HISTORY_CAP
+        array.shift(rungW.t), array.shift(rungW.tc), array.shift(rungW.h), array.shift(rungW.l), array.shift(rungW.c), array.shift(rungW.v)
+pTw := tW, pTCw := tcW, pHw := hW, pLw := lW, pCw := cW, pVw := vW
+
+// Daily
+[hD, lD, cD, tD, tcD, vD] = request.security(syminfo.tickerid, "D", [high, low, close, time, time_close, volume], lookahead = barmerge.lookahead_off)
+var Rung rungD = Rung.new(array.new_int(0), array.new_int(0), array.new_float(0), array.new_float(0), array.new_float(0), array.new_float(0), "Daily")
+var int pTd = na, var int pTCd = na
+var float pHd = na, var float pLd = na, var float pCd = na, var float pVd = na
+if not na(pTd) and tD != pTd
+    array.push(rungD.t, pTd), array.push(rungD.tc, pTCd), array.push(rungD.h, pHd), array.push(rungD.l, pLd), array.push(rungD.c, pCd), array.push(rungD.v, pVd)
+    if array.size(rungD.t) > TF_HISTORY_CAP
+        array.shift(rungD.t), array.shift(rungD.tc), array.shift(rungD.h), array.shift(rungD.l), array.shift(rungD.c), array.shift(rungD.v)
+pTd := tD, pTCd := tcD, pHd := hD, pLd := lD, pCd := cD, pVd := vD
+
+// 4 Hour
+[hH4, lH4, cH4, tH4, tcH4, vH4] = request.security(syminfo.tickerid, "240", [high, low, close, time, time_close, volume], lookahead = barmerge.lookahead_off)
+var Rung rungH4 = Rung.new(array.new_int(0), array.new_int(0), array.new_float(0), array.new_float(0), array.new_float(0), array.new_float(0), "4H")
+var int pTh4 = na, var int pTCh4 = na
+var float pHh4 = na, var float pLh4 = na, var float pCh4 = na, var float pVh4 = na
+if not na(pTh4) and tH4 != pTh4
+    array.push(rungH4.t, pTh4), array.push(rungH4.tc, pTCh4), array.push(rungH4.h, pHh4), array.push(rungH4.l, pLh4), array.push(rungH4.c, pCh4), array.push(rungH4.v, pVh4)
+    if array.size(rungH4.t) > TF_HISTORY_CAP
+        array.shift(rungH4.t), array.shift(rungH4.tc), array.shift(rungH4.h), array.shift(rungH4.l), array.shift(rungH4.c), array.shift(rungH4.v)
+pTh4 := tH4, pTCh4 := tcH4, pHh4 := hH4, pLh4 := lH4, pCh4 := cH4, pVh4 := vH4
+
+// 1 Hour
+[hH1, lH1, cH1, tH1, tcH1, vH1] = request.security(syminfo.tickerid, "60", [high, low, close, time, time_close, volume], lookahead = barmerge.lookahead_off)
+var Rung rungH1 = Rung.new(array.new_int(0), array.new_int(0), array.new_float(0), array.new_float(0), array.new_float(0), array.new_float(0), "1H")
+var int pTh1 = na, var int pTCh1 = na
+var float pHh1 = na, var float pLh1 = na, var float pCh1 = na, var float pVh1 = na
+if not na(pTh1) and tH1 != pTh1
+    array.push(rungH1.t, pTh1), array.push(rungH1.tc, pTCh1), array.push(rungH1.h, pHh1), array.push(rungH1.l, pLh1), array.push(rungH1.c, pCh1), array.push(rungH1.v, pVh1)
+    if array.size(rungH1.t) > TF_HISTORY_CAP
+        array.shift(rungH1.t), array.shift(rungH1.tc), array.shift(rungH1.h), array.shift(rungH1.l), array.shift(rungH1.c), array.shift(rungH1.v)
+pTh1 := tH1, pTCh1 := tcH1, pHh1 := hH1, pLh1 := lH1, pCh1 := cH1, pVh1 := vH1
+
+// 15 Minute
+[hM15, lM15, cM15, tM15, tcM15, vM15] = request.security(syminfo.tickerid, "15", [high, low, close, time, time_close, volume], lookahead = barmerge.lookahead_off)
+var Rung rungM15 = Rung.new(array.new_int(0), array.new_int(0), array.new_float(0), array.new_float(0), array.new_float(0), array.new_float(0), "15m")
+var int pTm15 = na, var int pTCm15 = na
+var float pHm15 = na, var float pLm15 = na, var float pCm15 = na, var float pVm15 = na
+if not na(pTm15) and tM15 != pTm15
+    array.push(rungM15.t, pTm15), array.push(rungM15.tc, pTCm15), array.push(rungM15.h, pHm15), array.push(rungM15.l, pLm15), array.push(rungM15.c, pCm15), array.push(rungM15.v, pVm15)
+    if array.size(rungM15.t) > TF_HISTORY_CAP
+        array.shift(rungM15.t), array.shift(rungM15.tc), array.shift(rungM15.h), array.shift(rungM15.l), array.shift(rungM15.c), array.shift(rungM15.v)
+pTm15 := tM15, pTCm15 := tcM15, pHm15 := hM15, pLm15 := lM15, pCm15 := cM15, pVm15 := vM15
+
+// 5 Minute
+[hM5, lM5, cM5, tM5, tcM5, vM5] = request.security(syminfo.tickerid, "5", [high, low, close, time, time_close, volume], lookahead = barmerge.lookahead_off)
+var Rung rungM5 = Rung.new(array.new_int(0), array.new_int(0), array.new_float(0), array.new_float(0), array.new_float(0), array.new_float(0), "5m")
+var int pTm5 = na, var int pTCm5 = na
+var float pHm5 = na, var float pLm5 = na, var float pCm5 = na, var float pVm5 = na
+if not na(pTm5) and tM5 != pTm5
+    array.push(rungM5.t, pTm5), array.push(rungM5.tc, pTCm5), array.push(rungM5.h, pHm5), array.push(rungM5.l, pLm5), array.push(rungM5.c, pCm5), array.push(rungM5.v, pVm5)
+    if array.size(rungM5.t) > TF_HISTORY_CAP
+        array.shift(rungM5.t), array.shift(rungM5.tc), array.shift(rungM5.h), array.shift(rungM5.l), array.shift(rungM5.c), array.shift(rungM5.v)
+pTm5 := tM5, pTCm5 := tcM5, pHm5 := hM5, pLm5 := lM5, pCm5 := cM5, pVm5 := vM5
+
+// ============================= BUILD ACTIVE CHAIN =============================
+var array<Rung> allRungs = array.new<Rung>()
+if barstate.isfirst
+    array.push(allRungs, rungM)
+    array.push(allRungs, rungW)
+    array.push(allRungs, rungD)
+    array.push(allRungs, rungH4)
+    array.push(allRungs, rungH1)
+    array.push(allRungs, rungM15)
+    array.push(allRungs, rungM5)
+
+chain = array.slice(allRungs, topIdx, array.size(allRungs))
+topRung = array.get(chain, 0)
+topCount = array.size(topRung.t)
+
+var int prevTopCount = -1
+triggerClosed = prevTopCount >= 0 and topCount > prevTopCount
+prevTopCount := topCount
+
+// Track new M15 candle closes independently (used by the wait-for-direction mechanism)
+m15Count = array.size(rungM15.t)
+var int prevM15Count = -1
+newM15Closed = prevM15Count >= 0 and m15Count > prevM15Count
+prevM15Count := m15Count
+
+// ============================= PERSISTING ENTRY-BOX STATE (4 zones) =============================
+var int   activeDir = 0   // shared bias for whichever cascade instance is currently live
+
+var box   eBoxTopId = na
+var float eBoxTopTop = na, var float eBoxTopBot = na, var bool eBoxTopResolved = true
+
+var box   eBoxS1Id = na
+var float eBoxS1Top = na, var float eBoxS1Bot = na, var bool eBoxS1Resolved = true
+
+var box   eBoxS2Id = na
+var float eBoxS2Top = na, var float eBoxS2Bot = na, var bool eBoxS2Resolved = true
+
+var box   eBoxM1Id = na
+var float eBoxM1Top = na, var float eBoxM1Bot = na, var bool eBoxM1Resolved = true
+
+f_touchLabel(px, top, bot) =>
+    if activeDir == 1
+        label.new(bar_index, bot, "BUY", xloc = xloc.bar_index, style = label.style_label_up, color = color.new(color.green, 0), textcolor = color.white, size = size.normal)
+    else if activeDir == -1
+        label.new(bar_index, top, "SELL", xloc = xloc.bar_index, style = label.style_label_down, color = color.new(color.red, 0), textcolor = color.white, size = size.normal)
+
+if not eBoxTopResolved and not na(eBoxTopId)
+    if showPinBars and f_nearZonePinBar(eBoxTopTop, eBoxTopBot, activeDir)
+        label.new(bar_index, activeDir == 1 ? low : high, "Pin Bar", xloc = xloc.bar_index, style = activeDir == 1 ? label.style_label_up : label.style_label_down, color = color.new(PINBARC, 0), textcolor = color.black, size = size.small)
+    if high >= eBoxTopBot and low <= eBoxTopTop
+        f_touchLabel(bar_index, eBoxTopTop, eBoxTopBot)
+        eBoxTopResolved := true
+    else
+        box.set_right(eBoxTopId, int(time) + 60000)
+
+if not eBoxS1Resolved and not na(eBoxS1Id)
+    if showPinBars and f_nearZonePinBar(eBoxS1Top, eBoxS1Bot, activeDir)
+        label.new(bar_index, activeDir == 1 ? low : high, "Pin Bar", xloc = xloc.bar_index, style = activeDir == 1 ? label.style_label_up : label.style_label_down, color = color.new(PINBARC, 0), textcolor = color.black, size = size.small)
+    if high >= eBoxS1Bot and low <= eBoxS1Top
+        f_touchLabel(bar_index, eBoxS1Top, eBoxS1Bot)
+        eBoxS1Resolved := true
+    else
+        box.set_right(eBoxS1Id, int(time) + 60000)
+
+if not eBoxS2Resolved and not na(eBoxS2Id)
+    if showPinBars and f_nearZonePinBar(eBoxS2Top, eBoxS2Bot, activeDir)
+        label.new(bar_index, activeDir == 1 ? low : high, "Pin Bar", xloc = xloc.bar_index, style = activeDir == 1 ? label.style_label_up : label.style_label_down, color = color.new(PINBARC, 0), textcolor = color.black, size = size.small)
+    if high >= eBoxS2Bot and low <= eBoxS2Top
+        f_touchLabel(bar_index, eBoxS2Top, eBoxS2Bot)
+        eBoxS2Resolved := true
+    else
+        box.set_right(eBoxS2Id, int(time) + 60000)
+
+if not eBoxM1Resolved and not na(eBoxM1Id)
+    if showPinBars and f_nearZonePinBar(eBoxM1Top, eBoxM1Bot, activeDir)
+        label.new(bar_index, activeDir == 1 ? low : high, "Pin Bar", xloc = xloc.bar_index, style = activeDir == 1 ? label.style_label_up : label.style_label_down, color = color.new(PINBARC, 0), textcolor = color.black, size = size.small)
+    if high >= eBoxM1Bot and low <= eBoxM1Top
+        f_touchLabel(bar_index, eBoxM1Top, eBoxM1Bot)
+        eBoxM1Resolved := true
+    else
+        box.set_right(eBoxM1Id, int(time) + 60000)
+
+// ============================= PENDING M15 WAIT-FOR-DIRECTION STATE =============================
+var bool  pendingWait     = false
+var int   pendWinT        = na
+var int   pendWinTC       = na
+var float pendZoneTop     = na
+var float pendZoneBot     = na
+var int   pendM15Count    = 0
+
+// Bar-local hand-off: set by either the immediate top-stage resolution or the delayed
+// M15-wait resolution; consumed once, right below, to run the shared cascade body.
+bool  readyToRun = false
+int   runWinT    = na
+int   runWinTC   = na
+float runZoneTop = na
+float runZoneBot = na
+int   runDir     = 0
+
+// ============================= TOP-STAGE TRIGGER =============================
+if triggerClosed and topCount >= 3
+    idxTop = topCount - 2
+    vC = array.get(topRung.v, idxTop)
+    vL = array.get(topRung.v, idxTop - 1)
+    vR = array.get(topRung.v, idxTop + 1)
+
+    if vC < vL and vC < vR
+        winT0    = array.get(topRung.t,  idxTop)
+        winTC0   = array.get(topRung.tc, idxTop)
+        zoneTop0 = array.get(topRung.h,  idxTop)
+        zoneBot0 = array.get(topRung.l,  idxTop)
+
+        isExcludedHour = topChoice == "1 Hour" and
+             ((hour(winT0, "Asia/Tehran") == 23 and minute(winT0, "Asia/Tehran") == 30) or
+              (hour(winT0, "Asia/Tehran") == 0  and minute(winT0, "Asia/Tehran") == 30))
+
+        if isExcludedHour
+            box.new(winT0, zoneTop0, winTC0, zoneBot0, xloc = xloc.bar_time, border_color = GRAYC, bgcolor = color.new(GRAYC, 85))
+            if showLabels
+                label.new(winT0, zoneBot0, topRung.label + ": session start/end — excluded (thin liquidity)",
+                     xloc = xloc.bar_time, style = label.style_label_up, color = color.new(GRAYC, 0), textcolor = color.white, size = size.small)
+        else
+            confC = array.get(topRung.c, idxTop + 1)
+            dir0 = confC > zoneTop0 ? 1 : confC < zoneBot0 ? -1 : 0
+
+            if dir0 != 0
+                readyToRun := true
+                runWinT    := winT0
+                runWinTC   := winTC0
+                runZoneTop := zoneTop0
+                runZoneBot := zoneBot0
+                runDir     := dir0
+            else
+                // ambiguous — start (or restart) the up-to-4-M15-candle wait
+                pendingWait  := true
+                pendWinT     := winT0
+                pendWinTC    := winTC0
+                pendZoneTop  := zoneTop0
+                pendZoneBot  := zoneBot0
+                pendM15Count := 0
+                if showLabels
+                    label.new(winT0, zoneBot0, topRung.label + " vol-gap — close inside zone, waiting up to 4 M15 candles for direction",
+                         xloc = xloc.bar_time, style = label.style_label_down, color = color.new(GRAYC, 0), textcolor = color.white, size = size.small)
+
+// ============================= PENDING M15 WAIT RESOLUTION =============================
+if pendingWait and newM15Closed
+    m15Close = array.get(rungM15.c, m15Count - 1)
+    if m15Close > pendZoneTop
+        readyToRun := true
+        runWinT    := pendWinT
+        runWinTC   := pendWinTC
+        runZoneTop := pendZoneTop
+        runZoneBot := pendZoneBot
+        runDir     := 1
+        pendingWait := false
+    else if m15Close < pendZoneBot
+        readyToRun := true
+        runWinT    := pendWinT
+        runWinTC   := pendWinTC
+        runZoneTop := pendZoneTop
+        runZoneBot := pendZoneBot
+        runDir     := -1
+        pendingWait := false
+    else
+        pendM15Count += 1
+        if pendM15Count >= 4
+            pendingWait := false
+            if showLabels
+                label.new(pendWinT, pendZoneBot, "1H vol-gap abandoned — 4 M15 candles, still no clear direction",
+                     xloc = xloc.bar_time, style = label.style_label_down, color = color.new(GRAYC, 0), textcolor = color.white, size = size.small)
+
+// ============================= SHARED CASCADE BODY (H1 -> S1 -> S2 -> M1) =============================
+if readyToRun
+    activeDir := runDir
+    clr0 = f_stageColor(0)
+    eBoxTopId := box.new(runWinT, runZoneTop, runWinTC, runZoneBot, xloc = xloc.bar_time, border_color = clr0, bgcolor = color.new(clr0, 78))
+    eBoxTopTop := runZoneTop
+    eBoxTopBot := runZoneBot
+    eBoxTopResolved := false
+    if showLabels
+        label.new(runWinT, runZoneBot, topRung.label + " ENTRY  " + (runDir == 1 ? "BUY bias" : "SELL bias"),
+             xloc = xloc.bar_time, style = label.style_label_down, color = color.new(clr0, 0), textcolor = color.white, size = size.small)
+
+    winT    = runWinT
+    winTC   = runWinTC
+    zoneTop = runZoneTop
+    zoneBot = runZoneBot
+
+    // reset stage1/stage2/M1 zones for this new cascade instance — they'll be filled
+    // below if found; if a stage never gets found their *.Top values stay na and are
+    // simply skipped everywhere (grading, overlap, box tracking)
+    s1Top = float(na), s1Bot = float(na)
+    s2Top = float(na), s2Bot = float(na)
+    m1Top = float(na), m1Bot = float(na)
+    eBoxS1Resolved := true
+    eBoxS2Resolved := true
+    eBoxM1Resolved := true
+
+    nStages = array.size(chain)
+    for si = 1 to nStages - 1
+        rung = array.get(chain, si)
+        [sa, sb] = f_indexRange(rung.t, rung.tc, winT, winTC)
+        gIdx = -1
+        if sa >= 0 and sb >= sa
+            gIdx := f_findVolumeGapByIndex(rung.v, sa, sb)
+        if gIdx >= 0
+            gT  = array.get(rung.t,  gIdx)
+            gTC = array.get(rung.tc, gIdx)
+            gH  = array.get(rung.h,  gIdx)
+            gL  = array.get(rung.l,  gIdx)
+            gV  = array.get(rung.v,  gIdx)
+            thisClr = si == 2 ? PINKC : f_stageColor(si)
+            box.new(gT, gH, gTC, gL, xloc = xloc.bar_time, border_color = thisClr, bgcolor = color.new(thisClr, 78))
+            if showLabels
+                label.new(gT, gL, rung.label + " ENTRY  v=" + str.tostring(gV, "#.##"),
+                     xloc = xloc.bar_time, style = label.style_label_down, color = color.new(thisClr, 0), textcolor = color.black, size = size.small)
+            winT    := gT
+            winTC   := gTC
+            zoneTop := gH
+            zoneBot := gL
+            if si == 1
+                s1Top := gH, s1Bot := gL
+                eBoxS1Id := box.new(gT, gH, gTC, gL, xloc = xloc.bar_time, border_color = thisClr, bgcolor = color.new(thisClr, 88))
+                eBoxS1Top := gH, eBoxS1Bot := gL, eBoxS1Resolved := false
+            if si == 2
+                s2Top := gH, s2Bot := gL
+                eBoxS2Id := box.new(gT, gH, gTC, gL, xloc = xloc.bar_time, border_color = thisClr, bgcolor = color.new(thisClr, 88))
+                eBoxS2Top := gH, eBoxS2Bot := gL, eBoxS2Resolved := false
+        else
+            box.new(winT, zoneTop, winTC, zoneBot, xloc = xloc.bar_time, border_color = GRAYC, bgcolor = color.new(GRAYC, 85))
+            if showLabels
+                label.new(winT, zoneBot, rung.label + ": no vol-gap here → drop to lower TF",
+                     xloc = xloc.bar_time, style = label.style_label_up, color = color.new(GRAYC, 0), textcolor = color.white, size = size.small)
+
+    // ---------- Final stage: 1-minute volume gap (deepest wins) ----------
+    [sa1, sb1] = f_indexRange(m1Time, m1TClo, winT, winTC)
+    gIdxDeep = -1
+    if sa1 >= 0 and sb1 >= sa1
+        n1 = array.size(m1Vol)
+        lo1 = math.max(sa1, 1)
+        hi1 = math.min(sb1, n1 - 2)
+        float bestVol1 = 1e18
+        if hi1 >= lo1
+            for i = lo1 to hi1
+                v0 = array.get(m1Vol, i)
+                vLm = array.get(m1Vol, i - 1)
+                vRm = array.get(m1Vol, i + 1)
+                if v0 < vLm and v0 < vRm and v0 < bestVol1
+                    bestVol1 := v0
+                    gIdxDeep := i
+
+    if gIdxDeep >= 0
+        fT  = array.get(m1Time, gIdxDeep)
+        fTC = array.get(m1TClo, gIdxDeep)
+        fH  = array.get(m1High, gIdxDeep)
+        fL  = array.get(m1Low,  gIdxDeep)
+        fV  = array.get(m1Vol,  gIdxDeep)
+        m1Top := fH, m1Bot := fL
+        eBoxM1Id := box.new(fT, fH, fTC, fL, xloc = xloc.bar_time, border_color = TEALC, bgcolor = color.new(TEALC, 75))
+        eBoxM1Top := fH, eBoxM1Bot := fL, eBoxM1Resolved := false
+        if showLabels
+            label.new(fT, fL, "M1 ENTRY (deepest)  v=" + str.tostring(fV, "#.##"),
+                 xloc = xloc.bar_time, style = label.style_label_down, color = color.new(TEALC, 0), textcolor = color.white, size = size.small)
+    else
+        box.new(winT, zoneTop, winTC, zoneBot, xloc = xloc.bar_time, border_color = GRAYC, bgcolor = color.new(GRAYC, 85))
+        if showLabels
+            label.new(winT, zoneBot, "M1: no vol-gap found in this window",
+                 xloc = xloc.bar_time, style = label.style_label_up, color = color.new(GRAYC, 0), textcolor = color.white, size = size.small)
+
+    // ---------- A-D grading + confluence score, using the 4 canonical zones ----------
+    insideCount = 0
+    insideCount += (close >= runZoneBot and close <= runZoneTop) ? 1 : 0
+    insideCount += (not na(s1Top) and close >= s1Bot and close <= s1Top) ? 1 : 0
+    insideCount += (not na(s2Top) and close >= s2Bot and close <= s2Top) ? 1 : 0
+    insideCount += (not na(m1Top) and close >= m1Bot and close <= m1Top) ? 1 : 0
+    grade = insideCount == 0 ? "A" : insideCount == 1 ? "B" : insideCount == 2 ? "C" : "D"
+
+    overlapCount = 0
+    if not na(s1Top)
+        overlapCount += f_zonesOverlap(runZoneTop, runZoneBot, s1Top, s1Bot) ? 1 : 0
+    if not na(s2Top)
+        overlapCount += f_zonesOverlap(runZoneTop, runZoneBot, s2Top, s2Bot) ? 1 : 0
+    if not na(m1Top)
+        overlapCount += f_zonesOverlap(runZoneTop, runZoneBot, m1Top, m1Bot) ? 1 : 0
+    if not na(s1Top) and not na(s2Top)
+        overlapCount += f_zonesOverlap(s1Top, s1Bot, s2Top, s2Bot) ? 1 : 0
+    if not na(s1Top) and not na(m1Top)
+        overlapCount += f_zonesOverlap(s1Top, s1Bot, m1Top, m1Bot) ? 1 : 0
+    if not na(s2Top) and not na(m1Top)
+        overlapCount += f_zonesOverlap(s2Top, s2Bot, m1Top, m1Bot) ? 1 : 0
+
+    outsideBonus = insideCount == 0 ? 1 : 0
+
+    if showLabels
+        label.new(runWinT, runZoneTop, "Grade " + grade + "  (inside=" + str.tostring(insideCount) + "/4, overlaps=" + str.tostring(overlapCount) + ", outsideAll bonus=" + str.tostring(outsideBonus) + ")",
+             xloc = xloc.bar_time, style = label.style_label_up, color = color.new(color.gray, 0), textcolor = color.white, size = size.small)
