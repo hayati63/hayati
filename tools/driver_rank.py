@@ -174,7 +174,7 @@ BOXRANK = {"بالا": 0, "داخل": 1, "زیر": 2, None: 1}
 
 def run(raw, cl, syms, ps, mode, dmap, dcl, kind, cost,
         n_max=6, wcap=0.25, look=40, dlook=20, rank="bx",
-        blend=1.0, lo=None, hi=None, drv=None):
+        blend=1.0, lo=None, hi=None, drv=None, log=None):
     """خروجی: (نسبتِ واحدِ کهربا، گردش، تعدادِ دوره)"""
     bench = cl[BENCH]
     eq, w = 1.0, {}
@@ -269,8 +269,15 @@ def run(raw, cl, syms, ps, mode, dmap, dcl, kind, cost,
         turn = sum(abs(tgt.get(s, 0) - w.get(s, 0))
                    for s in set(tgt) | set(w))
         turn_tot += turn
-        eq *= (1 - cost / 100.0 * turn / 2)
-        eq *= sum(tgt.get(s, 0) * ret.get(s, 1.0) for s in tgt)
+        fee = (1 - cost / 100.0 * turn / 2)
+        gross = sum(tgt.get(s, 0) * ret.get(s, 1.0) for s in tgt)
+        eq *= fee * gross
+        if log is not None:
+            # مازادِ **همین دوره** بر حسبِ واحدِ کهربا، با کارمزد.
+            # نامش `log` است نه `each` — داخلِ همین تابع یک
+            # متغیرِ محلیِ `each` برای وزنِ هر نماد هست.
+            b = ret.get(BENCH, 1.0)
+            log.append(((fee * gross) / b - 1) * 100 if b else 0.0)
         w = tgt
     if not nper:
         return None

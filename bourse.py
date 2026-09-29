@@ -2766,6 +2766,182 @@ def rebalance(units, cash, book, px, capital):
     return sells, buys, noprice
 
 
+# ══ ۳.۶ واحدِ کهربا — هدفِ نهایی ═══════════════════════════════════
+# مصطفی: «دیروز سینرژی ۷ درصد مثبت بود، کهربا ۳ درصد. این اختلافِ
+# تعدادِ واحد را باید هر روز نشان بدهی — و همچنین هفتگی و ماهانه.
+# تعدادِ واحدِ بیشترِ **هر نماد** نسبت به کهربا، و **مجموعِ همهٔ
+# نمادها** روزانه، هفتگی و ماهانه. این هدفِ غایی و نهاییِ من از
+# انجامِ معامله روی همهٔ نمادهاست.»
+#
+# ## تعریف
+#
+# اگر نمادی r_s درصد رفته و کهربا r_b، آن نماد این‌قدر واحدِ کهرباىِ
+# بیشتر به تو داده:
+#
+#     (۱ + r_s) ÷ (۱ + r_b) − ۱
+#
+# مثالِ خودش روی دادهٔ ۲۰۲۶-۰۹-۲۰: سینرژی از ۶۳٬۴۹۹ به ۶۶٬۹۲۶ یعنی
+# +۵٫۴۰٪، کهربا از ۲۲۶٬۹۹۸ به ۲۲۷٬۸۹۹ یعنی +۰٫۴۰٪ →
+# ۱٫۰۵۴۰ ÷ ۱٫۰۰۴۰ − ۱ = **+۴٫۹۸٪ واحدِ بیشتر**.
+#
+# و برای **کلِ پرتفو** همان کار روی ارزشِ سبد انجام می‌شود:
+#
+#     واحدِ کهربا در هر روز = ارزشِ سبد ÷ قیمتِ کهربا
+#
+# پس مازاد = نسبتِ این عدد بین دو تاریخ. این دقیقاً «تعدادِ واحد»
+# است، نه بازدهِ ریالی — و بند ۱۸ docs نشان داد سنجشِ ریالی در تورمِ
+# ایران تقریباً بی‌معناست.
+#
+# ## سه افق
+#
+#   روزانه  کلوزِ امروز در برابرِ کلوزِ جلسهٔ قبل
+#   هفتگی   کلوزِ امروز در برابرِ **آخرین کلوزِ هفتهٔ کامل‌شدهٔ قبل**
+#   ماهانه  کلوزِ امروز در برابرِ **آخرین کلوزِ ماهِ میلادیِ قبل**
+#
+# لنگرِ هفتگی و ماهانه عمداً «۵ روز پیش» و «۳۰ روز پیش» نیست — بند ۲
+# راهنما تصمیم را روی همین مرزها می‌گذارد، پس سنجش هم باید همان‌جا
+# باشد وگرنه عددِ گزارش با عددِ تصمیم نمی‌خواند.
+UNIT_HZ = (("روزانه", "d"), ("هفتگی", "w"), ("ماهانه", "m"))
+
+
+def _anchor_date(days, hz):
+    """تاریخِ مبنای هر افق — بدونِ لوک‌اهد، از خودِ تقویم."""
+    if not days:
+        return None
+    last = days[-1]
+    if hz == "d":
+        return days[-2] if len(days) > 1 else None
+    if hz == "w":
+        wk = week_key(last)
+        prev = [d for d in days if week_key(d) < wk]
+        return prev[-1] if prev else None
+    cur = (last.year, last.month)
+    prev = [d for d in days if (d.year, d.month) < cur]
+    return prev[-1] if prev else None
+
+
+def bench_units(rows, units=None, px=None):
+    """مازادِ «تعدادِ واحدِ کهربا» — هر نماد و کلِ پرتفو، سه افق.
+
+    خروجی:
+      {"sym": [{sym, cat, held, d, w, m, …}], "port": {d, w, m},
+       "dates": {افق: (تاریخِ مبنا، تاریخِ پایان)}}
+
+    نمادی که در یک افق دادهٔ کافی ندارد، آن خانه‌اش None می‌ماند —
+    صفر نمی‌شود، چون صفر یعنی «هم‌پای کهربا» و آن حرفِ دیگری است.
+    """
+    kb = None
+    for r in rows:
+        if norm(r["sym"]) == norm(BENCH):
+            kb = r.get("hist")
+            break
+    if not kb:
+        return None
+    bd = sorted(kb)
+    anch = {}
+    for fa, hz in UNIT_HZ:
+        a = _anchor_date(bd, hz)
+        if a is not None:
+            anch[hz] = (a, bd[-1])
+    if not anch:
+        return None
+
+    def gain(h, hz):
+        """(۱+r_نماد) ÷ (۱+r_کهربا) − ۱، بر حسبِ درصد."""
+        if hz not in anch:
+            return None
+        a, b = anch[hz]
+        # نماد باید در **هر دو** تاریخ کلوز داشته باشد، وگرنه عدد
+        # مقایسهٔ دو بازهٔ متفاوت است.
+        if a not in h or b not in h or h[a] <= 0 or kb[a] <= 0:
+            return None
+        return ((h[b] / h[a]) / (kb[b] / kb[a]) - 1) * 100
+
+    held = {norm(k): v for k, v in (units or {}).items() if v}
+    out = []
+    for r in rows:
+        h = r.get("hist")
+        if not h:
+            continue
+        row = {"sym": r["sym"], "cat": r.get("cat", "؟"),
+               "held": held.get(norm(r["sym"]), 0),
+               "close": r.get("close"), "bx": r.get("bx"),
+               "self": norm(r["sym"]) == norm(BENCH)}
+        ok = False
+        for _fa, hz in UNIT_HZ:
+            g = gain(h, hz)
+            row[hz] = g
+            ok = ok or g is not None
+        if ok:
+            out.append(row)
+    out.sort(key=lambda x: -(x.get("d") if x.get("d") is not None
+                             else -1e9))
+
+    # ── کلِ پرتفو ──────────────────────────────────────────────────
+    # ارزشِ سبد در هر تاریخ، با **همان تعدادِ واحدِ امروز** — یعنی
+    # «اگر این سبد را از آن تاریخ نگه داشته بودم». اگر قیمتِ یک قلم
+    # در آن تاریخ نباشد از کلِ محاسبهٔ آن افق بیرون می‌ماند و نامش
+    # چاپ می‌شود؛ بی‌صدا صفر گرفتنش یعنی عددِ غلط.
+    hist = {norm(r["sym"]): r["hist"] for r in rows if r.get("hist")}
+    port, miss = {}, {}
+    for _fa, hz in UNIT_HZ:
+        if hz not in anch:
+            continue
+        a, b = anch[hz]
+        va = vb = 0.0
+        gone = []
+        for k, u in held.items():
+            h = hist.get(k)
+            if not h or a not in h or b not in h:
+                gone.append(k)
+                continue
+            va += u * h[a]
+            vb += u * h[b]
+        if va > 0 and kb[a] > 0:
+            port[hz] = ((vb / va) / (kb[b] / kb[a]) - 1) * 100
+        if gone:
+            miss[hz] = gone
+    return {"sym": out, "port": port, "miss": miss,
+            "dates": {hz: (a.isoformat(), b.isoformat())
+                      for hz, (a, b) in anch.items()}}
+
+
+# ── بک‌تستِ همین معیار ─────────────────────────────────────────────
+# «تو بک‌تست‌ها هم باید این استراتژی کار کند و نشان دهد میانگین چند
+# درصد، چه هفتگی و چه ماهانه، پرتفو را نسبت به کهربا بیشتر کرده‌ایم.»
+# بازسازی: `python3 tools/unit_gain.py`
+UNIT_BT = (
+    '<div class="note"><b>و همین معیار در بک‌تست</b> — ۱۰۱ نماد، '
+    '۲۰۲۶-۰۱-۱۴ تا ۲۰۲۶-۰۹-۲۰، N=۶، سقفِ وزن ۲۵٪، کارمزد ۰٫۵۵٪، '
+    'بعد از کارمزد:'
+    '<table class="table" style="margin-top:8px"><thead><tr>'
+    '<th class="th">افق</th><th class="th n">کلِ پنجره</th>'
+    '<th class="th n">میانگینِ هر دوره</th>'
+    '<th class="th n">سالانه (تعمیم)</th>'
+    '<th class="th n">دوره‌های جلو</th>'
+    '<th class="th n">کنترلِ تصادفی</th></tr></thead><tbody>'
+    '<tr><td class="td sym">هفتگی · ۳۴ دوره</td>'
+    '<td class="td n g">+۱۹٫۰۹٪</td><td class="td n g">+۰٫۵۱۵٪</td>'
+    '<td class="td n g">+۳۰٫۶٪</td><td class="td n">۴۴٫۸٪</td>'
+    '<td class="td n sub">+۰٫۰۶۲٪ · ۱٪ بهتر</td></tr>'
+    '<tr><td class="td sym">ماهانه · ۸ دوره</td>'
+    '<td class="td n g">+۳۷٫۶۶٪</td><td class="td n g">+۴٫۰۷۶٪</td>'
+    '<td class="td n g">+۶۱٫۵٪</td><td class="td n">۶۲٫۵٪</td>'
+    '<td class="td n sub">+۲٫۱۲۵٪ · ۲٪ بهتر</td></tr>'
+    '</tbody></table>'
+    '<b>⚠️ مزیت دم‌کلفت است، نه یکنواخت.</b> در افقِ هفتگی '
+    '<b>میانهٔ</b> دوره ‎−۰٫۲۱٪ است و فقط <b>۴۴٫۸٪</b> از هفته‌ها جلو '
+    'بوده‌اند — یعنی هفتهٔ معمولی کمی عقب است و چند هفتهٔ خیلی خوب '
+    '(بهترین ‎+۲۰٫۱٪) کلِ کار را می‌سازند. ماهانه یکنواخت‌تر است '
+    '(میانه ‎+۳٫۹۱٪، ۶۲٫۵٪ جلو) ولی فقط ۸ دوره دارد.'
+    '<br>کنترلِ ترتیبِ تصادفی نشان می‌دهد این از **رتبه‌بندی** می‌آید '
+    'نه فقط از فیلتر: ۱٪ و ۲٪ از بذرهای تصادفی بهتر بودند.'
+    '<br>⚠️ هارنسِ بک‌تست هستهٔ قاعده را دارد ولی دو افزودهٔ تازه — '
+    'قاعدهٔ «نگه‌داشته» و حکمِ خلای حجمی — را ندارد، پس کفِ کارِ '
+    'سیستمِ امروز است نه سقفش. و پنجره <b>یک رژیمِ بازار</b> است.'
+    '</div>')
+
+
 # ══ ۴. آلارم ════════════════════════════════════════════════════════
 def alarms(rows, book, units=None):
     """آلارمِ ورود و خروج.
@@ -2854,7 +3030,7 @@ def telegram(text):
 # ══ ۵. صفحه ═════════════════════════════════════════════════════════
 def html(rows, book, capital, stamp, last_date, buy=(), sell=(),
          comp=None, sells=(), buys=(), nopx=(), pos=(), rr=None,
-         drv=None):
+         drv=None, bu=None):
     """داشبورد — با همان فرمتِ فایلی که مصطفی فرستاد.
 
     `dashboard_monthly.html` او: تمِ تیره، تب‌های قرصی، کاشیِ آمار،
@@ -3318,6 +3494,104 @@ def html(rows, book, capital, stamp, last_date, buy=(), sell=(),
                   '</div><div class="drvgrid">' + "".join(cards)
                 + '</div>')
 
+    # ── تبِ «واحدِ کهربا» — هدفِ نهایی ─────────────────────────────
+    # «تعدادِ واحدِ بیشترِ هر نماد نسبت به کهربا و مجموعِ همهٔ نمادها،
+    # روزانه، هفتگی و ماهانه. این هدفِ غایی و نهاییِ من است.»
+    def _unitbox():
+        if not bu:
+            return ('<div class="note">مبنا (کهربا) در این جهان نیست، '
+                    'پس مازادِ واحد حساب نشد.</div>')
+        dts = bu.get("dates") or {}
+        port = bu.get("port") or {}
+
+        def tile(fa, hz):
+            v = port.get(hz)
+            a = dts.get(hz)
+            if v is None:
+                return (f'<div class="stat"><div class="k">{fa}</div>'
+                        f'<div class="v sub">—</div>'
+                        f'<div class="s">دادهٔ کافی نیست</div></div>')
+            cls = "g" if v > 0 else "r" if v < 0 else ""
+            word = "جلو ▲" if v > 0 else "عقب ▼" if v < 0 else "هم‌پا"
+            return (f'<div class="stat"><div class="k">{fa}</div>'
+                    f'<div class="v {cls}">{v:+.2f}٪</div>'
+                    f'<div class="s">{word}'
+                    + (f' · از {a[0]}' if a else '') + '</div></div>')
+
+        tiles = "".join(tile(fa, hz) for fa, hz in UNIT_HZ)
+
+        def cell(v):
+            if v is None:
+                return '<td class="td n sub">—</td>'
+            cls = "g" if v > 0 else "r" if v < 0 else ""
+            return f'<td class="td n {cls}">{v:+.2f}٪</td>'
+
+        def tbl(rs, head, empty):
+            if not rs:
+                return f'<h3>{head}</h3><div class="sub">{empty}</div>'
+            body = "".join(
+                f'<tr data-s="{r["sym"]}" data-c="{r["cat"]}">'
+                f'<td class="td sym">{r["sym"]}'
+                + ('<span class="gate gate-mw">مبنا</span>'
+                   if r["self"] else "")
+                + f'</td><td class="td">{r["cat"]}</td>'
+                f'<td class="td n">{n(r["held"]) if r["held"] else "—"}</td>'
+                + cell(r["d"]) + cell(r["w"]) + cell(r["m"])
+                + f'<td class="td n">'
+                + (f'{r["bx"]:+.1f}' if r.get("bx") is not None else "—")
+                + '</td></tr>'
+                for r in rs)
+            # سرصفحه اینجا ساخته می‌شود نه با thead(): آن تابع
+            # پایین‌تر در همین html() تعریف می‌شود و در این نقطه
+            # هنوز وجود ندارد. (و پایتون ۳٫۱۱ رشتهٔ چندخطی داخلِ
+            # f-string را هم نمی‌پذیرد.)
+            cols = ("نماد", "دسته", "واحدِ من", "روزانه", "هفتگی",
+                    "ماهانه", "مازادِ ۴۰ روزه")
+            uh = "".join(
+                f'<th class="th{" n" if i >= 3 else ""}">{c}</th>'
+                for i, c in enumerate(cols))
+            return (f'<h3>{head}</h3><div class="wrap">'
+                    f'<table class="table"><thead><tr>{uh}'
+                    f'</tr></thead><tbody>{body}</tbody></table></div>')
+
+        mine = [r for r in bu["sym"] if r["held"]]
+        rest = [r for r in bu["sym"] if not r["held"]][:40]
+        warn = ""
+        gone = set()
+        for v in (bu.get("miss") or {}).values():
+            gone |= set(v)
+        if gone:
+            warn = ('<div class="feebox">⚠️ قیمتِ <b>'
+                    + "، ".join(sorted(gone))
+                    + '</b> در این جهان نیست، پس از <b>مجموعِ پرتفو</b> '
+                    'بیرون مانده — عددِ کل کم‌برآورد است. در حالتِ '
+                    '<code>--all</code> یا اجرای آنلاین می‌آیند.</div>')
+        return (
+            '<div class="sub"><b>این عدد هدفِ نهایی است، نه بازدهِ '
+            'ریالی.</b> اگر نمادی r<sub>s</sub> درصد رفته و کهربا '
+            'r<sub>b</sub>، تعدادِ واحدِ کهرباىِ بیشتری که به تو داده '
+            'برابر است با <code>(۱+r<sub>s</sub>) ÷ (۱+r<sub>b</sub>) '
+            '− ۱</code>.'
+            '<br>روزِ ' + (dts.get("d") or ["—"])[0] + ' → '
+            + (dts.get("d") or ["—", "—"])[1] +
+            ': سینرژی ‎+۵٫۴۰٪ و کهربا ‎+۰٫۴۰٪ بود، یعنی '
+            '۱٫۰۵۴۰ ÷ ۱٫۰۰۴۰ − ۱ = <b class="g">+۴٫۹۸٪ واحدِ بیشتر</b>.'
+            '<br>لنگرِ <b>هفتگی</b> آخرین کلوزِ هفتهٔ کامل‌شدهٔ قبل است و '
+            'لنگرِ <b>ماهانه</b> آخرین کلوزِ ماهِ میلادیِ قبل — نه «۵ روز '
+            'پیش» و «۳۰ روز پیش». بند ۲ راهنما تصمیم را روی همین مرزها '
+            'می‌گذارد، پس سنجش هم همان‌جاست. در <b>اولین جلسهٔ هفته</b> '
+            'عددِ روزانه و هفتگی یکی می‌شوند و این درست است.'
+            '<br>ستونِ <b>مازادِ ۴۰ روزه</b> همان معیاری است که '
+            'رتبه‌بندیِ دفتر روی آن بسته می‌شود — «میانگینِ بازدهیِ '
+            'گذشتهٔ آن نماد» که خواستی.</div>'
+            + warn
+            + '<h3>مجموعِ پرتفو در برابرِ ' + BENCH + '</h3>'
+            + f'<div class="stats">{tiles}</div>'
+            + UNIT_BT
+            + tbl(mine, "نمادهای پرتفوی من",
+                  "هیچ نمادی از پرتفو در این جهان نیست.")
+            + tbl(rest, "بقیهٔ جهان — ۴۰ نمادِ برترِ روزانه", "—"))
+
     # ── بنرِ آلارم، بالای همه‌چیز ──
     def _albox():
         if not buy and not sell:
@@ -3665,6 +3939,9 @@ def html(rows, book, capital, stamp, last_date, buy=(), sell=(),
               'روی خودِ سهام — دادهٔ سهام در مخزن نیست. پروکسی است، '
               'نه خودِ جهان.</div>')
 
+    # بعد از thead، چون جدولِ واحد از آن استفاده می‌کند
+    unit_box = _unitbox()
+
     SIGH = ("رتبه|نماد|آلارم|کلوز|نقطهٔ ورود|سطحِ واکنش|حدضرر|حدسود|ریسک|"
             "بک‌تستِ وضعیت|ماهانه|هفتگی|"
             "حکمِ خلای حجمی|محرک (پاسخ)|تارگتِ میله و پرچم")
@@ -3980,6 +4257,7 @@ font-size:.78rem;color:var(--muted);max-width:72ch}}
   <button class="tab on" data-t="p1">سیگنال ماهانه</button>
   <button class="tab" data-t="p2">سیگنال هفتگی</button>
   <button class="tab" data-t="p3">دفترِ پیشنهادی</button>
+  <button class="tab" data-t="p10">واحدِ کهربا</button>
   <button class="tab" data-t="p7">پوزیشن‌های من</button>
   <button class="tab" data-t="p8">ریسک منیجر</button>
   <button class="tab" data-t="p6">خرید و فروشِ امروز</button>
@@ -4105,6 +4383,8 @@ font-size:.78rem;color:var(--muted);max-width:72ch}}
   {drv_box}
 </div>
 
+<div class="panel" id="p10">{unit_box}</div>
+
 <div class="panel" id="p8">{risk_box}</div>
 
 <div class="panel" id="p6">{orders_box}</div>
@@ -4197,7 +4477,7 @@ SNAP_KEYS = ("stamp", "capital", "cash", "units", "book", "pos",
 
 
 def snap_write(path, stamp, capital, units, cash, book, pos,
-               buy, sell, sells, buys, nopx, px, comp):
+               buy, sell, sells, buys, nopx, px, comp, bu=None):
     """عکسِ یک اجرا — چیزی که گزارشِ ترکیبی لازم دارد، نه بیشتر.
 
     ردیف‌های دفتر پر از کلیدهای داخلی‌اند (hist، flags، z…) که در
@@ -4234,6 +4514,7 @@ def snap_write(path, stamp, capital, units, cash, book, pos,
         "px": {k: v for k, v in px.items()},
         "compass": {k: v for k, v in (comp or {}).items()
                     if k != "hist"},
+        "units_vs_bench": bu,
     }
     f = Path(path)
     f.parent.mkdir(parents=True, exist_ok=True)
@@ -4463,6 +4744,47 @@ def combined(snaps, stock_share=None, open_pages=False):
                 f"فردا در پولبک فروشنده: "
                 + "، ".join(x["sym"] for x in gone))
             out("     نقد نشو؛ پولش روی نمادی که بالای باکسش است.")
+
+    # ── مازادِ واحدِ کهربا، از هر دو جهان ───────────────────────────
+    # هدفِ نهاییِ خودش، پس در گزارشِ ترکیبی هم باید باشد.
+    bus = [(t, x.get("units_vs_bench")) for t, x in snaps.items()
+           if x.get("units_vs_bench")]
+    if bus:
+        out("\n" + "=" * 64)
+        out("  تعدادِ واحدِ کهربا — مازادِ من")
+        out("=" * 64)
+        for t, bu in bus:
+            d = bu.get("dates") or {}
+            out(f"\n  ── جهانِ {t} ──")
+            for fa, hz in UNIT_HZ:
+                v = (bu.get("port") or {}).get(hz)
+                a = d.get(hz)
+                if v is None:
+                    out(f"    {fa:<8}—")
+                    continue
+                w = "جلو ▲" if v > 0 else "عقب ▼" if v < 0 else "هم‌پا"
+                out(f"    {fa:<8}{v:>+7.2f}٪  {w:<7}"
+                    + (f"از {a[0]} تا {a[1]}" if a else ""))
+            mine = [r for r in (bu.get("sym") or []) if r.get("held")]
+            if mine:
+                out(f"\n    {'نماد':<11}{'روزانه':>9}{'هفتگی':>9}"
+                    f"{'ماهانه':>9}{'۴۰ روزه':>10}")
+                out("    " + "-" * 48)
+                for r in mine:
+                    def f(x):
+                        return "—" if x is None else f"{x:+.2f}"
+                    bxs = ("—" if r.get("bx") is None
+                           else f"{r['bx']:+.1f}")
+                    out(f"    {r['sym']:<11}{f(r['d']):>9}"
+                        f"{f(r['w']):>9}{f(r['m']):>9}{bxs:>10}")
+        out("\n  تعریف: (۱+بازدهِ نماد) ÷ (۱+بازدهِ کهربا) − ۱")
+        out("  بک‌تستِ همین معیار (python3 tools/unit_gain.py):")
+        out("    هفتگی  +۱۹٫۰۹٪ کلِ پنجره · +۰٫۵۱۵٪ هر دوره · "
+            "۴۴٫۸٪ دوره‌ها جلو")
+        out("    ماهانه +۳۷٫۶۶٪ کلِ پنجره · +۴٫۰۷۶٪ هر دوره · "
+            "۶۲٫۵٪ دوره‌ها جلو")
+        out("    ⚠️ میانهٔ هفتگی −۰٫۲۱٪ است — مزیت دم‌کلفت است، "
+            "نه یکنواخت.")
 
     # ── آلارم‌های ترکیبی ───────────────────────────────────────────
     ab = [(t, *b) for t, x in snaps.items() for b in (x.get("buy") or [])]
@@ -4999,11 +5321,52 @@ def main():
         for k, v in nu.items():
             print(f"        {k:<10}{v:>14,} واحد")
 
+    # ── مازادِ واحدِ کهربا — هدفِ نهایی ─────────────────────────────
+    BU = bench_units(rows, hu)
+    if BU:
+        print("\n" + "=" * 64)
+        print(f"  تعدادِ واحدِ {BENCH} — مازادِ من")
+        print("=" * 64)
+        d = BU["dates"]
+        print("\n  مجموعِ پرتفو:")
+        for fa, hz in UNIT_HZ:
+            v = BU["port"].get(hz)
+            a = d.get(hz)
+            if v is None:
+                print(f"    {fa:<8}—  (دادهٔ کافی نیست)")
+                continue
+            w = "جلو ▲" if v > 0 else "عقب ▼" if v < 0 else "هم‌پا"
+            print(f"    {fa:<8}{v:>+7.2f}٪  {w:<7}"
+                  + (f"از {a[0]} تا {a[1]}" if a else ""))
+        mine = [r for r in BU["sym"] if r["held"]]
+        if mine:
+            print(f"\n  به تفکیکِ نماد  ({'، '.join(fa for fa, _ in UNIT_HZ)}):")
+            print(f"    {'نماد':<11}{'واحدِ من':>13}{'روزانه':>9}"
+                  f"{'هفتگی':>9}{'ماهانه':>9}{'۴۰ روزه':>10}")
+            print("    " + "-" * 60)
+            for r in mine:
+                def f(x):
+                    return "—" if x is None else f"{x:+.2f}"
+                bxs = ("—" if r.get("bx") is None else f"{r['bx']:+.1f}")
+                print(f"    {r['sym']:<11}{r['held']:>13,}"
+                      f"{f(r['d']):>9}{f(r['w']):>9}{f(r['m']):>9}"
+                      f"{bxs:>10}")
+        gone = set()
+        for v in (BU.get("miss") or {}).values():
+            gone |= set(v)
+        if gone:
+            print(f"\n  ⚠️  {'، '.join(sorted(gone))} در این جهان "
+                  f"قیمت ندارند و از **مجموع** بیرون ماندند —")
+            print("      عددِ کل کم‌برآورد است. با --all یا آنلاین می‌آیند.")
+        print("\n  تعریف: (۱+بازدهِ نماد) ÷ (۱+بازدهِ کهربا) − ۱")
+        print(f"  لنگرِ هفتگی = آخرین کلوزِ هفتهٔ کامل‌شدهٔ قبل · "
+              f"ماهانه = آخرین کلوزِ ماهِ قبل")
+
     rr = risk_report(book, pos, capital, comp)
     buy, sell = alarms(rows, book, hu)
     OUT.write_text(html(rows, book, capital, stamp, last_date,
                         buy, sell, comp, sells, buys, nopx, pos, rr,
-                        DRV),
+                        DRV, BU),
                    encoding="utf-8")
     print(f"      {OUT}")
 
@@ -5338,7 +5701,7 @@ def main():
 
     if args.export:
         snap_write(args.export, stamp, capital, hu, hc, book, pos,
-                   buy, sell, sells, buys, nopx, PX, comp)
+                   buy, sell, sells, buys, nopx, PX, comp, BU)
         print(f"      عکسِ اجرا: {args.export}")
 
     if args.open and not args.export:
