@@ -2906,6 +2906,162 @@ def bench_units(rows, units=None, px=None):
                       for hz, (a, b) in anch.items()}}
 
 
+# ══ ۳.۷ تغییرِ امروز نسبت به دیروز ═════════════════════════════════
+# مصطفی: «اگر نمادی خلا حجمی را شکسته، یا نمادی حد ضرر خورده، یا
+# خریدی باید به پرتفو اضافه کنم را **هر روز** باید به من نشان بدهی.»
+#
+# «شکسته» و «خورده» فعلِ گذشته‌اند، یعنی **تغییر** — نه وضعیت. نمادی
+# که سه هفته است زیرِ ناحیه است امروز چیزی را نشکسته. پس وضعیتِ هر
+# اجرا ذخیره می‌شود و اجرای بعد با آن مقایسه.
+#
+# فایل: data_bourse/state.json — یک عکسِ ساده از وضعیتِ هر نماد.
+def state_load():
+    f = DATA / "state.json"
+    if f.exists():
+        try:
+            d = json.loads(f.read_text(encoding="utf-8"))
+            return d.get("stamp"), d.get("sym", {})
+        except (ValueError, TypeError):
+            pass
+    return None, {}
+
+
+def state_save(stamp, rows, book):
+    bk = {norm(r["sym"]) for r in book}
+    d = {"stamp": stamp, "sym": {}}
+    for r in rows:
+        if not r.get("ok"):
+            continue
+        d["sym"][norm(r["sym"])] = {
+            "vgv": (r.get("vg") or {}).get("حکم"),
+            "wst": r.get("wst"), "mst": r.get("mst"),
+            "wd": bool(r.get("w_dead")), "md": bool(r.get("m_dead")),
+            "book": norm(r["sym"]) in bk,
+            "close": r.get("close")}
+    DATA.mkdir(exist_ok=True)
+    (DATA / "state.json").write_text(
+        json.dumps(d, ensure_ascii=False, indent=1), encoding="utf-8")
+
+
+# هر رویداد: (اولویت، برچسب، رنگ، توضیح)
+EV = {
+    "vg_break": (0, "شکستِ خلای حجمی ↓", "r",
+                 "حکمِ خلای حجمی از بالا/داخل به **زیر** رفت — "
+                 "قاعدهٔ خروجِ خودت"),
+    "stop": (0, "استاپ خورد", "r",
+             "کلوز از کفِ باکس رد شد؛ سیگنالِ آن افق مرده است"),
+    "wst_down": (1, "زیرِ باکسِ هفتگی", "r",
+                 "وضعیتِ هفتگی به «زیر» رفت"),
+    "mst_down": (1, "زیرِ باکسِ ماهانه", "r",
+                 "وضعیتِ ماهانه به «زیر» رفت"),
+    "out": (2, "از دفتر خارج شد", "y",
+            "دیروز در دفتر بود، امروز نیست"),
+    "vg_back": (3, "بازگشت بالای خلای حجمی ↑", "g",
+                "حکمِ خلای حجمی به **بالا** برگشت"),
+    "wst_up": (4, "بالای باکسِ هفتگی", "g",
+               "وضعیتِ هفتگی به «بالا» رفت"),
+    "mst_up": (4, "بالای باکسِ ماهانه", "g",
+               "وضعیتِ ماهانه به «بالا» رفت"),
+    "in": (5, "واردِ دفتر شد", "g",
+           "امروز در دفترِ پیشنهادی آمده و دیروز نبود"),
+}
+
+
+def state_diff(rows, book, units=None, stamp=None):
+    """چه چیزی **امروز** عوض شد — نه اینکه وضعیت چیست.
+
+    خروجی: (تاریخِ مقایسه، [رویداد]). اگر عکسِ دیروز نباشد فهرست خالی
+    است و تاریخ None — و این را باید گفت، نه اینکه «هیچ تغییری نبود»
+    نشان داد. آن دو یکی نیستند.
+    """
+    prev_stamp, prev = state_load()
+    if not prev:
+        return None, []
+    # ── آیا دوره نو شده؟ ──────────────────────────────────────────
+    # اولین جلسهٔ هفته که می‌شود، باکسِ هفتگی از نو ساخته می‌شود و
+    # ده‌ها نماد **هم‌زمان** حالتشان عوض می‌شود. آن خبر نیست، تقویم
+    # است. بارِ اول که این را ساختم ۳۰ ردیفِ «⛔ زیرِ باکسِ هفتگی»
+    # پشتِ سرِ هم چاپ شد و کلِ صفحه را بی‌فایده کرد.
+    new_w = new_m = False
+    try:
+        a = date.fromisoformat(prev_stamp) if prev_stamp else None
+        b = date.fromisoformat(stamp) if stamp else None
+        if a and b:
+            new_w = week_key(a) != week_key(b)
+            new_m = (a.year, a.month) != (b.year, b.month)
+    except (TypeError, ValueError):
+        pass
+    bk = {norm(r["sym"]) for r in book}
+    held = {norm(k) for k, v in (units or {}).items() if v}
+    out = []
+    for r in rows:
+        if not r.get("ok"):
+            continue
+        k = norm(r["sym"])
+        o = prev.get(k)
+        if not o:
+            continue
+        now = {"vgv": (r.get("vg") or {}).get("حکم"),
+               "wst": r.get("wst"), "mst": r.get("mst"),
+               "wd": bool(r.get("w_dead")), "md": bool(r.get("m_dead")),
+               "book": k in bk}
+        ev = []
+        if o.get("vgv") in ("بالا", "داخل") and now["vgv"] == "زیر":
+            ev.append("vg_break")
+        if o.get("vgv") == "زیر" and now["vgv"] == "بالا":
+            ev.append("vg_back")
+        if (now["wd"] and not o.get("wd")) or (now["md"]
+                                              and not o.get("md")):
+            ev.append("stop")
+        # وقتی باکس نو شده، جابه‌جاییِ حالت را **خبر** حساب نکن —
+        # مگر روی نمادی که داری یا در دفتر است، که آنجا هرطور شده
+        # باید ببینی‌اش.
+        care = k in held or now["book"] or o.get("book")
+        if not new_w or care:
+            if o.get("wst") != "زیر" and now["wst"] == "زیر":
+                ev.append("wst_down")
+            if o.get("wst") == "زیر" and now["wst"] == "بالا":
+                ev.append("wst_up")
+        if not new_m or care:
+            if o.get("mst") != "زیر" and now["mst"] == "زیر":
+                ev.append("mst_down")
+            if o.get("mst") == "زیر" and now["mst"] == "بالا":
+                ev.append("mst_up")
+        if now["book"] and not o.get("book"):
+            ev.append("in")
+        if o.get("book") and not now["book"]:
+            ev.append("out")
+        for e in ev:
+            pri, lab, col, why = EV[e]
+            if new_w and e in ("wst_down", "wst_up"):
+                lab += " (باکسِ هفتگی نو شد)"
+            if new_m and e in ("mst_down", "mst_up"):
+                lab += " (باکسِ ماهانه نو شد)"
+            # رویدادی که روی نمادی افتاده که **داری**، یک پله
+            # فوری‌تر است — همان چیزی که باید امروز کاری برایش کنی.
+            out.append({"sym": r["sym"], "cat": r.get("cat", "؟"),
+                        "ev": e, "lab": lab, "col": col, "why": why,
+                        "pri": pri - (1 if k in held else 0),
+                        "held": k in held,
+                        "close": r.get("close"),
+                        "was": o.get("close"),
+                        "units": (units or {}).get(r["sym"], 0)})
+    out.sort(key=lambda x: (x["pri"], not x["held"], x["sym"]))
+    return prev_stamp, out
+
+
+def diff_split(dif, book):
+    """(آنچه امروز کارِ توست، بقیهٔ جهان).
+
+    رویدادی روی نمادی که نه داری و نه در دفتر است، **خبر** است نه
+    کار. جدا نگه داشتنشان تنها راهی است که فهرستِ کار خوانا بماند.
+    """
+    bk = {norm(r["sym"]) for r in book}
+    mine = [e for e in dif if e["held"] or norm(e["sym"]) in bk]
+    rest = [e for e in dif if not (e["held"] or norm(e["sym"]) in bk)]
+    return mine, rest
+
+
 # ── بک‌تستِ همین معیار ─────────────────────────────────────────────
 # «تو بک‌تست‌ها هم باید این استراتژی کار کند و نشان دهد میانگین چند
 # درصد، چه هفتگی و چه ماهانه، پرتفو را نسبت به کهربا بیشتر کرده‌ایم.»
@@ -3030,7 +3186,7 @@ def telegram(text):
 # ══ ۵. صفحه ═════════════════════════════════════════════════════════
 def html(rows, book, capital, stamp, last_date, buy=(), sell=(),
          comp=None, sells=(), buys=(), nopx=(), pos=(), rr=None,
-         drv=None, bu=None):
+         drv=None, bu=None, dif=None, dstamp=None):
     """داشبورد — با همان فرمتِ فایلی که مصطفی فرستاد.
 
     `dashboard_monthly.html` او: تمِ تیره، تب‌های قرصی، کاشیِ آمار،
@@ -3592,6 +3748,215 @@ def html(rows, book, capital, stamp, last_date, buy=(), sell=(),
                   "هیچ نمادی از پرتفو در این جهان نیست.")
             + tbl(rest, "بقیهٔ جهان — ۴۰ نمادِ برترِ روزانه", "—"))
 
+    # ── تبِ ۰: تصمیمِ امروز ────────────────────────────────────────
+    # مصطفی: «چرا نصفه کار می‌کنی؟ اگر نمادی خلا حجمی را شکسته، یا
+    # نمادی حد ضرر خورده، یا خریدی باید به پرتفو اضافه کنم را هر روز
+    # باید نشان بدهی.»
+    #
+    # حق دارد. این سه چیز در سه تبِ مختلف بودند و هیچ‌جا یک فهرستِ
+    # «امروز چه کار کنم» نبود. اینجا همه‌چیز در **یک** صفحه، به
+    # ترتیبِ اجرا: اول فروش، بعد خرید (بند ۲ راهنما).
+    def _todaybox():
+        blocks = []
+
+        # ۱ ── چه چیزی امروز عوض شد ────────────────────────────────
+        if dif is None or not dstamp:
+            blocks.append(
+                '<div class="note"><b>عکسِ دیروز موجود نیست</b>، پس '
+                '«چه چیزی امروز عوض شد» قابلِ محاسبه نیست. این با '
+                '«هیچ تغییری نبود» یکی نیست. از اجرای بعد این بخش '
+                'پر می‌شود — وضعیتِ امروز همین حالا در '
+                '<code>data_bourse/state.json</code> ذخیره شد.</div>')
+        elif not dif:
+            blocks.append(
+                f'<div class="note">از {dstamp} تا {stamp} '
+                '<b>هیچ نمادی</b> وضعیتش عوض نشد — نه شکستِ ناحیه، '
+                'نه استاپ، نه ورود یا خروج از دفتر.</div>')
+        else:
+            mine, world = diff_split(dif, book)
+            urgent = [e for e in mine if e["pri"] <= 1]
+            rest = [e for e in mine if e["pri"] > 1]
+            world = world[:40]
+
+            def evrow(e):
+                pc = (((e["close"] / e["was"]) - 1) * 100
+                      if e.get("was") else None)
+                cls = {"r": "b-r", "g": "b-g", "y": "b-y"}[e["col"]]
+                return (
+                    f'<tr data-s="{e["sym"]}" data-c="{e["cat"]}">'
+                    f'<td class="td sym">{e["sym"]}'
+                    + ('<span class="gate gate-mw">داری</span>'
+                       if e["held"] else "")
+                    + f'</td><td class="td">'
+                    f'<span class="badge {cls}" title="{e["why"]}">'
+                    f'{e["lab"]}</span></td>'
+                    f'<td class="td n">{n(e["close"])}</td>'
+                    f'<td class="td n">'
+                    + ("—" if pc is None else
+                       f'<span class="{"g" if pc >= 0 else "r"}">'
+                       f'{pc:+.2f}٪</span>')
+                    + '</td><td class="td n">'
+                    + (n(e["units"]) if e["units"] else "—")
+                    + '</td></tr>')
+
+            eh = "".join(f'<th class="th{" n" if i >= 2 else ""}">{c}</th>'
+                         for i, c in enumerate(
+                             ("نماد", "چه شد", "کلوز", "تغییر", "واحدِ من")))
+
+            def evtbl(rs, head, cls=""):
+                if not rs:
+                    return ""
+                return (f'<h3{cls}>{head}</h3><div class="wrap">'
+                        f'<table class="table"><thead><tr>{eh}</tr></thead>'
+                        f'<tbody>{"".join(evrow(e) for e in rs)}'
+                        f'</tbody></table></div>')
+
+            blocks.append(
+                f'<div class="sub">مقایسه با آخرین اجرا '
+                f'(<b>{dstamp}</b> → <b>{stamp}</b>). فقط چیزهایی که '
+                f'<b>عوض شده‌اند</b> اینجا می‌آیند — نمادی که سه هفته '
+                f'است زیرِ ناحیه است امروز چیزی را نشکسته.</div>'
+                + ('' if (urgent or rest) else
+                   '<div class="note">روی نمادهای <b>من</b> و '
+                   '<b>دفتر</b> هیچ تغییری نبود.</div>')
+                + evtbl(urgent, "⛔ فوری — نمادهای من و دفتر")
+                + evtbl(rest, "تغییرات روی نمادهای من و دفتر")
+                + evtbl(world, "بقیهٔ جهان — فقط خبر، نه کار"))
+
+        # ۲ ── بفروش ───────────────────────────────────────────────
+        srows = []
+        for sym, px2, which, u in sell:
+            srows.append(
+                f'<tr><td class="td sym">{sym}</td>'
+                f'<td class="td"><span class="badge b-r">🔄 عوض کن'
+                f'</span></td><td class="td n">{n(px2)}</td>'
+                f'<td class="td n">{n(u)}</td>'
+                f'<td class="td">کلوز زیرِ باکسِ {which}</td></tr>')
+        for x in sells:
+            srows.append(
+                f'<tr><td class="td sym">{x["sym"]}</td>'
+                f'<td class="td"><span class="badge b-y">کم کن</span>'
+                f'</td><td class="td n">{n(x["px"])}</td>'
+                f'<td class="td n">{n(x["units"])}</td>'
+                f'<td class="td">رسیدن به وزنِ هدف · '
+                f'{n(x["amt"] / 1e6)} م.ر</td></tr>')
+        sh = "".join(f'<th class="th{" n" if i in (2, 3) else ""}">{c}</th>'
+                     for i, c in enumerate(
+                         ("نماد", "کار", "قیمت", "واحد", "چرا")))
+        blocks.append(
+            '<h3>۱ — اول بفروش</h3>'
+            + ('<div class="sub">امروز فروشی نیست.</div>' if not srows
+               else f'<div class="wrap"><table class="table"><thead>'
+                    f'<tr>{sh}</tr></thead><tbody>{"".join(srows)}'
+                    f'</tbody></table></div>'))
+
+        # ۳ ── بخر ─────────────────────────────────────────────────
+        brows = []
+        for x in buys:
+            r0 = next((b for b in book
+                       if norm(b["sym"]) == norm(x["sym"])), None)
+            z = (r0 or {}).get("z") or {}
+            tag = "جدید" if x["new"] else "اضافه کن"
+            cls = "b-g" if x["new"] else "b-y"
+            brows.append(
+                f'<tr data-s="{x["sym"]}"><td class="td sym">{x["sym"]}'
+                f'</td><td class="td"><span class="badge {cls}">'
+                f'🟢 {tag}</span></td>'
+                f'<td class="td n">{n(x["px"])}</td>'
+                f'<td class="td n">{n(x["units"])}</td>'
+                f'<td class="td n">{n(x["amt"] / 1e6)}</td>'
+                f'<td class="td n hi">'
+                + (n(z["aim"]) if z.get("aim") else "—")
+                + '</td><td class="td n r">'
+                + (n(z["stop"]) if z.get("stop") else "—")
+                + '</td><td class="td n">'
+                + (f'{z["risk_pct"]:.1f}٪' if z.get("risk_pct") else "—")
+                + '</td></tr>')
+        bh = "".join(f'<th class="th{" n" if i >= 2 else ""}">{c}</th>'
+                     for i, c in enumerate(
+                         ("نماد", "کار", "قیمت", "واحد", "مبلغ (م.ر)",
+                          "نقطهٔ ورود", "حدضرر", "ریسک")))
+        blocks.append(
+            '<h3>۲ — بعد بخر</h3>'
+            '<div class="sub">بند ۲ راهنما: پولِ آزادشدهٔ فروش منبعِ '
+            'خریدِ همان صبح است.</div>'
+            + ('<div class="sub">امروز خریدی نیست.</div>' if not brows
+               else f'<div class="wrap"><table class="table"><thead>'
+                    f'<tr>{bh}</tr></thead><tbody>{"".join(brows)}'
+                    f'</tbody></table></div>'))
+
+        # ۴ ── دست نزن ─────────────────────────────────────────────
+        touched = {norm(x["sym"]) for x in list(sells) + list(buys)}
+        keep = [r for r in book
+                if norm(r["sym"]) not in touched and r.get("kept")]
+        if keep:
+            blocks.append(
+                '<h3>۳ — دست نزن</h3><div class="sub">این‌ها را '
+                '<b>داری</b>، هیچ شرطِ خروجی نخورده‌اند و وزنشان هم '
+                'درست است. «ما فقط در صورتی می‌فروشیم که زیرِ باکس '
+                'بسته شود.»<br>'
+                + "، ".join(f'<b>{r["sym"]}</b>' for r in keep)
+                + '</div>')
+        if nopx:
+            blocks.append(
+                f'<div class="feebox">⚠️ قیمتِ <b>{"، ".join(nopx)}</b> '
+                f'در این جهان نیست، پس در هیچ‌کدام از فهرست‌های بالا '
+                f'نیستند و تکلیفشان <b>روشن نشده</b>. با '
+                f'<code>--all</code> یا اجرای آنلاین می‌آیند.</div>')
+        return "".join(blocks)
+
+    # ── سبدِ هفتگی در برابرِ سبدِ ماهانه ───────────────────────────
+    # «پرتفو هدف … بر اساس هفتگی و ماهانه». بند ۲ راهنما سه سبد
+    # تعریف می‌کند (دیلی ۱۰٪ · هفتگی ۳۰٪ · هستهٔ ماهانه ۶۰٪) ولی
+    # دفتر این سهم‌ها را **تحمیل نمی‌کند** — باندِ هر نماد بر اساسِ
+    # سالم بودنِ استاپش انتخاب می‌شود. پس عددِ واقعی را نشان می‌دهم
+    # و کنارش عددِ بند ۲ را، تا فاصله دیده شود نه پنهان.
+    def _bandbox():
+        if not book:
+            return ""
+        g = {"week": [], "month": []}
+        for r in book:
+            g.setdefault(r.get("band", "week"), []).append(r)
+        tot = sum(r["w"] for r in book) or 1.0
+
+        def part(key, fa, target, note):
+            rs = g.get(key) or []
+            if not rs:
+                return (f'<div class="drvc"><div class="nm">{fa}</div>'
+                        f'<div class="mv sub">—</div>'
+                        f'<div class="sb">هیچ قلمی روی این نوار نیست'
+                        f'</div></div>')
+            w = sum(r["w"] for r in rs)
+            names = "، ".join(r["sym"] for r in rs)
+            gap = w - target
+            cls = "g" if abs(gap) <= 10 else "r"
+            return (f'<div class="drvc"><div class="nm">{fa}</div>'
+                    f'<div class="mv">{w:.0f}٪</div>'
+                    f'<div class="sb">بند ۲ می‌گوید <b>{target:.0f}٪</b> '
+                    f'· <span class="{cls}">{gap:+.0f} واحد</span></div>'
+                    f'<div class="sb" style="margin-top:6px">'
+                    f'{len(rs)} قلم — {names}</div>'
+                    f'<div class="sb">{note}</div></div>')
+
+        return (
+            '<div class="sub"><b>سبدِ هفتگی و سبدِ ماهانه.</b> باندِ هر '
+            'نماد خودکار انتخاب می‌شود: نوارِ هفتگی اگر ریسکش دستِ‌کم '
+            '۱٪ باشد، وگرنه نوارِ ماهانه — چون باکسِ هفتگی میانهٔ '
+            'پهنایش ۱٫۴۲٪ است و دامنهٔ یک روز ۲٫۶۲٪، پس استاپِ هفتگیِ '
+            'زیر ۱٪ داخلِ نویزِ یک کندل می‌نشیند.'
+            '<br>⚠️ <b>سهم‌های بند ۲ تحمیل نمی‌شوند.</b> آن بند '
+            'دیلی ۱۰٪ · هفتگی ۳۰٪ · هستهٔ ماهانه ۶۰٪ می‌گوید؛ دفتر '
+            'وزن را از رتبه‌بندی می‌گیرد نه از سبد. فاصله‌اش اینجا '
+            'دیده می‌شود. اگر می‌خواهی تحمیل شود بگو — قابلِ اضافه '
+            'کردن است، ولی <b>اندازه‌گیری نشده</b> و هر قیدی که تا '
+            'حالا تست شد از کهربا عقب انداخت (docs/32).</div>'
+            '<div class="drvgrid">'
+            + part("month", "نوارِ ماهانه", 60.0,
+                   "تا پایانِ ماهِ میلادی ثابت است")
+            + part("week", "نوارِ هفتگی", 30.0,
+                   "تا ۷ روزِ دیگر ثابت است")
+            + '</div>')
+
     # ── بنرِ آلارم، بالای همه‌چیز ──
     def _albox():
         if not buy and not sell:
@@ -3941,6 +4306,8 @@ def html(rows, book, capital, stamp, last_date, buy=(), sell=(),
 
     # بعد از thead، چون جدولِ واحد از آن استفاده می‌کند
     unit_box = _unitbox()
+    today_box = _todaybox()
+    band_box = _bandbox()
 
     SIGH = ("رتبه|نماد|آلارم|کلوز|نقطهٔ ورود|سطحِ واکنش|حدضرر|حدسود|ریسک|"
             "بک‌تستِ وضعیت|ماهانه|هفتگی|"
@@ -4254,7 +4621,8 @@ font-size:.78rem;color:var(--muted);max-width:72ch}}
 <div class="stats">{tiles}</div>
 
 <div class="tabs">
-  <button class="tab on" data-t="p1">سیگنال ماهانه</button>
+  <button class="tab on" data-t="p0">★ تصمیمِ امروز</button>
+  <button class="tab" data-t="p1">سیگنال ماهانه</button>
   <button class="tab" data-t="p2">سیگنال هفتگی</button>
   <button class="tab" data-t="p3">دفترِ پیشنهادی</button>
   <button class="tab" data-t="p10">واحدِ کهربا</button>
@@ -4269,7 +4637,9 @@ font-size:.78rem;color:var(--muted);max-width:72ch}}
 <div class="filters">{chips}
   <input id="q" type="search" placeholder="جست‌وجوی نماد…"></div>
 
-<div class="panel on" id="p1">
+<div class="panel on" id="p0">{today_box}</div>
+
+<div class="panel" id="p1">
   <div class="sub"><b>وضعیتِ هفتگی روی کلوزِ <i>روزِ تصمیم</i> حساب
   می‌شود</b> — اولین جلسهٔ هفتهٔ جاری (یکشنبه)، نه آخرین کلوز.
   اندازه‌گیری شد: مزیتِ کلوزِ یکشنبه ‎+۰٫۶۵۲ واحد با p=۰٫۰۰۰۳،
@@ -4326,6 +4696,7 @@ font-size:.78rem;color:var(--muted);max-width:72ch}}
 </div>
 
 <div class="panel" id="p3">
+  {band_box}
   <div class="sub"><b>{MAX_PICKS}</b> نمادِ برتر بر اساسِ
   <b>مازادِ {BENCH} + پاسخِ محرک</b>. زیر {MIN_VALUE_BN:.0f} میلیارد
   در روز حذف شده.
@@ -4477,7 +4848,8 @@ SNAP_KEYS = ("stamp", "capital", "cash", "units", "book", "pos",
 
 
 def snap_write(path, stamp, capital, units, cash, book, pos,
-               buy, sell, sells, buys, nopx, px, comp, bu=None):
+               buy, sell, sells, buys, nopx, px, comp, bu=None,
+               dif=None, dstamp=None):
     """عکسِ یک اجرا — چیزی که گزارشِ ترکیبی لازم دارد، نه بیشتر.
 
     ردیف‌های دفتر پر از کلیدهای داخلی‌اند (hist، flags، z…) که در
@@ -4515,6 +4887,7 @@ def snap_write(path, stamp, capital, units, cash, book, pos,
         "compass": {k: v for k, v in (comp or {}).items()
                     if k != "hist"},
         "units_vs_bench": bu,
+        "diff": dif, "diff_from": dstamp,
     }
     f = Path(path)
     f.parent.mkdir(parents=True, exist_ok=True)
@@ -5362,11 +5735,42 @@ def main():
         print(f"  لنگرِ هفتگی = آخرین کلوزِ هفتهٔ کامل‌شدهٔ قبل · "
               f"ماهانه = آخرین کلوزِ ماهِ قبل")
 
+    # ── چه چیزی امروز عوض شد ───────────────────────────────────────
+    DSTAMP, DIF = state_diff(rows, book, hu, stamp)
+    if DIF:
+        print("\n" + "=" * 64)
+        print(f"  چه چیزی عوض شد — {DSTAMP} → {stamp}")
+        print("=" * 64)
+        mine, rest = diff_split(DIF, book)
+        if not mine:
+            print("\n  روی نمادهای من و دفتر: هیچ تغییری نبود.")
+        for e in mine:
+            mark = {"r": "⛔", "y": "⚠️ ", "g": "🟢"}[e["col"]]
+            hold = " (داری)" if e["held"] else ""
+            pc = ((e["close"] / e["was"] - 1) * 100
+                  if e.get("was") else None)
+            # n() داخلِ html() تعریف شده، اینجا نیست
+            print(f"  {mark} {e['sym']:<11}{e['lab']:<34}"
+                  f"{e['close']:>12,.0f}"
+                  + (f"  {pc:+.2f}٪" if pc is not None else "")
+                  + hold)
+        if rest:
+            bad = sum(1 for e in rest if e["col"] == "r")
+            good = sum(1 for e in rest if e["col"] == "g")
+            print(f"\n  بقیهٔ جهان: {len(rest)} تغییر "
+                  f"({bad} منفی · {good} مثبت) — در تبِ «تصمیمِ امروز».")
+    elif DSTAMP:
+        print(f"\n  ✓ از {DSTAMP} تا {stamp} هیچ نمادی وضعیتش عوض نشد.")
+    else:
+        print("\n  (عکسِ دیروز نبود، پس «چه چیزی عوض شد» حساب نشد — "
+              "از اجرای بعد.)")
+    state_save(stamp, rows, book)
+
     rr = risk_report(book, pos, capital, comp)
     buy, sell = alarms(rows, book, hu)
     OUT.write_text(html(rows, book, capital, stamp, last_date,
                         buy, sell, comp, sells, buys, nopx, pos, rr,
-                        DRV, BU),
+                        DRV, BU, DIF, DSTAMP),
                    encoding="utf-8")
     print(f"      {OUT}")
 
@@ -5701,7 +6105,8 @@ def main():
 
     if args.export:
         snap_write(args.export, stamp, capital, hu, hc, book, pos,
-                   buy, sell, sells, buys, nopx, PX, comp, BU)
+                   buy, sell, sells, buys, nopx, PX, comp, BU,
+                   DIF, DSTAMP)
         print(f"      عکسِ اجرا: {args.export}")
 
     if args.open and not args.export:
