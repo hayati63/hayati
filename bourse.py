@@ -4895,7 +4895,7 @@ def snap_write(path, stamp, capital, units, cash, book, pos,
                             default=str), encoding="utf-8")
 
 
-def run_all(argv, stock_share, open_pages=True):
+def run_all(argv, stock_share, open_pages=True, adopt=False):
     """هر دو جهان، یکی بعدِ دیگری، بعد یک گزارشِ ترکیبی.
 
     زیرفرایند است نه فراخوانیِ درون‌فرایندی، چون `main()` ده‌ها
@@ -4927,10 +4927,11 @@ def run_all(argv, stock_share, open_pages=True):
     if not snaps:
         print("\n  هیچ‌کدام از دو جهان نتیجه نداد.")
         return 1
-    return combined(snaps, stock_share, open_pages)
+    return combined(snaps, stock_share, open_pages, adopt)
 
 
-def combined(snaps, stock_share=None, open_pages=False):
+def combined(snaps, stock_share=None, open_pages=False,
+             adopt=False):
     """گزارشِ ترکیبی — یک سرمایه، یک پرتفوی هدف، یک فهرستِ خرید و فروش."""
     share = STOCK_SHARE if stock_share is None else stock_share
     share = max(0.0, min(100.0, share))
@@ -5222,6 +5223,32 @@ def combined(snaps, stock_share=None, open_pages=False):
         if f.exists():
             out(f"    {tag:<8}{f}")
 
+    # ── ثبتِ سبدِ ترکیبی ──────────────────────────────────────────
+    if adopt and rows:
+        nu = {}
+        for r in rows:
+            k = r["sym"]
+            pxx = px.get(norm(k)) or r.get("close")
+            if pxx:
+                nu[k] = round(capital * r["w2"] / 100 / pxx)
+        # قلم‌هایی که هنوز داری ولی در هدف نیستند صفر می‌شوند؛
+        # قلم‌هایی که قیمتشان پیدا نشد **دست‌نخورده** می‌مانند،
+        # چون صفر کردنشان یعنی ادعای فروشی که نشده.
+        for sym, u in units.items():
+            if norm(sym) not in tgt and norm(sym) not in px:
+                nu[sym] = u
+        inv = sum(r["w2"] for r in rows)
+        holdings_save(nu, capital * max(0.0, 100 - inv) / 100)
+        out("\n" + "=" * 64)
+        out("  سبدِ ترکیبی ثبت شد — data_bourse/holdings.json")
+        out("=" * 64)
+        for k, v in sorted(nu.items(), key=lambda x: -x[1]):
+            out(f"    {k:<12}{v:>14,} واحد")
+        out("\n  ⚠️ این عدد **سبدِ هدف** است، نه آنچه واقعاً پر شد.")
+        out("     اگر سفارشی نخورد یا جزئی پر شد، فایل را دستی")
+        out("     درست کن — وگرنه قطب‌نما و مازادِ واحد از فردا غلط")
+        out("     می‌شوند.")
+
     rep = HERE / "گزارشِ-روزانه.txt"
     rep.write_text("\n".join(lines), encoding="utf-8")
     print(f"\n  گزارشِ متنی: {rep}")
@@ -5323,8 +5350,12 @@ def main():
     # قبل از هر کارِ دیگری، چون این اجرا خودش دو زیرفرایند می‌سازد و
     # نباید گلوبال‌های اینجا را دست بزند.
     if args.run_all:
+        # --adopt عمداً اینجاست: اگر به زیرفرایندها برود، اجرای
+        # صندوق سبدِ صندوق را ثبت می‌کند و اجرای سهام سبدِ سهام را،
+        # در **دو فایلِ جدا** — و مدلِ «یک پرتفو، یک سرمایه» می‌شکند.
+        # سبدِ ترکیبی آخرِ کار یک‌جا ثبت می‌شود.
         drop = {"--all", "--stocks", "--export", "--no-open",
-                "--stock-share"}
+                "--stock-share", "--adopt"}
         passthru, skip = [], False
         for a in sys.argv[1:]:
             if skip:
@@ -5336,7 +5367,8 @@ def main():
             if a.split("=")[0] in drop:
                 continue
             passthru.append(a)
-        return run_all(passthru, args.stock_share, args.open)
+        return run_all(passthru, args.stock_share, args.open,
+                       args.adopt)
 
     STOCK = args.stocks
     LIVE_STATE = args.now
@@ -5724,7 +5756,11 @@ def main():
         nu = {r["sym"]: round(r["units"]) for r in book}
         inv = sum(r["w"] for r in book)
         holdings_save(nu, capital * max(0.0, 100 - inv) / 100)
-        print("\n      ✓ سبد ثبت شد در data_bourse/holdings.json")
+        print("\n      ✓ سبد ثبت شد در " + str(DATA / "holdings.json"))
+        print("      ⚠️ این **سبدِ هدف** است، نه آنچه واقعاً پر شد.")
+        print("         اگر سفارشی نخورد یا جزئی پر شد، فایل را دستی")
+        print("         درست کن — وگرنه قطب‌نما و مازادِ واحد از فردا")
+        print("         غلط می‌شوند.")
         for k, v in nu.items():
             print(f"        {k:<10}{v:>14,} واحد")
 
