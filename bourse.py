@@ -4959,6 +4959,40 @@ def combined(snaps, stock_share=None, open_pages=False):
         out(f"    جهانِ {tag:<7} مبنا {x['bench']:<10} "
             f"کارمزد {x['cost']}٪ · {len(x['book'])} ردیفِ دفتر")
 
+    # ── چه چیزی امروز عوض شد، از هر دو جهان ────────────────────────
+    anyd = False
+    for tag, x in snaps.items():
+        df, ds = x.get("diff"), x.get("diff_from")
+        if not ds:
+            continue
+        if not anyd:
+            out("\n" + "=" * 64)
+            out("  چه چیزی امروز عوض شد")
+            out("=" * 64)
+            anyd = True
+        bk = {norm(r["sym"]) for r in (x.get("book") or [])}
+        mine = [e for e in (df or [])
+                if e.get("held") or norm(e["sym"]) in bk]
+        rest = [e for e in (df or []) if e not in mine]
+        out(f"\n  ── جهانِ {tag} · {ds} → {x['stamp']} ──")
+        if not mine:
+            out("    روی نمادهای من و دفتر: هیچ تغییری نبود.")
+        for e in mine:
+            mark = {"r": "⛔", "y": "⚠️ ", "g": "🟢"}[e["col"]]
+            pc = ((e["close"] / e["was"] - 1) * 100
+                  if e.get("was") else None)
+            out(f"    {mark} {e['sym']:<11}{e['lab']:<34}"
+                f"{e['close']:>12,.0f}"
+                + (f"  {pc:+.2f}٪" if pc is not None else "")
+                + (" (داری)" if e.get("held") else ""))
+        if rest:
+            bad = sum(1 for e in rest if e["col"] == "r")
+            out(f"    بقیهٔ جهان: {len(rest)} تغییر ({bad} منفی) — "
+                f"در تبِ «تصمیمِ امروز».")
+    if not anyd:
+        out("\n  (عکسِ دیروز نبود، پس «چه چیزی عوض شد» حساب نشد — "
+            "از اجرای بعد.)")
+
     # ── تقسیمِ سرمایه بینِ دو جهان ─────────────────────────────────
     out("\n" + "-" * 64)
     out(f"  تقسیمِ سرمایه: صندوق {100 - share:.0f}٪ · "
