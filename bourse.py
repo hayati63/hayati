@@ -1035,9 +1035,19 @@ def zone_candle(bars, box):
             best, bv = b, share
     if best is None:
         return None
+    # ── کندلِ ساعتی کلیدِ "d" **ندارد** ───────────────────────────
+    # `ticks_to_h1()` فقط h/l/c/v می‌سازد. باکسِ هفتگی در مسیرِ زنده
+    # از همان کندل‌های ساعتی ساخته می‌شود، پس `best["d"]` آنجا
+    # KeyError می‌دهد و **کلِ جهانِ صندوق** می‌خوابد.
+    #
+    # این باگ در کانتینرِ من هرگز فعال نشد چون شبکه بسته است و مسیرِ
+    # ریزمعاملات اجرا نمی‌شود — فقط روی ماشینِ مصطفی با دادهٔ زنده
+    # درآمد. نوشتنِ `hasattr(best["d"], …)` نوعِ کلید را چک می‌کرد
+    # ولی **بودنش** را نه.
+    d = best.get("d")
     return {"low": best["l"], "close": best["c"], "high": best["h"],
-            "date": best["d"].isoformat() if hasattr(best["d"], "isoformat")
-            else str(best["d"])}
+            "date": (d.isoformat() if hasattr(d, "isoformat")
+                     else str(d) if d is not None else "—")}
 
 
 # ── میله و پرچم: سه تارگت ──────────────────────────────────────────
