@@ -104,6 +104,37 @@ def load_csv(path: str) -> Bars:
                       label=path)
 
 
+def load_chartix(path: str, tz: str = "Asia/Tehran") -> Bars:
+    """TradingView-style export: <DTYYYYMMDD>,<TIME>,<OPEN>,<HIGH>,<LOW>,<CLOSE>,<VOL>.
+
+    The timestamps are local chart time, here Tehran, with Tehran's historical
+    daylight saving (UTC+4:30 in summers up to 2022). They are converted to
+    the 17:00 New York trading clock - UTC+2, or UTC+3 while US daylight
+    saving is on - so each Daily and Weekly candle is cut exactly where the
+    platform cuts it. Cutting at Tehran midnight instead would slice every
+    candle 30 to 90 minutes off and move its profile.
+    """
+    df = pd.read_csv(path)
+    df.columns = [c.strip("<> ").upper() for c in df.columns]
+    stamp = pd.to_datetime(df["DTYYYYMMDD"].astype(str) + df["TIME"].astype(str).str.zfill(6),
+                           format="%Y%m%d%H%M%S")
+    local = stamp.dt.tz_localize(tz, ambiguous="NaT", nonexistent="NaT")
+    keep = local.notna().to_numpy()
+    utc = local[keep].dt.tz_convert("UTC")
+    ny_offset = (utc.dt.tz_convert("America/New_York").dt.tz_localize(None)
+                 - utc.dt.tz_localize(None)).dt.total_seconds().to_numpy()
+    broker = _to_seconds(utc.dt.tz_localize(None).to_numpy()) + \
+        np.where(ny_offset == -4 * 3600, 3 * 3600, 2 * 3600)
+
+    order = np.argsort(broker, kind="stable")
+    t = broker[order]
+    diffs = np.diff(t)
+    step = int(np.median(diffs[diffs > 0]))
+    sel = lambda col: df[col].to_numpy(float)[keep][order]
+    return Bars(time=t, high=sel("HIGH"), low=sel("LOW"), close=sel("CLOSE"),
+                volume=sel("VOL"), step=step, label=path)
+
+
 def load_eurusd_sample() -> Bars:
     """Real EURUSD H1 with tick volume, bundled with the backtesting package.
     Apr 2017 - Feb 2018, 5000 bars. Small, and hourly - enough for a first
@@ -340,6 +371,7 @@ def main():
     src.add_argument("--csv", help="OHLCV CSV, e.g. the ExportM1.mq5 output")
     src.add_argument("--eurusd-sample", action="store_true",
                      help="real EURUSD H1 bundled with the backtesting package")
+    src.add_argument("--chartix", help="TradingView-style export in Tehran time")
     ap.add_argument("--tf", default="W1,D1,H4")
     ap.add_argument("--rows", type=int, default=31)
     ap.add_argument("--peak-frac", type=float, default=0.5)
@@ -352,7 +384,12 @@ def main():
     ap.add_argument("--seed", type=int, default=7)
     a = ap.parse_args()
 
-    b = load_eurusd_sample() if a.eurusd_sample else load_csv(a.csv)
+    if a.chartix:
+        b = load_chartix(a.chartix)
+    elif a.eurusd_sample:
+        b = load_eurusd_sample()
+    else:
+        b = load_csv(a.csv)
     report(b, a.tf.split(","), a.rows, a.peak_frac, a.valley_frac,
            [float(x) for x in a.x.split(",")], a.wait, a.perm, a.seed)
 
