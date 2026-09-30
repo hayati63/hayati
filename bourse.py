@@ -1379,6 +1379,94 @@ def vgap_all(rows):
     return out
 
 
+def zone_break(rows, tf, near=None):
+    """آخرین شکستِ ناحیهٔ خلای حجمی — **با تاریخش**.
+
+    مصطفی: «من باید خودم چک کنم ببینم ناحیه‌ای شکسته یا نه؟»
+
+    حق داشت. `state_diff()` فقط تغییرِ **امروز** را می‌گرفت، پس
+    ناحیه‌ای که یک هفته پیش شکسته بود هیچ‌جا دیده نمی‌شد — و او گفت
+    «یک هفته است ناحیهٔ شاخص کل به بالا شکسته». عملاً باید خودش
+    می‌گشت.
+
+    این تابع تاریخِ شکست را از خودِ داده درمی‌آورد: آخرین باری که
+    کلوز از ناحیه رد شد، به کدام سمت، و چند دوره پیش.
+
+    خروجی: {dir: "بالا"/"زیر", date, ago, lo, hi, close} یا None
+    """
+    nr = VGAP_NEAR if near is None else near
+    bars = _tf_bars(rows, tf)
+    if len(bars) < 4:
+        return None
+    # آخرین ناحیهٔ تأییدشده
+    i = len(bars) - 1
+    z = None
+    for j in range(1, len(bars) - 1):
+        if (bars[j]["v"] < bars[j - 1]["v"]
+                and bars[j]["v"] < bars[j + 1]["v"] and j + 1 < i):
+            z = j
+    if z is None:
+        return None
+    lo, hi = bars[z]["l"], bars[z]["h"]
+    if lo <= 0 or hi <= 0:
+        return None
+
+    def side(c):
+        return "بالا" if c > hi else "زیر" if c < lo else "داخل"
+
+    # از کندلِ بعدِ تأیید به بعد، اولین جایی که سمت عوض شد و
+    # **آخرین** بارش را برمی‌گردانیم
+    last = None
+    prev = None
+    for k in range(z + 1, len(bars)):
+        sd = side(bars[k]["c"])
+        if sd == "داخل":
+            continue
+        if prev is not None and sd != prev:
+            last = (sd, bars[k], k)
+        prev = sd
+    if last is None:
+        # ── هیچ‌وقت سمت عوض نشد: از همان اول یک‌طرفه بود ───────────
+        # ⚠️ نسخهٔ اولِ این شرط **غلط** بود و مصطفی از روی خروجی
+        # گرفتش: سمت را از آخرین کندل می‌خواند (`bars[-1]`) ولی
+        # کندل را `bars[z+1]` می‌گذاشت. دو کندلِ متفاوت، پس جهت و
+        # فاصله با هم نمی‌خواندند — «شکست به بالا … −۰٫۵٪».
+        #
+        # درستش: **اولین** کندلی که آن سمت را ساخت، و فاصله از
+        # همان. اگر امروز داخلِ ناحیه است، شکستی در جریان نیست.
+        sd = side(bars[-1]["c"])
+        if sd == "داخل":
+            return None
+        first = next((k2 for k2 in range(z + 1, len(bars))
+                      if side(bars[k2]["c"]) == sd), None)
+        if first is None:
+            return None
+        last = (sd, bars[first], first)
+    sd, bar, k = last
+    # گاردِ ثبات: جهت و علامتِ فاصله **باید** بخوانند. اگر نخواندند
+    # یعنی باگی مثلِ بالا برگشته — بی‌صدا ردش نکن.
+    assert (bar["c"] > hi) if sd == "بالا" else (bar["c"] < lo), (
+        f"ناسازگاری: جهت {sd} ولی کلوز {bar['c']} در برابرِ "
+        f"{lo}–{hi}")
+    dist = ((bar["c"] / hi - 1) * 100 if sd == "بالا"
+            else (bar["c"] / lo - 1) * 100)
+    d = bar.get("d")
+    return {"dir": sd, "ago": len(bars) - 1 - k,
+            "date": d.isoformat() if hasattr(d, "isoformat") else "—",
+            "lo": lo, "hi": hi, "close": bar["c"], "dist": dist,
+            "far": abs(dist) > nr}
+
+
+def zone_breaks(rows):
+    """شکستِ ناحیه در هر سه تایم‌فریم."""
+    out = {}
+    for tf, fa in (("m", "ماهانه"), ("w", "هفتگی"), ("d", "دیلی")):
+        b = zone_break(rows, tf)
+        if b:
+            out[fa] = b
+    return out
+
+
 def vgap_state(rows, px):
     """وضعیتِ کلوز نسبت به آخرین خلای حجمیِ تأییدشده."""
     g = None
@@ -1763,6 +1851,8 @@ def analyse(sym, rows, ins=None, allow_ticks=False):
             # روی سریِ دیلی و کلوزِ امروز بسته می‌شد فقط برای
             # سازگاریِ نمایش مانده و دیگر **تصمیم نمی‌گیرد**.
             "vg": vgap_all(rows),
+            # تاریخِ شکستِ ناحیه — تا لازم نباشد خودش بگردد
+            "zb": zone_breaks(rows),
             "vgv": vgap_all(rows)["حکم"],
             "vgap": vgap_state(rows, px),
             "vlev": vgap_levels(rows, px),
