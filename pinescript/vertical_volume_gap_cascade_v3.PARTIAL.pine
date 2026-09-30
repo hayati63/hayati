@@ -1,0 +1,309 @@
+// =====================================================================================
+// ⚠️  INCOMPLETE SOURCE — this paste was cut off mid-file.
+//
+// It ends at the `else` branch of the top-stage trigger, on the comment
+//     "// ambiguous — start (or restart) the up-to-4-M15-candle wait"
+// Everything after that point is missing:
+//     - the pendingWait setup body
+//     - the M15 wait-for-direction resolution block
+//     - the shared cascade body (the containment walk H1 -> M15 -> M5 -> M1)
+//     - creation of the four entry boxes
+//     - the gray "no gap here -> drop a level" handling
+//     - the A-D grading and confluence scoring
+//
+// Do not treat this file as the strategy. The MQL5 side currently ports only the
+// self-contained primitives below (volume-gap detection, pin bar, session exclusion,
+// direction resolution, overlap/grading), which are fully specified in what arrived.
+// =====================================================================================
+
+//@version=5
+// =====================================================================================
+// XAUUSD Vertical Volume Gap Cascade — v3
+// =====================================================================================
+// v3 changes (over v2) — calibrated for the canonical H1 -> M15 -> M5 -> M1 cascade
+// (topChoice defaults to "1 Hour"; picking a higher top TF still runs the cascade, but
+// the session-hour exclusion and M15-wait mechanics below are H1-specific):
+//
+//   1) PIN BAR MARKER (white): while any of the 4 entry boxes below is still open
+//      (unresolved), any bar that (a) is a genuine rejection pin bar in the box's bias
+//      direction (wick >= 2x body, wick on the rejecting side) AND (b) comes close to
+//      the box's near edge without actually closing inside it, gets marked. This is a
+//      first-pass heuristic (proximity = 30% of the box's own height) — tune visually.
+//
+//   2) SESSION-HOUR EXCLUSION: when topChoice == "1 Hour", an H1 gap candle that starts
+//      at 23:30 or 00:30 Tehran time (the two structurally thin-liquidity hours at the
+//      daily session boundary) is drawn GRAY and the cascade stops right there — no
+//      entry boxes are generated from it.
+//
+//   3) M15 WAIT-FOR-DIRECTION: if the confirming H1 candle's close lands INSIDE the H1
+//      zone (bias would otherwise be ambiguous), the script no longer abandons the
+//      signal immediately. It waits for up to 4 subsequent M15 candle closes; the first
+//      one that closes clearly outside the H1 zone fixes the bias (BUY/SELL), and the
+//      cascade continues from there using the ORIGINAL H1 window. If all 4 M15 candles
+//      still close inside, the signal is abandoned.
+//
+//   4) FOUR ENTRY POINTS instead of one: the H1 zone itself, the M15 zone, the M5 zone,
+//      and the M1 zone are ALL now persisting, independently-tracked entry boxes (not
+//      just diagnostic markers) — each extends until price touches it and gets its own
+//      BUY/SELL label (using the bias fixed back at step 2/3, never re-derived from the
+//      touching candle). Colors: H1 = its stage color (red by default), M15 = its stage
+//      color (orange by default), M5 = PINK (dedicated), M1 = turquoise (unchanged).
+//
+//   5) A-D GRADING + confluence score: once the cascade finishes, the current close is
+//      checked against all 4 zones. 0 zones contain it -> Grade A, 1 -> B, 2 -> C, 3 or
+//      4 -> D (worse = harder to trust the bias because price is already tangled inside
+//      several nested zones). Separately, every pair of the 4 zones that overlaps each
+//      other adds one confluence point, and price closing outside all 4 adds one bonus
+//      point — both shown alongside the letter grade for reference.
+//
+// Everything else (causal-safe top-stage check, Containment rule, "genuine local-min,
+// deepest wins" candle selection, gray "no gap here -> drop a level" handling) is
+// unchanged from v2. Attach to a 1-MINUTE chart.
+// =====================================================================================
+
+indicator("XAUUSD Vertical Volume Gap Cascade — v3", shorttitle = "VertVolGap-v3", overlay = true,
+     max_boxes_count = 500, max_labels_count = 500)
+
+// ============================= INPUTS =============================
+grpTF = "Cascade"
+topChoice = input.string("1 Hour", "Highest stage timeframe (new features below are calibrated for 1 Hour)",
+     options = ["Monthly", "Weekly", "Daily", "4 Hour", "1 Hour", "15 Minute", "5 Minute"], group = grpTF)
+
+grpHist = "History buffers"
+M1_HISTORY_CAP = input.int(50000, "Max M1 bars kept in memory", minval = 2000, maxval = 100000, group = grpHist)
+TF_HISTORY_CAP = input.int(3000, "Max bars kept per stage buffer", minval = 200, maxval = 20000, group = grpHist)
+
+grpVis = "Visualisation"
+showLabels = input.bool(true, "Show detail labels", group = grpVis)
+showPinBars = input.bool(true, "Show pin-bar reaction markers", group = grpVis)
+
+var color GRAYC   = color.rgb(120, 120, 120)  // "no volume gap here" / excluded-hour marker
+var color PINKC   = color.rgb(255, 20, 147)   // M5 entry box (dedicated)
+var color TEALC   = color.rgb(64, 224, 208)   // M1 entry box (unchanged)
+var color PINBARC = color.rgb(255, 255, 255)  // pin-bar reaction marker
+
+// Stage palette for H1 (stage0) / M15 (stage1) and any diagnostic stages beyond stage2.
+var color[] palette = array.from(color.red, color.orange, color.lime, color.yellow, color.blue, color.purple, color.maroon, color.navy)
+f_stageColor(i) =>
+    array.get(palette, math.min(i, array.size(palette) - 1))
+
+topIdx = topChoice == "Monthly" ? 0 : topChoice == "Weekly" ? 1 : topChoice == "Daily" ? 2 : topChoice == "4 Hour" ? 3 : topChoice == "1 Hour" ? 4 : topChoice == "15 Minute" ? 5 : 6
+
+// ============================= WARNING IF NOT ON M1 =============================
+if barstate.islast and timeframe.period != "1"
+    label.new(bar_index, high, "⚠ Attach this script to a 1-MINUTE chart!",
+         style = label.style_label_down, color = color.new(color.red, 0), textcolor = color.white, size = size.large)
+
+// ============================= ROLLING M1 HISTORY =============================
+var m1Time  = array.new_int(0)
+var m1TClo  = array.new_int(0)
+var m1High  = array.new_float(0)
+var m1Low   = array.new_float(0)
+var m1Vol   = array.new_float(0)
+
+if barstate.isconfirmed
+    array.push(m1Time, int(time))
+    array.push(m1TClo, int(time) + 60000)
+    array.push(m1High, high)
+    array.push(m1Low, low)
+    array.push(m1Vol, volume)
+    if array.size(m1Time) > M1_HISTORY_CAP
+        array.shift(m1Time), array.shift(m1TClo), array.shift(m1High), array.shift(m1Low), array.shift(m1Vol)
+
+// ============================= RUNG TYPE + HELPERS =============================
+type Rung
+    array<int> t
+    array<int> tc
+    array<float> h
+    array<float> l
+    array<float> c
+    array<float> v
+    string label
+
+f_indexRange(tArr, tcArr, fromT, toT) =>
+    n = array.size(tArr)
+    startIdx = -1
+    endIdx = -1
+    for i = 0 to n - 1
+        t  = array.get(tArr, i)
+        tc = array.get(tcArr, i)
+        if t >= fromT and tc <= toT
+            if startIdx == -1
+                startIdx := i
+            endIdx := i
+    [startIdx, endIdx]
+
+f_findVolumeGapByIndex(volArr, sa, sb) =>
+    n = array.size(volArr)
+    lo = math.max(sa, 1)
+    hi = math.min(sb, n - 2)
+    bestIdx = -1
+    float bestVol = 1e18
+    if hi >= lo
+        for i = lo to hi
+            v0 = array.get(volArr, i)
+            vL = array.get(volArr, i - 1)
+            vR = array.get(volArr, i + 1)
+            if v0 < vL and v0 < vR and v0 < bestVol
+                bestVol := v0
+                bestIdx := i
+    bestIdx
+
+f_isPinBar(o, h, l, c, dirBias) =>
+    body = math.abs(c - o)
+    upperWick = h - math.max(o, c)
+    lowerWick = math.min(o, c) - l
+    isBull = body > 0 and lowerWick >= 2 * body and lowerWick > upperWick
+    isBear = body > 0 and upperWick >= 2 * body and upperWick > lowerWick
+    dirBias == 1 ? isBull : dirBias == -1 ? isBear : false
+
+f_nearZonePinBar(zTop, zBot, dirBias) =>
+    band = (zTop - zBot) * 0.30
+    pin = f_isPinBar(open, high, low, close, dirBias)
+    nearOK = dirBias == 1 ? (low >= zBot - band and low < zBot and close < zBot) : dirBias == -1 ? (high <= zTop + band and high > zTop and close > zTop) : false
+    pin and nearOK
+
+f_zonesOverlap(top1, bot1, top2, bot2) =>
+    bot1 <= top2 and bot2 <= top1
+
+// ============================= 7 FIXED-TF BUFFERS (Monthly..5m) =============================
+// [request.security buffers for M, W, D, 240, 60, 15, 5 — unchanged in shape from the
+//  first strategy; omitted here only to keep this partial file readable. They push each
+//  completed higher-TF candle into its Rung arrays.]
+
+// ============================= BUILD ACTIVE CHAIN =============================
+var array<Rung> allRungs = array.new<Rung>()
+if barstate.isfirst
+    array.push(allRungs, rungM)
+    array.push(allRungs, rungW)
+    array.push(allRungs, rungD)
+    array.push(allRungs, rungH4)
+    array.push(allRungs, rungH1)
+    array.push(allRungs, rungM15)
+    array.push(allRungs, rungM5)
+
+chain = array.slice(allRungs, topIdx, array.size(allRungs))
+topRung = array.get(chain, 0)
+topCount = array.size(topRung.t)
+
+var int prevTopCount = -1
+triggerClosed = prevTopCount >= 0 and topCount > prevTopCount
+prevTopCount := topCount
+
+// Track new M15 candle closes independently (used by the wait-for-direction mechanism)
+m15Count = array.size(rungM15.t)
+var int prevM15Count = -1
+newM15Closed = prevM15Count >= 0 and m15Count > prevM15Count
+prevM15Count := m15Count
+
+// ============================= PERSISTING ENTRY-BOX STATE (4 zones) =============================
+var int   activeDir = 0   // shared bias for whichever cascade instance is currently live
+
+var box   eBoxTopId = na
+var float eBoxTopTop = na, var float eBoxTopBot = na, var bool eBoxTopResolved = true
+
+var box   eBoxS1Id = na
+var float eBoxS1Top = na, var float eBoxS1Bot = na, var bool eBoxS1Resolved = true
+
+var box   eBoxS2Id = na
+var float eBoxS2Top = na, var float eBoxS2Bot = na, var bool eBoxS2Resolved = true
+
+var box   eBoxM1Id = na
+var float eBoxM1Top = na, var float eBoxM1Bot = na, var bool eBoxM1Resolved = true
+
+f_touchLabel(px, top, bot) =>
+    if activeDir == 1
+        label.new(bar_index, bot, "BUY", xloc = xloc.bar_index, style = label.style_label_up, color = color.new(color.green, 0), textcolor = color.white, size = size.normal)
+    else if activeDir == -1
+        label.new(bar_index, top, "SELL", xloc = xloc.bar_index, style = label.style_label_down, color = color.new(color.red, 0), textcolor = color.white, size = size.normal)
+
+if not eBoxTopResolved and not na(eBoxTopId)
+    if showPinBars and f_nearZonePinBar(eBoxTopTop, eBoxTopBot, activeDir)
+        label.new(bar_index, activeDir == 1 ? low : high, "Pin Bar", xloc = xloc.bar_index, style = activeDir == 1 ? label.style_label_up : label.style_label_down, color = color.new(PINBARC, 0), textcolor = color.black, size = size.small)
+    if high >= eBoxTopBot and low <= eBoxTopTop
+        f_touchLabel(bar_index, eBoxTopTop, eBoxTopBot)
+        eBoxTopResolved := true
+    else
+        box.set_right(eBoxTopId, int(time) + 60000)
+
+if not eBoxS1Resolved and not na(eBoxS1Id)
+    if showPinBars and f_nearZonePinBar(eBoxS1Top, eBoxS1Bot, activeDir)
+        label.new(bar_index, activeDir == 1 ? low : high, "Pin Bar", xloc = xloc.bar_index, style = activeDir == 1 ? label.style_label_up : label.style_label_down, color = color.new(PINBARC, 0), textcolor = color.black, size = size.small)
+    if high >= eBoxS1Bot and low <= eBoxS1Top
+        f_touchLabel(bar_index, eBoxS1Top, eBoxS1Bot)
+        eBoxS1Resolved := true
+    else
+        box.set_right(eBoxS1Id, int(time) + 60000)
+
+if not eBoxS2Resolved and not na(eBoxS2Id)
+    if showPinBars and f_nearZonePinBar(eBoxS2Top, eBoxS2Bot, activeDir)
+        label.new(bar_index, activeDir == 1 ? low : high, "Pin Bar", xloc = xloc.bar_index, style = activeDir == 1 ? label.style_label_up : label.style_label_down, color = color.new(PINBARC, 0), textcolor = color.black, size = size.small)
+    if high >= eBoxS2Bot and low <= eBoxS2Top
+        f_touchLabel(bar_index, eBoxS2Top, eBoxS2Bot)
+        eBoxS2Resolved := true
+    else
+        box.set_right(eBoxS2Id, int(time) + 60000)
+
+if not eBoxM1Resolved and not na(eBoxM1Id)
+    if showPinBars and f_nearZonePinBar(eBoxM1Top, eBoxM1Bot, activeDir)
+        label.new(bar_index, activeDir == 1 ? low : high, "Pin Bar", xloc = xloc.bar_index, style = activeDir == 1 ? label.style_label_up : label.style_label_down, color = color.new(PINBARC, 0), textcolor = color.black, size = size.small)
+    if high >= eBoxM1Bot and low <= eBoxM1Top
+        f_touchLabel(bar_index, eBoxM1Top, eBoxM1Bot)
+        eBoxM1Resolved := true
+    else
+        box.set_right(eBoxM1Id, int(time) + 60000)
+
+// ============================= PENDING M15 WAIT-FOR-DIRECTION STATE =============================
+var bool  pendingWait     = false
+var int   pendWinT        = na
+var int   pendWinTC       = na
+var float pendZoneTop     = na
+var float pendZoneBot     = na
+var int   pendM15Count    = 0
+
+// Bar-local hand-off: set by either the immediate top-stage resolution or the delayed
+// M15-wait resolution; consumed once, right below, to run the shared cascade body.
+bool  readyToRun = false
+int   runWinT    = na
+int   runWinTC   = na
+float runZoneTop = na
+float runZoneBot = na
+int   runDir     = 0
+
+// ============================= TOP-STAGE TRIGGER =============================
+if triggerClosed and topCount >= 3
+    idxTop = topCount - 2
+    vC = array.get(topRung.v, idxTop)
+    vL = array.get(topRung.v, idxTop - 1)
+    vR = array.get(topRung.v, idxTop + 1)
+
+    if vC < vL and vC < vR
+        winT0    = array.get(topRung.t,  idxTop)
+        winTC0   = array.get(topRung.tc, idxTop)
+        zoneTop0 = array.get(topRung.h,  idxTop)
+        zoneBot0 = array.get(topRung.l,  idxTop)
+
+        isExcludedHour = topChoice == "1 Hour" and
+             ((hour(winT0, "Asia/Tehran") == 23 and minute(winT0, "Asia/Tehran") == 30) or
+              (hour(winT0, "Asia/Tehran") == 0  and minute(winT0, "Asia/Tehran") == 30))
+
+        if isExcludedHour
+            box.new(winT0, zoneTop0, winTC0, zoneBot0, xloc = xloc.bar_time, border_color = GRAYC, bgcolor = color.new(GRAYC, 85))
+            if showLabels
+                label.new(winT0, zoneBot0, topRung.label + ": session start/end — excluded (thin liquidity)",
+                     xloc = xloc.bar_time, style = label.style_label_up, color = color.new(GRAYC, 0), textcolor = color.white, size = size.small)
+        else
+            confC = array.get(topRung.c, idxTop + 1)
+            dir0 = confC > zoneTop0 ? 1 : confC < zoneBot0 ? -1 : 0
+
+            if dir0 != 0
+                readyToRun := true
+                runWinT    := winT0
+                runWinTC   := winTC0
+                runZoneTop := zoneTop0
+                runZoneBot := zoneBot0
+                runDir     := dir0
+            else
+                // ambiguous — start (or restart) the up-to-4-M15-candle wait
+
+// >>>>>>>>>>>>>>>>>>>> PASTE ENDS HERE — REST OF FILE MISSING <<<<<<<<<<<<<<<<<<<<
