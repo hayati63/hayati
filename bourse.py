@@ -75,6 +75,22 @@ HZ_FA = {"week": "هفتگی", "month": "ماهانه"}
 # خواست. با --score به رتبه‌بندیِ «مازادِ کهربا + پاسخِ محرک»
 # برمی‌گردد و هر دو عدد در داشبورد نوشته می‌شوند.
 CAT_RULE = True
+# ── قاعدهٔ ۵ و ۶ · آخرین چارهٔ باکس ───────────────────────────────
+# «ناحیهٔ ارزش» را **من** درآورده بودم، نه او: «ردیف ۶ هم من چیزی
+# نگفتم، از خودت درآوردی.» و بک‌تستِ خودم ردش کرد (p=۰٫۱۰۶). روشن
+# می‌ماند تا نماد بی‌صدا نیفتد، ولی هر ردیفی که از آن آمده در
+# داشبورد **پرچم** دارد. با --no-weak-box خاموش می‌شود و آن‌وقت نماد
+# صریحاً «ناحیه نداد» می‌گیرد.
+WEAK_BOX = True
+# ── قاعدهٔ ۳۶ · دورهٔ خنک بعد از خروج ──────────────────────────────
+# «فامیلی چرا دوباره پیشنهاد شده؟» (پیام ۱۲۸). نمادی که همین چند روز
+# پیش خروج خورده — استاپ یا حکمِ خلای حجمیِ «زیر» — نباید بی‌فاصله
+# دوباره در دفتر بیاید. قاعدهٔ خودش: «مگه قرار نشد حد سود مصادف بشه
+# با وقتی که باکسِ هفتگی خلاف صادر بشه؟»
+#
+# ⚠️ عددِ ۳ جلسه **انتخابِ من** است، نه بک‌تست. او فقط گفت نباید
+# دوباره بیاید، نه چند روز. با --cooldown عوض می‌شود، با ۰ خاموش.
+COOLDOWN = 3
 HZ_OUT = {"week": "dashboard_weekly.html",
           "month": "dashboard_monthly.html"}
 
@@ -822,6 +838,71 @@ def ticks_to_h1(ticks):
     return list(by_h.values())
 
 
+def h1_to_h4(h1):
+    """کندلِ ساعتی → چهارساعته.
+
+    قاعدهٔ ۵ (پیام ۱۷۱): «ردیف ۳ رو می‌تونی **از دیلی** بگیری، اگه
+    ناحیه خلا نداد بری **از ۴ ساعته** بگیری.»
+
+    ⚠️ من قبلاً نگاشتِ دیگری ساخته بودم — «هفتگی↔H1، ماهانه↔H4» — و
+    آن را به اسمِ قاعدهٔ او در راهنما نوشتم. قاعدهٔ او این نیست:
+    **اول دیلی**، و ۴ساعته فقط وقتی دیلی دره نداد.
+
+    بورس ایران ~۳٫۵ ساعت جلسه دارد (۹:۰۰–۱۲:۳۰)، پس یک روز تقریباً
+    یک کندلِ H4 است و تجمیعِ کورِ چهارتاچهارتا چیزی به دست نمی‌دهد.
+    اینجا هر روز به **دو نیمه** شکسته می‌شود — نزدیک‌ترین چیزی که
+    جلسهٔ ۳٫۵ ساعته به H4 می‌دهد و رزولوشن را دو برابر می‌کند.
+    """
+    if not h1:
+        return []
+    n = len(h1)
+    half = max(1, (n + 1) // 2)
+    out = []
+    for i in range(0, n, half):
+        chunk = h1[i:i + half]
+        if not chunk:
+            continue
+        out.append({"h": max(b["h"] for b in chunk),
+                    "l": min(b["l"] for b in chunk),
+                    "c": chunk[-1]["c"],
+                    "v": sum(b["v"] for b in chunk)})
+    return out
+
+
+def chartix_h4(sym):
+    """کندلِ H4 از خروجیِ چارتیکس، اگر برای این نماد export شده باشد."""
+    d = HERE / "data" / "chartix_h4"
+    if not d.exists():
+        return []
+    for f in d.glob("*.csv"):
+        stem = f.stem.replace("_CHARTIX", "").replace("_H4", "")
+        if stem == sym or CX_H4_ALIAS.get(stem) == sym:
+            break
+    else:
+        return []
+    out = []
+    with f.open(encoding="utf-8-sig", newline="") as fh:
+        for row in csv.reader(fh):
+            if len(row) < 7:
+                continue
+            try:
+                out.append({"h": float(row[3]), "l": float(row[4]),
+                            "c": float(row[5]),
+                            "v": float(row[6] or 0) or 1.0})
+            except (TypeError, ValueError):
+                continue
+    return out
+
+
+# نامِ فایلِ چارتیکس به نامِ نماد. فقط شاخص‌ها و اونس export شده‌اند؛
+# بقیه از مسیرِ تیک ساخته می‌شوند.
+CX_H4_ALIAS = {
+    "shakhs kl": "شاخص کل",
+    "shakhs kl ghimt (hm ozn)": "شاخص هم‌وزن",
+    "OANDA_XAUUSD": "اونس طلا",
+}
+
+
 def get_h1(sym, ins, d, quiet=False):
     """کندلِ ساعتیِ یک روز — از کش، وگرنه دانلود و کش کن."""
     H1DIR.mkdir(parents=True, exist_ok=True)
@@ -1489,6 +1570,26 @@ def vgap_state(rows, px):
     return "بالا" if px > hi else "زیر" if px < lo else "داخل"
 
 
+def two_month_box(by_m, ms):
+    """باکسِ **دو ماهه** — ماهِ قبل + ماهِ جاری با هم.
+
+    قاعدهٔ ۷ (پیام ۱۰۰): «حمایت دو ماه هم میتونیم — یک ولوم پروفایل
+    **برای دو ماه**، یعنی هم ماه فعلی و هم ماه قبل، که فاصلهٔ اون در
+    ریسک به نوعی میتونه برای تصمیم‌گیری ما مفید باشه.»
+
+    این با باکسِ ماهِ قبل یکی نیست: ماهِ جاری هنوز بسته نشده ولی
+    حجمش هست، و پروفایلِ دو دوره روی هم یک ناحیهٔ پهن‌تر و کم‌لرزش‌تر
+    می‌دهد. **شرطِ ورود نمی‌شود** — فقط نشان داده می‌شود، چون
+    بک‌تستِ مستقل ندارد.
+    """
+    if len(ms) < 2:
+        return None
+    bars = list(by_m[ms[-2]]) + list(by_m[ms[-1]])
+    if len(bars) < 6:
+        return None
+    return make_box(bars)
+
+
 def value_area_box(bars):
     """جایگزین وقتی هیچ دره‌ای نیست: سه بینِ پرحجم‌ترین، روی Close.
 
@@ -1767,14 +1868,47 @@ def analyse(sym, rows, ins=None, allow_ticks=False):
         if wb is not None and allow_ticks:
             # ساعتی در دسترس بود ولی نشد — باید دیده شود، نه بی‌صدا
             fb.append("هفتگی←روزانه")
-    if mb is None:
-        mb = value_area_box(by_m[ms[-2]])
-        if mb:
-            fb.append("ماهانه")
-    if wb is None:
-        wb = value_area_box(by_w[ws[-2]])
-        if wb:
-            fb.append("هفتگی")
+
+    # ── قاعدهٔ ۵ · «از دیلی بگیر، اگه ناحیه خلا نداد از ۴ ساعته» ──
+    # پیام ۱۷۱. ترتیب **همین** است: اول کندلِ روزانهٔ دوره، بعد H4.
+    #
+    # ⚠️ قبلاً اینجا `value_area_box` می‌نشست — تعریفی که **خودش
+    # نگفته** («ردیف ۶ هم من چیزی نگفتم، از خودت درآوردی») و بک‌تستِ
+    # خودم ردش کرد: p=۰٫۱۰۶، از تصادف جدا نمی‌شود. با این حال روی ۵۴
+    # از ۱۳۴ نماد نشسته بود و در داشبورد **هیچ علامتی نداشت**. پس
+    # حالا اول H4 امتحان می‌شود، و اگر آن هم نبود نماد صریحاً
+    # «ناحیه نداد» می‌گیرد — نه باکسِ ساختگی.
+    h4c = None
+    if wb is None or mb is None:
+        h4c = chartix_h4(sym)
+        if not h4c and allow_ticks and ins:
+            h1all = []
+            for d in sorted({b["d"] for b in by_w[ws[-2]]}):
+                h1all.extend(get_h1(sym, ins, d, quiet=True))
+            h4c = h1_to_h4(h1all)
+    if wb is None and h4c and len(h4c) >= 6:
+        wb = make_box(h4c)
+        if wb is not None:
+            fb.append("هفتگی←چهارساعته")
+            wbars_used = h4c
+    if mb is None and h4c and len(h4c) >= 6:
+        mb = make_box(h4c)
+        if mb is not None:
+            fb.append("ماهانه←چهارساعته")
+
+    # آخرین چاره، فقط با پرچمِ صریح. با --no-weak-box کاملاً خاموش.
+    if WEAK_BOX:
+        if mb is None:
+            mb = value_area_box(by_m[ms[-2]])
+            if mb:
+                fb.append("ماهانه←ناحیهٔ ارزش")
+        if wb is None:
+            wb = value_area_box(by_w[ws[-2]])
+            if wb:
+                fb.append("هفتگی←ناحیهٔ ارزش")
+
+    # قاعدهٔ ۷ · باکسِ دو ماهه — نمایشی، شرطِ ورود نیست
+    base["m2"] = two_month_box(by_m, ms)
     base["fallback"] = fb
     rets = [(rows[i]["c"] / rows[i - 1]["c"] - 1) * 100
             for i in range(1, len(rows)) if rows[i - 1]["c"] > 0]
@@ -1903,6 +2037,22 @@ def build_book(rows, capital):
     for r in rows:
         r["cat_wide"] = r["cat"] in wide
 
+    # قاعدهٔ ۳۶ — چند جلسه از آخرین خروجِ این نماد گذشته؟
+    _pstamp, psym = state_load()
+    for r in rows:
+        r["held"] = norm(r["sym"]) in {norm(k) for k in (HOLDING or {})}
+        ex = (psym.get(norm(r["sym"])) or {}).get("exit_at")
+        r["cool"] = False
+        r["cool_since"] = ex
+        if ex and COOLDOWN:
+            try:
+                gap = (date.fromisoformat(str(r.get("date") or ex))
+                       - date.fromisoformat(str(ex))).days
+            except (TypeError, ValueError):
+                gap = None
+            if gap is not None and 0 <= gap < COOLDOWN:
+                r["cool"] = True
+
     def tier(r):
         """۱ = سیگنالِ کامل · ۲ = نیمه‌سیگنال · ۰ = هیچ.
 
@@ -1912,6 +2062,16 @@ def build_book(rows, capital):
         سینرژی دقیقاً همین‌جا بود و هیچ‌جا دیده نمی‌شد.
         """
         if r["value_bn"] < MIN_VALUE_BN or r.get("park"):
+            return 0
+        # ── قاعدهٔ ۳۶ · دورهٔ خنک ──────────────────────────────────
+        # «فامیلی چرا دوباره پیشنهاد شده؟» (پیام ۱۲۸). نمادی که همین
+        # چند جلسه پیش خروج خورده بی‌فاصله برنمی‌گردد.
+        #
+        # ⚠️ فقط جلوی **ورودِ دوباره** را می‌گیرد. نمادی که در پرتفو
+        # داری از این راه فروخته نمی‌شود — همان درسی که با نهال گرفتم:
+        # «ما فقط در صورتی می‌فروشیم که زیرِ باکس بسته شود.» شرطِ ورود
+        # هیچ‌وقت چیزی را نمی‌فروشد.
+        if (COOLDOWN and r.get("cool") and not r.get("held")):
             return 0
         # فیلترِ ماهِ جاری: مقاومتی که از اولِ ماه ساخته شده.
         # قاعدهٔ نقران بود — «از ابتدای ماه فعلی یک مقاومت ایجاد کرده
@@ -3103,15 +3263,25 @@ def state_load():
 
 def state_save(stamp, rows, book):
     bk = {norm(r["sym"]) for r in book}
+    _pstamp, psym = state_load()
     d = {"stamp": stamp, "sym": {}}
     for r in rows:
         if not r.get("ok"):
             continue
-        d["sym"][norm(r["sym"])] = {
-            "vgv": (r.get("vg") or {}).get("حکم"),
+        k = norm(r["sym"])
+        # قاعدهٔ ۳۶ — تاریخِ آخرین خروج را نگه دار تا دفعهٔ بعد
+        # نمادی که تازه خروج خورده بی‌فاصله برنگردد.
+        vgv = (r.get("vg") or {}).get("حکم")
+        out_now = vgv == "زیر" or bool(r.get("w_dead"))
+        was = psym.get(k) or {}
+        exit_at = was.get("exit_at")
+        if out_now:
+            exit_at = stamp
+        d["sym"][k] = {
+            "vgv": vgv,
             "wst": r.get("wst"), "mst": r.get("mst"),
             "wd": bool(r.get("w_dead")), "md": bool(r.get("m_dead")),
-            "book": norm(r["sym"]) in bk,
+            "book": k in bk, "exit_at": exit_at,
             "close": r.get("close")}
     DATA.mkdir(exist_ok=True)
     (DATA / "state.json").write_text(
@@ -3656,6 +3826,79 @@ def html(rows, book, capital, stamp, last_date, buy=(), sell=(),
                 'زیرِ باکس» است، نه «عقب‌بودن از کهربا».">'
                 'نگه‌داشته</span>')
 
+    def boxsrc(r, key):
+        """باکسِ این ردیف از کجا آمد — قاعدهٔ ۵.
+
+        ۵۴ از ۱۳۴ نماد باکسشان از «ناحیهٔ ارزش» می‌آمد، تعریفی که
+        **او نگفته** و بک‌تستِ من ردش کرد (p=۰٫۱۰۶). و در داشبورد
+        هیچ علامتی نداشت، یعنی روی ۴۰٪ ردیف‌ها به عددی نگاه می‌کرد
+        که پشتش آماری نبود. این ستون آن را می‌گوید.
+        """
+        fb = r.get("fallback") or []
+        pre = "هفتگی" if key == "week" else "ماهانه"
+        for tag, lab, cls, ttl in (
+            ("←چهارساعته", "۴ساعته", "vl-i",
+             "دیلی دره نداد، از کندلِ چهارساعته ساخته شد — قاعدهٔ ۵"),
+            ("←ناحیهٔ ارزش", "⚠ ارزش", "vl-d",
+             "نه دره و نه چهارساعته جواب داد. «ناحیهٔ ارزش» تعریفی "
+             "است که او نگفته و بک‌تست ردش کرد (p=۰٫۱۰۶) — این عدد "
+             "پشتوانهٔ آماری ندارد"),
+            ("←ساعتی", "H1", "vl-u", "از کندلِ ساعتی — ریزترین"),
+            ("←روزانه", "روزانه", "vl-n",
+             "ساعتی در دسترس بود ولی دره نداد"),
+        ):
+            if pre + tag in fb:
+                return (f'<span class="vl {cls}" title="{ttl}">'
+                        f'{lab}</span>')
+        return ('<span class="vl vl-u" title="درهٔ حجمی روی کندلِ '
+                'روزانهٔ خودِ دوره — مسیرِ اصلیِ قاعدهٔ ۵">دره</span>')
+
+    def curcell(r):
+        """باکسِ **ماهِ جاری تا امروز** — خواستهٔ صریحِ خودش.
+
+        «ماه که خوب شاید هنوز بسته نشده باشد ولی می‌بایست اپدیت شده
+        باشد تا به امروز، ناحیه‌های حمایتِ باکسی‌اش.»
+
+        باکسِ ماهانهٔ ستونِ اصلی از **ماهِ کامل‌شدهٔ قبل** است و آن
+        درست است (حجم تا پایانِ دوره کامل نمی‌شود). این ستون چیزِ
+        دیگری است: پروفایلِ ماهِ جاری از اولِ ماه تا **همین امروز**،
+        که هر روز عوض می‌شود. مقاومتی که از اولِ ماه ساخته شده اینجا
+        دیده می‌شود.
+        """
+        b = r.get("cur_box")
+        st = r.get("cur4") or r.get("cur_st") or "—"
+        if not b:
+            return (f'<span class="vl vl-n" title="ماهِ جاری هنوز '
+                    f'کندلِ کافی ندارد">{st}</span>')
+        lo, hi = b
+        px = r["close"]
+        cl = {"بالا": "vl-u", "نیمهٔ بالا": "vl-i",
+              "نیمهٔ پایین": "vl-d", "زیر": "vl-d"}.get(st, "vl-i")
+        d = ((px / hi - 1) * 100 if px > hi
+             else (px / lo - 1) * 100 if px < lo else 0.0)
+        txt = f"{st} {d:+.1f}٪" if d else st
+        return (f'<span class="vl {cl}" title="پروفایلِ ماهِ جاری از '
+                f'اولِ ماه تا امروز: {n(lo)}–{n(hi)} · هر روز آپدیت '
+                f'می‌شود · شرطِ **ورود** است، هیچ‌وقت نمی‌فروشد">'
+                f'{txt}</span>')
+
+    def m2cell(r):
+        """باکسِ دو ماهه — قاعدهٔ ۷. نمایشی، شرطِ ورود نیست."""
+        b = r.get("m2")
+        if not b:
+            return '<span class="vl vl-n">—</span>'
+        lo, hi = b
+        px = r["close"]
+        st = "بالا" if px > hi else "زیر" if px < lo else "داخل"
+        cl = ("vl-u" if st == "بالا" else "vl-d" if st == "زیر"
+              else "vl-i")
+        d = ((px / hi - 1) * 100 if st == "بالا"
+             else (px / lo - 1) * 100 if st == "زیر" else 0.0)
+        txt = f"{st} {d:+.1f}٪" if st != "داخل" else "داخل"
+        return (f'<span class="vl {cl}" title="پروفایلِ ماهِ قبل + '
+                f'ماهِ جاری روی هم: {n(lo)}–{n(hi)} · قاعدهٔ ۷، '
+                f'نمایشی — شرطِ ورود نیست">{txt}</span>')
+
     def _zbtxt(b):
         """«۱۱ روز» — نه «۱ دوره». او روز می‌پرسد."""
         d = b.get("days")
@@ -3709,6 +3952,9 @@ def html(rows, book, capital, stamp, last_date, buy=(), sell=(),
                 f'<td class="td">{bdg(r["wst"])}</td>'
                 f'<td class="td">{vlevcell(r)}</td>'
                 f'<td class="td">{zbcell(r)}</td>'
+                f'<td class="td">{curcell(r)}</td>'
+                f'<td class="td">{m2cell(r)}</td>'
+                f'<td class="td">{boxsrc(r, key)}</td>'
                 f'<td class="td">{drvcell(r)}</td>'
                 f'<td class="td">{flagcell(r)}</td></tr>')
 
@@ -3742,7 +3988,7 @@ def html(rows, book, capital, stamp, last_date, buy=(), sell=(),
             hot = sum(1 for r in rs if in_band(r, key))
             liq = sum(1 for r in rs if r["value_bn"] >= MIN_VALUE_BN)
             out.append(
-                f'<tr class="grp" data-c="{c}"><td class="td" colspan="16">'
+                f'<tr class="grp" data-c="{c}"><td class="td" colspan="19">'
                 f'<span class="gname">{"بدون دسته" if c == "؟" else c}</span>'
                 f'<span class="gmeta">{len(rs)} نماد · '
                 f'<b class="g">{hot}</b> در نوار · '
@@ -3893,6 +4139,95 @@ def html(rows, book, capital, stamp, last_date, buy=(), sell=(),
                 + '</tr></thead><tbody>' + "".join(tr)
                 + '</tbody></table></div>')
         return "".join(sec)
+
+    # ── تبِ «هولد یا چرخش» — قاعده‌های ۵۵، ۵۸، ۵۹، ۹۲ ─────────────
+    # سه سؤالِ صریحش که ماه‌ها بی‌جواب بود. عددها از
+    # `tools/hold_vs_rotate.py` می‌آیند؛ اینجا **ثابت** نوشته شده‌اند
+    # چون اجرای آن محک ۱۲۹ نماد × ۳۴ دوره است و هر بار ساختنِ
+    # داشبورد را کند می‌کند. برای عددِ تازه:
+    #     python tools/hold_vs_rotate.py --tf w
+    def _holdrot():
+        per = [("دوایکس", 339.1, 572.9, 59), ("توان", 182.3, 273.4, 62),
+               ("اهرم", 168.9, 259.6, 69), ("موج", 216.6, 286.2, 59),
+               ("نقران", -6.9, 31.4, 34), ("بیدار", 262.8, 277.0, 62),
+               ("کهربا", 42.2, 54.8, 50), ("عیار", 42.0, 54.5, 50),
+               ("نهال", 51.0, 43.2, 44), ("سینرژی", 93.0, 70.4, 47)]
+        tr = []
+        for sym, h, st, inn in sorted(per, key=lambda x: -(x[2] - x[1])):
+            d = st - h
+            cl = "g" if d > 0 else "r"
+            tr.append(f'<tr data-s="{sym}"><td class="td sym">{sym}</td>'
+                      f'<td class="td n">{h:+.1f}٪</td>'
+                      f'<td class="td n"><b>{st:+.1f}٪</b></td>'
+                      f'<td class="td n {cl}"><b>{d:+.1f}</b> واحد</td>'
+                      f'<td class="td n">{inn}٪</td></tr>')
+        sc = [("<b>ب · چرخشِ کامل بین بازارها</b>", 293.9, "g"),
+              ("کنترل · هولدِ فقط سهام", 133.1, ""),
+              ("کنترل · هولدِ ۵۰/۵۰", 98.5, ""),
+              ("<b>الف · ۵۰/۵۰ با نوسانِ داخلی</b>", 94.2, "r"),
+              ("کنترل · هولدِ فقط طلا", 62.6, "")]
+        sr = "".join(f'<tr><td class="td">{nm}</td>'
+                     f'<td class="td n {c}"><b>{v:+.1f}٪</b></td></tr>'
+                     for nm, v, c in sc)
+        return (
+          '<div class="sub"><b>قاعدهٔ خروج همان قاعدهٔ خودت است و هیچ '
+          'چیز دیگری:</b> «ما فقط در صورتی می‌فروشیم که زیرِ باکس بسته '
+          'شود. همین.» بالای باکس = داخلِ بازار، زیرِ باکس = بیرون. '
+          'بدونِ حد سود، بدونِ تارگت، بدونِ آستانهٔ درصدی — چون نگفتی.'
+          '<br>افقِ <b>هفتگی</b> · کارمزد ۰٫۵۵٪ روی هر تغییرِ وضعیت · '
+          '۱۲۹ نماد · ۲۵–۳۴ دوره. شرحِ کامل در '
+          '<code>docs/40-hold-vs-rotate.md</code>.</div>'
+
+          '<h3>قاعدهٔ ۵۵ · هر نماد: هولد در برابر استراتژی</h3>'
+          '<div class="note"><b>جوابِ مستقیمِ سؤالت:</b> عیار هولد '
+          '<b>+۴۲٫۰٪</b> در برابر استراتژی <b>+۵۴٫۵٪</b> — '
+          '<b class="g">۱۲٫۵ واحد</b> بیشتر. کهربا تقریباً همان.'
+          '<br>ولی الگوی مهم‌تر: <b>مزیت روی اهرمی درشت است و روی بقیه '
+          'نازک.</b> میانهٔ همهٔ ۱۲۹ نماد فقط <b>+۳٫۰ واحد</b> و در '
+          '۷۲ از ۱۲۹ نماد جلو (۵۶٪) — روی نمادِ تصادفی کمی بهتر از '
+          'سکه. عددِ درشت از جای مشخصی می‌آید، نه از همه‌جا.</div>'
+          '<div class="wrap"><table class="table"><thead><tr>'
+          + thead("نماد|هولد|استراتژی|اختلاف|زمان در بازار")
+          + '</tr></thead><tbody>' + "".join(tr) + '</tbody></table></div>'
+
+          '<h3>قاعدهٔ ۵۹ · دو سناریویی که خودت گذاشتی</h3>'
+          '<div class="note"><b>سناریوی ب سه برابرِ الف است — و الف از '
+          'هولدِ ساده هم عقب می‌افتد.</b> علتش: الف نسبت را قفل می‌کند، '
+          'پس وقتی طلا منفی است پولش نقد می‌شود ولی <b>نمی‌تواند برود '
+          'سهام</b>. کارمزد را می‌دهد و مزیتِ جابه‌جایی را نمی‌گیرد. '
+          'ب هر دوره پول را می‌برد جایی که باکسش مثبت است — همان که '
+          'گفتی: «از طلا میایم تو بورس، از بورس میایم رو طلا».</div>'
+          '<div class="wrap"><table class="table"><thead><tr>'
+          + thead("سناریو|بازدهِ ۲۵ دوره")
+          + '</tr></thead><tbody>' + sr + '</tbody></table></div>'
+
+          '<h3>قاعدهٔ ۵۸ و ۹۲ · نسبتِ بهینه</h3>'
+          '<div class="note">سوئیپِ ۱۱ نسبت گرفته شد. <b>جوابِ صادقانه '
+          'این است که این سؤال جوابِ مفیدی ندارد.</b> بهترین نسبتِ این '
+          'پنجره ۰٪ طلا / ۱۰۰٪ سهام درمی‌آید، ولی این فقط می‌گوید در '
+          'این ۲۵ هفته سهام از طلا بهتر بود — نسبتِ بهینهٔ گذشته‌نگر '
+          'همیشه بالاترین عدد را نشان می‌دهد چون <b>روی همان داده '
+          'انتخاب شده</b>. برای هفتهٔ آینده هیچ نمی‌گوید.'
+          '<br><b>ولی یک چیزِ پایدار در آن جدول هست:</b> در هر یازده '
+          'نسبت، سناریوی الف از هولدِ همان نسبت عقب است. پس سؤالِ درست '
+          '«چه نسبتی؟» نیست، <b>«قفل یا چرخش؟»</b> است.</div>'
+
+          '<h3>ماهانه — اندازه‌گیری نشد</h3>'
+          '<div class="feebox">همین محک روی افقِ ماهانه فقط <b>۴ نماد '
+          'با ۸ دوره</b> پیدا می‌کند و اشتراکِ سبدِ طلا و سهام <b>صفر '
+          'دوره</b> است. پس عددی برایش نساختم. نتیجهٔ این تب '
+          '<b>فقط هفتگی</b> است.</div>'
+
+          '<h3>قید</h3>'
+          '<div class="feebox"><b>یک رژیمِ بازار.</b> همه در یک دورهٔ '
+          'صعودی. در ۱۹ ماهِ قبلِ این پنجره میانگینِ ماهانهٔ اهرم '
+          '+۲٫۸۷٪ با ۴۲٪ ماهِ مثبت بود، در برابرِ +۱۲٫۸۹٪ با ۶۲٪ در '
+          'این پنجره.<br><b>لغزش صفر فرض شده.</b> چرخشِ کامل بیشترین '
+          'گردش را دارد پس بیشترین آسیب را از لغزش می‌خورد، و ما عددی '
+          'برای لغزش نداریم — می‌تواند بخشِ بزرگی از فاصلهٔ ۲۹۳٪ تا '
+          '۹۴٪ را بخورد.<br><b>۵۴ از ۱۳۴ نماد</b> باکسشان از «ناحیهٔ '
+          'ارزش» است (p=۰٫۱۰۶). قاعدهٔ ۵ — H4 — جوابِ این است و به '
+          'دادهٔ H4 نیاز دارد.</div>')
 
     # ── تبِ «منطق‌ها» ─────────────────────────────────────────────
     # «اول همه منطق‌ها رو لیست کن بعد داشبورد رو بفرست، فقط دلم
@@ -4880,7 +5215,8 @@ def html(rows, book, capital, stamp, last_date, buy=(), sell=(),
 
     SIGH = ("رتبه|نماد|آلارم|کلوز|نقطهٔ ورود|سطحِ واکنش|حدضرر|حدسود|ریسک|"
             "بک‌تستِ وضعیت|ماهانه|هفتگی|"
-            "حکمِ خلای حجمی|شکستِ ناحیه|محرک (پاسخ)|تارگتِ میله و پرچم")
+            "حکمِ خلای حجمی|شکستِ ناحیه|ماهِ جاری (تا امروز)|دو ماهه|"
+            "منبعِ باکس|محرک (پاسخ)|تارگتِ میله و پرچم")
 
     # ── تبِ ۲: دفتر ──
     def bkrow(r):
@@ -5030,6 +5366,7 @@ def html(rows, book, capital, stamp, last_date, buy=(), sell=(),
     # فراخوانی بسته نشده. همین اشتباه یک بار در _unitbox افتاد.
     zb_box = _zbbox()
     mantegh_box = _mantegh()
+    holdrot_box = _holdrot()
 
     return f"""<!doctype html><html lang="fa" dir="rtl"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -5209,6 +5546,7 @@ font-size:.78rem;color:var(--muted);max-width:72ch}}
   <button class="tab" data-t="p4">وضعیت همهٔ نمادها</button>
   <button class="tab" data-t="p5">بک‌تست</button>
   <button class="tab" data-t="p12">★ منطق‌ها</button>
+  <button class="tab" data-t="p13">هولد یا چرخش</button>
 </div>
 
 <div class="filters">{chips}
@@ -5219,6 +5557,8 @@ font-size:.78rem;color:var(--muted);max-width:72ch}}
 <div class="panel" id="p11">{zb_box}</div>
 
 <div class="panel" id="p12">{mantegh_box}</div>
+
+<div class="panel" id="p13">{holdrot_box}</div>
 
 <div class="panel" id="p1">
   <div class="sub"><b>وضعیتِ هفتگی روی کلوزِ <i>روزِ تصمیم</i> حساب
@@ -6780,15 +7120,19 @@ def main():
         fb = r.get("fallback") or []
         if "هفتگی←ساعتی" in fb:
             src["درهٔ حجمی روی کندلِ ساعتی"] += 1
-        elif "هفتگی" in fb:
-            src["ناحیهٔ ارزش (ضعیف‌تر)"] += 1
+        elif "هفتگی←چهارساعته" in fb:
+            src["درهٔ حجمی روی چهارساعته (قاعدهٔ ۵)"] += 1
+        elif "هفتگی←ناحیهٔ ارزش" in fb:
+            src["⚠ ناحیهٔ ارزش — او نگفته، p=۰٫۱۰۶"] += 1
+        elif "هفتگی←روزانه" in fb:
+            src["درهٔ حجمی روی کندلِ روزانه"] += 1
         else:
             src["درهٔ حجمی روی کندلِ روزانه"] += 1
     if src:
         print("\n  باکسِ هفتگی از کجا آمد:")
         for k, v in src.most_common():
             print(f"     {k:<28} {v:>4}")
-    weak = src.get("ناحیهٔ ارزش (ضعیف‌تر)", 0)
+    weak = src.get("⚠ ناحیهٔ ارزش — او نگفته، p=۰٫۱۰۶", 0)
     ok_n = sum(src.values())
     if ok_n and weak / ok_n >= 0.30:
         print(f"\n  ⚠️  {weak} از {ok_n} نماد روی «ناحیهٔ ارزش» افتاده‌اند.")
