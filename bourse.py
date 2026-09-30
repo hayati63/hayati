@@ -52,6 +52,32 @@ HERE = Path(__file__).resolve().parent
 DATA = HERE / "data_bourse"
 OUT = HERE / "dashboard.html"
 
+# ── دو داشبوردِ جدا: ماهانه و هفتگی ───────────────────────────────
+# مصطفی بارها گفت «داشبوردِ ماهانه و داشبوردِ هفتگی». تا حالا یک فایل
+# با دو تب ساخته می‌شد و آن **چیزِ دیگری** است: در یک فایل، دفتر و
+# پرتفوی هدف و فهرستِ خرید و فروش یکی است و باندِ هر نماد خودکار
+# انتخاب می‌شود. آنچه او می‌خواهد دو فایلِ مستقل است که هر کدام
+# **کاملاً** روی یک افق بسته شده‌اند.
+#
+#   HZ = "month"  → dashboard_monthly.html · فقط نوارِ ماهانه
+#   HZ = "week"   → dashboard_weekly.html  · فقط نوارِ هفتگی
+#   HZ = "both"   → هر دو فایل ساخته می‌شوند (پیش‌فرض)
+HZ = "both"
+HZ_FA = {"week": "هفتگی", "month": "ماهانه"}
+
+# ── قاعدهٔ انتخاب: بزرگ‌ترینِ نمادِ دستهٔ پرحجم ─────────────────────
+# «بزرگ‌ترین نماد، بزرگ‌ترین حجمِ دسته را نگاه کن، بزرگ‌ترین نمادش را
+# بفرست.» قاعدهٔ خودِ مصطفی، و پیش‌فرض.
+#
+# ⚠️ اندازه‌گیری خلافش را گفت (`docs/32`، ۳۵ هفته، واحدِ کهربا):
+# بی‌قید ۱٫۱۵۲ · حداکثر ۲ از هر دسته ۱٫۱۰۵ · حداکثر ۱ از هر دسته
+# ۱٫۰۱۳ · بزرگ‌ترینِ دسته ۰٫۸۷۳. عدد گفته شد و او قاعدهٔ خودش را
+# خواست. با --score به رتبه‌بندیِ «مازادِ کهربا + پاسخِ محرک»
+# برمی‌گردد و هر دو عدد در داشبورد نوشته می‌شوند.
+CAT_RULE = True
+HZ_OUT = {"week": "dashboard_weekly.html",
+          "month": "dashboard_monthly.html"}
+
 BASE = "https://cdn.tsetmc.com/api"
 HIST = BASE + "/ClosingPrice/GetClosingPriceDailyList/{ins}/0"
 WATCH = (BASE + "/ClosingPrice/GetMarketWatch?market=0&paperTypes[0]=1"
@@ -1878,9 +1904,38 @@ def build_book(rows, capital):
     # و در **هر ۱۲** ترکیبِ (N، سقفِ وزن) که جارو شد، و در هر دو
     # نیمهٔ پنجره، نسخهٔ با محرک جلو بود. یک سلولِ خوش‌شانس نیست.
     pool = elig + [r for r in half if r not in elig]
-    pool.sort(key=lambda r: (-(pick_score(r) if pick_score(r) is not None
-                               else -1e9), -r["value_bn"]))
-    picks = pool[:MAX_PICKS]
+    if CAT_RULE:
+        # ── قاعدهٔ خودِ مصطفی: بزرگ‌ترینِ نمادِ دستهٔ پرحجم ───────────
+        # «بزرگ‌ترین نماد، بزرگ‌ترین حجمِ دسته را نگاه کن، بزرگ‌ترین
+        # نمادش را بفرست.»
+        #
+        # ⚠️ من این را برداشته بودم چون اندازه‌گیری خلافش را گفت
+        # (`docs/32`، ۳۵ هفته، واحدِ کهربا): بی‌قید ۱٫۱۵۲ · حداکثر ۲
+        # از هر دسته ۱٫۱۰۵ · حداکثر ۱ از هر دسته ۱٫۰۱۳ · بزرگ‌ترینِ
+        # دسته ۰٫۸۷۳. عدد را گفتم و او قاعدهٔ خودش را خواست — پس
+        # همین پیش‌فرض است. با --score به رتبه‌بندیِ مازاد برمی‌گردد.
+        #
+        # ترتیبِ دسته‌ها با **جمعِ ارزشِ معاملاتِ** اعضای واجدِ شرط
+        # است، نه با تعدادشان: «دستهٔ پرحجم» یعنی پولی که آن دسته
+        # می‌خورد، نه چند نماد دارد.
+        byc = defaultdict(list)
+        for r in pool:
+            byc[r["cat"]].append(r)
+        vol = {c: sum(x["value_bn"] for x in rs) for c, rs in byc.items()}
+        picks = []
+        for c in sorted(byc, key=lambda c: -vol[c]):
+            rs = sorted(byc[c], key=lambda r: -r["value_bn"])
+            picks.append(rs[0])          # بزرگ‌ترینِ همان دسته
+            if len(picks) >= MAX_PICKS:
+                break
+        for r in picks:
+            r["cat_top"] = True
+            r["cat_vol"] = vol[r["cat"]]
+    else:
+        pool.sort(key=lambda r: (-(pick_score(r)
+                                   if pick_score(r) is not None
+                                   else -1e9), -r["value_bn"]))
+        picks = pool[:MAX_PICKS]
 
     # ── نمادی که **داری** و حکمش هنوز «بالا»ست، فروخته نمی‌شود ─────
     # مصطفی روی نهال گرفتش: «چرا برای نهال سیگنال خروج صادر کردی؟
@@ -2018,9 +2073,17 @@ def build_book(rows, capital):
         live = [b for b in ("week", "month") if not r.get(f"{b[0]}_dead")]
         if not live:
             continue
-        band = ("week" if ("week" in live
-                           and r["week"]["risk_pct"] >= 1.0)
-                else ("month" if "month" in live else "week"))
+        if HZ in ("week", "month"):
+            # داشبوردِ تک‌افق: باند **تحمیل** می‌شود، نه انتخاب. اگر
+            # استاپِ همان افق خورده باشد ردیف نمی‌آید — در این
+            # داشبورد افقِ دیگری نیست که جایش را بگیرد.
+            if HZ not in live:
+                continue
+            band = HZ
+        else:
+            band = ("week" if ("week" in live
+                               and r["week"]["risk_pct"] >= 1.0)
+                    else ("month" if "month" in live else "week"))
         z = r[band]
         amt = capital * w / 100
         # پرکننده: **نگه‌دار**، نه خرید. قیمتِ مرجعش کلوزِ امروز است
@@ -4905,6 +4968,47 @@ def snap_write(path, stamp, capital, units, cash, book, pos,
                             default=str), encoding="utf-8")
 
 
+def run_hz(argv, open_pages=True):
+    """دو داشبوردِ جدا: ماهانه و هفتگی.
+
+    مصطفی بارها گفت «داشبوردِ ماهانه و داشبوردِ هفتگی». یک فایل با دو
+    تب همان نیست: آنجا دفتر و پرتفوی هدف و فهرستِ خرید و فروش **یکی**
+    است و باندِ هر نماد خودکار انتخاب می‌شود. اینجا هر فایل کاملاً
+    روی یک افق بسته می‌شود.
+    """
+    import subprocess
+    here = Path(__file__).resolve()
+    base = [a for a in argv if a != "--no-open"]
+    base = [a for a in base if not a.startswith("--hz")]
+    made = []
+    for hz, fa in (("month", "ماهانه"), ("week", "هفتگی")):
+        print("\n" + "█" * 64)
+        print(f"  █  داشبوردِ {fa}")
+        print("█" * 64)
+        r = subprocess.run([sys.executable, str(here)] + base
+                           + ["--hz", hz, "--no-open"])
+        if r.returncode == 0:
+            made.append(HERE / HZ_OUT[hz])
+        else:
+            print(f"  ⚠️  داشبوردِ {fa} ساخته نشد "
+                  f"(کدِ خروج {r.returncode}).")
+    print("\n" + "=" * 64)
+    print("  دو داشبورد")
+    print("=" * 64)
+    for f in made:
+        print(f"    {f}")
+    if not made:
+        print("    هیچ‌کدام ساخته نشد.")
+        return 1
+    if open_pages:
+        for f in made:
+            try:
+                webbrowser.open(f.as_uri())
+            except Exception:                        # noqa: BLE001
+                pass
+    return 0
+
+
 def run_all(argv, stock_share, open_pages=True, adopt=False):
     """هر دو جهان، یکی بعدِ دیگری، بعد یک گزارشِ ترکیبی.
 
@@ -5278,7 +5382,7 @@ def combined(snaps, stock_share=None, open_pages=False,
 def main():
     global REQUIRE_CUR_MONTH, MAX_INVESTED, MAX_WEIGHT
     global STOCK, DATA, OUT, MIN_VALUE_BN, WINRATE, LIVE_STATE, BOX_KIND
-    global BENCH_FILTER, BENCH_LOOK, BENCH
+    global BENCH_FILTER, BENCH_LOOK, BENCH, HZ, CAT_RULE
     ap = argparse.ArgumentParser()
     ap.add_argument("--capital", type=float, default=0,
                     help="سرمایه به ریال؛ ۰ یعنی از data_bourse/capital.txt")
@@ -5335,6 +5439,15 @@ def main():
     ap.add_argument("--risk-cap", type=float, default=0.0,
                     help="سقفِ ریسکِ کلِ سبد به درصد؛ ۰ یعنی بی‌قید "
                          "(پیش‌فرض — اندازه‌گیری‌شده)")
+    ap.add_argument("--score", dest="cat_rule", action="store_false",
+                    help="به‌جای «بزرگ‌ترینِ نمادِ دستهٔ پرحجم»، با "
+                         "رتبه‌بندیِ «مازادِ کهربا + پاسخِ محرک» "
+                         "انتخاب کن (در بک‌تست ۱٫۱۵۲ در برابرِ ۰٫۸۷۳)")
+    ap.add_argument("--hz", choices=("month", "week", "both"),
+                    default="both",
+                    help="افقِ داشبورد. month → dashboard_monthly.html · "
+                         "week → dashboard_weekly.html · both (پیش‌فرض) "
+                         "→ هر دو فایل ساخته می‌شوند")
     ap.add_argument("--adopt", action="store_true",
                     help="سفارشِ امروز را به‌عنوانِ سبدِ فعلی ثبت کن "
                          "(بعد از اجرای واقعیِ معاملات)")
@@ -5380,8 +5493,18 @@ def main():
         return run_all(passthru, args.stock_share, args.open,
                        args.adopt)
 
+    # ── --hz both: دو داشبوردِ جدا، ماهانه و هفتگی ──────────────────
+    # «داشبوردِ ماهانه و داشبوردِ هفتگی» — دو فایلِ مستقل، هر کدام
+    # کاملاً روی یک افق. زیرفرایند است نه حلقهٔ درون‌فرایندی، چون
+    # HZ و OUT گلوبال‌اند و نشتِ اجرای اول به دومی همان جنسِ باگی
+    # است که چند بار از این پروژه درآمده.
+    if args.hz == "both":
+        return run_hz(sys.argv[1:], args.open)
+
     STOCK = args.stocks
     LIVE_STATE = args.now
+    HZ = args.hz
+    CAT_RULE = args.cat_rule
     BOX_KIND = args.box
     BENCH_FILTER = args.benchf
     BENCH_LOOK = args.bench_look
@@ -5396,6 +5519,11 @@ def main():
         # سهام مرجعِ بی‌ربطی است. مصطفی: «ملاکِ تصمیم‌گیریِ آن بر
         # اساس شاخص کل و شاخص کل هم‌وزن خواهد بود.»
         BENCH = BENCH_STOCK
+    # ── نامِ فایل بر اساسِ افق ──────────────────────────────────────
+    # dashboard_monthly.html و dashboard_weekly.html — دو فایلِ جدا،
+    # همان چیزی که خواسته شد.
+    if HZ in HZ_OUT:
+        OUT = HERE / (("stocks_" if STOCK else "") + HZ_OUT[HZ])
     if args.rebase:
         # بعد از تعیینِ DATA، وگرنه در حالتِ سهام پوشهٔ صندوق‌ها را
         # پاک می‌کرد.

@@ -1,7 +1,9 @@
 *.pyc
 __pycache__/
 dashboard.html
+dashboard_monthly.html
 dashboard_stocks.html
+dashboard_weekly.html
 data/bridge.html
 data_bourse/
 data_bourse/snap.json
@@ -10,5 +12,7 @@ data_stocks/
 data_stocks/snap.json
 data_stocks/state.json
 portfolio.html
+stocks_dashboard_monthly.html
+stocks_dashboard_weekly.html
 گزارشِ-امروز.txt
 گزارشِ-روزانه.txt
