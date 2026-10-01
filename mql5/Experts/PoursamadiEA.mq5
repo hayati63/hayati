@@ -19,7 +19,7 @@
 //| Needs a HEDGING account (several positions at once).               |
 //+------------------------------------------------------------------+
 #property copyright "research build"
-#property version   "1.10"
+#property version   "1.20"
 
 #include <Trade/Trade.mqh>
 
@@ -34,6 +34,8 @@ input double InpAMMult         = 1.5;    // risk multiplier per consecutive win
 input double InpAMCapPct       = 1.5;    // maximum risk per trade, %
 input double InpMaxSpreadUSD   = 1.00;   // skip new entries when spread is wider ($)
 input int    InpMaxHoldHours   = 24;     // close any position after this many hours
+input bool   InpRoundNearest   = true;   // round lots to the nearest step (false = always down)
+input double InpMinLotMaxX     = 2.0;    // allow the minimum lot if it risks <= x times the plan (0 = skip)
 
 input group "SP2L (H1)"
 input int    InpSpikeBars      = 3;      // strong candles in the spike
@@ -131,9 +133,17 @@ double LotsFor(double entry, double stopPx, double pct, double units)
    double step = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_STEP);
    double vmin = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN);
    double vmax = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MAX);
-   lots = MathFloor(lots / step) * step;
+   // nearest lot step instead of always rounding down (at high gold prices the lots are small
+   // and flooring cut the real risk by up to half)
+   lots = InpRoundNearest ? MathRound(lots / step) * step : MathFloor(lots / step) * step;
    if(lots < vmin)
+     {
+      // below the broker minimum: trade the minimum lot only if that risks at most
+      // InpMinLotMaxX times the planned amount, otherwise skip the trade
+      if(InpMinLotMaxX > 0 && vmin * MathAbs(loss) <= InpMinLotMaxX * money)
+         return vmin;
       return 0.0;
+     }
    return MathMin(lots, vmax);
   }
 
