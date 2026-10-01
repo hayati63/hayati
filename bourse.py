@@ -1433,6 +1433,73 @@ def vgap_verdict(rows, tf, near=None):
             "dist": dist, "age": i - z, "zone_d": bars[z]["d"].isoformat()}
 
 
+def exit_rule(r):
+    """قاعدهٔ خروجِ **او** — یک تابع، همه‌جا.
+
+    تا امروز سه جای کد سه قاعدهٔ خروجِ متفاوت داشتند، و روی یک صفحه
+    برای یک نماد با هم نمی‌خواندند. خروجیِ ۳۰ سپتامبرِ او:
+
+        جدولِ پوزیشن   نهال  حد ضرر 77,782  فاصله +5.1٪   ← بالای حد ضرر
+        آلارم          🔄 عوض کن نهال — زیرِ باکسِ هفتگی     ← بفروش
+
+    `alarms()` و `no_exit()` روی **باکسِ افقی** می‌زدند (`wst`/`mst`)،
+    `positions()` روی کفِ باند، و هیچ‌کدام روی خلای حجمی — در حالی که
+    خودش صریح گفته بود مبنا خلای حجمی است:
+
+        «مبنای اصلی این استراتژی کندلِ هفتگی هست و ماهانه. هرگاه
+         ناحیهٔ خلا حجمی شکل گرفت، هرگاه کلوزِ روزِ بعد بالا یا پایینِ
+         ناحیه بود، مبنای تصمیم‌گیری ما خواهد بود… **چرا برای نهال
+         سیگنالِ خروج صادر کردی؟** امروز که روزِ تعیین‌کنندهٔ آن نماد
+         است بالای ناحیهٔ حجمی کلوز داده.»                 — پیام ۱۴۸
+
+    و همان نهال، همان شکایت، دوباره.
+
+    ── قاعده، از متنِ خودش ──
+      ۳۰ «ما فقط در صورتی می‌فروشیم که زیرِ باکس باز شه. همین.»
+      ۱۵ مبنا خلای حجمیِ هفتگی و ماهانه، روی کلوزِ روزِ بعد.
+      ۳۲ «حد ضرر می‌شه هرگاه یک کندلِ دیلی پایینِ ناحیه کاملاً کلوز
+         بدهد، پس فردای آن روز فروشنده خواهیم بود.»
+
+    پس خروج = کلوزِ روزِ تصمیم **زیرِ** ناحیهٔ خلای حجمی، یا بعد از آن
+    یک کلوزِ دیلی کاملاً زیرِ ناحیه. اول هفتگی، بعد ماهانه.
+
+    ⚠️ **فاصله اینجا مهم نیست.** `VGAP_NEAR` قاعدهٔ **من** است نه او،
+    و برای *ورود* ساخته شد: ناحیهٔ دور همه را «بالا» نشان می‌دهد و
+    تفکیک نمی‌کند. ولی برای *خروج* معنایش برعکس است — ۱۶٪ بالای ناحیه
+    یعنی قطعاً **زیرِ ناحیه نیست**. نسخهٔ قبلی آن را «بی‌حکم» می‌خواند و
+    می‌افتاد روی باکسِ افقی؛ دوایکس از همین راه «عوض کن» می‌گرفت.
+
+    باکسِ افقی فقط وقتی به کار می‌آید که **هیچ** ناحیهٔ خلای حجمی‌ای
+    نباشد — و آن‌وقت هم صریح گفته می‌شود.
+
+    خروجی: (خروج؟، علت، کفِ ناحیه برای حد ضرر یا None)
+    """
+    vg = r.get("vg") or {}
+    for fa in ("هفتگی", "ماهانه"):
+        x = vg.get(fa)
+        if not x or x.get("lo") is None:
+            continue
+        lo, hi, dec = x["lo"], x["hi"], x.get("dec")
+        if dec is None:
+            continue
+        if dec < lo:
+            return (True, f"کلوزِ روزِ تصمیم ({x.get('dec_d')}) زیرِ "
+                    f"ناحیهٔ خلای حجمیِ {fa}", lo)
+        if x.get("broke"):
+            return (True, f"کندلِ دیلی کاملاً زیرِ ناحیهٔ {fa} بسته شد "
+                    f"— قاعدهٔ ۳۲", lo)
+        # بالا یا داخل — دور یا نزدیک فرقی نمی‌کند: زیر نیست
+        return (False, f"بالای ناحیهٔ خلای حجمیِ {fa}"
+                if dec > hi else f"داخلِ ناحیهٔ خلای حجمیِ {fa}", lo)
+    # هیچ ناحیهٔ خلای حجمی نیست → باکسِ افقی، با برچسب
+    which = [fa for k, fa in (("mst", "ماهانه"), ("wst", "هفتگی"))
+             if r.get(k) == "زیر"]
+    if which:
+        return (True, "خلای حجمی ناحیه ندارد؛ باکسِ افقیِ "
+                + " و ".join(which) + " زیر", None)
+    return (False, "خلای حجمی ناحیه ندارد؛ باکسِ افقی بالا", None)
+
+
 def vgap_all(rows):
     """حکمِ هر سه تایم‌فریم + حکمِ نهایی.
 
@@ -2039,8 +2106,10 @@ def build_book(rows, capital):
 
     # قاعدهٔ ۳۶ — چند جلسه از آخرین خروجِ این نماد گذشته؟
     _pstamp, psym = state_load()
+    # از **سبدِ واقعی** (holdings.json بعد از --adopt)، نه ثابتِ HOLDING
+    _hk = {norm(k) for k in (holdings_load()[0] or {})}
     for r in rows:
-        r["held"] = norm(r["sym"]) in {norm(k) for k in (HOLDING or {})}
+        r["held"] = norm(r["sym"]) in _hk
         ex = (psym.get(norm(r["sym"])) or {}).get("exit_at")
         r["cool"] = False
         r["cool_since"] = ex
@@ -2220,16 +2289,10 @@ def build_book(rows, capital):
     # کهربا پایین‌تر است سیگنال نکن») و هیچ‌وقت قرار نبود چیزی را
     # **بفروشد**. همین‌طور عیار (−۰٫۹) و سینرژی (−۰٫۷).
     def no_exit(r):
-        vg = r.get("vg") or {}
-        if vg.get("حکم") == "زیر":
-            return False
-        if (vg.get("هفتگی") or {}).get("broke"):
-            return False
-        if r["wst"] == "زیر" or r["mst"] == "زیر":
-            return False
-        if r.get("w_dead") and r.get("m_dead"):
-            return False
-        return True
+        # ⚠️ قبلاً «wst زیر یا mst زیر» هم خروج حساب می‌شد — باکسِ
+        # افقی. نهال با خلای حجمیِ «بالا» از همین راه کامل فروخته
+        # می‌شد. حالا فقط `exit_rule`، که قاعدهٔ خودِ اوست.
+        return not exit_rule(r)[0]
 
     held = {norm(k) for k in (holdings_load()[0] or {})}
     if held:
@@ -2311,6 +2374,8 @@ def build_book(rows, capital):
     # نیمه‌سیگنال نصفِ وزن می‌گیرد — مزیتش هم حدودِ یک‌سوم است
     units = sum(1.0 if r["tier"] in (1, 3) else 0.5
                 for r in picks if r["tier"] != 4)
+    _hu = holdings_load()[0] or {}
+    _held_n = {norm(k): float(v) for k, v in _hu.items()}
     book = []
     for r in picks:
         w = (bench_fill if r["tier"] == 4 else
@@ -2330,6 +2395,18 @@ def build_book(rows, capital):
         # است، باز هم با نوارِ هفتگی وارد دفتر می‌شد و استاپی نشان
         # می‌داد که قیمت از آن رد شده.
         live = [b for b in ("week", "month") if not r.get(f"{b[0]}_dead")]
+        # ⚠️ نمادی که **داری** از این راه نباید بیفتد. `_dead` یعنی
+        # استاپِ **باکسِ افقی** خورده — و `exit_rule` گفته نگهش دار
+        # چون بالای خلای حجمی است. حذف از دفتر یعنی rebalance آن را
+        # «خروج‌خورده» می‌خواند و کامل می‌فروشد: همان خروجِ باکسِ
+        # افقی، از درِ پشتی. نگه‌دار را با باندِ همین افق نشان بده.
+        if norm(r["sym"]) in _held_n:
+            band = HZ if HZ in ("week", "month") else "week"
+            z = r[band]
+            book.append({**r, "band": band, "z": z, "w": 0.0,
+                         "hold_only": True, "held_keep": True,
+                         "amt": 0.0, "units": 0.0, "loss": 0.0})
+            continue
         if not live:
             continue
         if HZ in ("week", "month"):
@@ -2354,6 +2431,50 @@ def build_book(rows, capital):
                      "amt": amt, "units": amt / ref,
                      "loss": 0.0 if hold_only
                      else amt * z["risk_pct"] / 100})
+
+    # ══ وزنِ واقعی: نگه‌دار با ارزشِ امروزش، تازه با پولِ آزاد ══════
+    #
+    # تا اینجا همه برابر وزن گرفته‌اند، و آن «وزنِ برابر» قاعدهٔ **من**
+    # بود. با قاعدهٔ ۳۰ او («فقط زیرِ باکس می‌فروشیم») نمادِ نگه‌داشته
+    # نه کم می‌شود نه زیاد، پس وزنش همان است که امروز هست. پولِ آزاد =
+    # سرمایه منهای ارزشِ نگه‌دارها = نقد + ارزشِ خروج‌خورده‌ها، و فقط
+    # آن بین نمادهای **تازه** تقسیم می‌شود. قاعدهٔ ۵۶: «نقد نگه
+    # نمی‌داری.»
+    #
+    # بدونِ این، جدولِ «پرتفوی هدف» کهربا را ۱۵٫۴٪ نشان می‌داد و
+    # rebalance نگهش می‌داشت — دو عدد برای یک چیز روی یک صفحه.
+    kept_amt = 0.0
+    for b in book:
+        u = _held_n.get(norm(b["sym"]))
+        if u:
+            b["held_keep"] = True
+            b["hold_only"] = True
+            b["units"] = u
+            b["amt"] = u * b["close"]
+            b["loss"] = 0.0
+            kept_amt += b["amt"]
+    fresh = [b for b in book if not b.get("held_keep")]
+    free = max(0.0, capital - kept_amt)
+    # قاعدهٔ ۵۶ — «نقد نگه نمی‌داری». اگر هیچ نمادِ تازه‌ای نیست، پولِ
+    # آزاد روی **مبنا** می‌نشیند: هم‌پای کهربا ماندن، که حالتِ خنثیِ
+    # هدفِ غایی است. سیگنال نیست و برچسبش همین را می‌گوید.
+    if not fresh and free > 0 and not STOCK:
+        bb = next((b for b in book if norm(b["sym"]) == norm(BENCH)),
+                  None)
+        if bb is not None and bb.get("close"):
+            bb["add_amt"] = free
+            bb["amt"] += free
+            bb["units"] += free / bb["close"]
+            free = 0.0
+    W = sum(b["w"] for b in fresh)
+    for b in fresh:
+        b["amt"] = free * b["w"] / W if W > 0 else 0.0
+        ref = b["close"] if b.get("hold_only") else b["z"]["aim"]
+        b["units"] = b["amt"] / ref if ref else 0.0
+        b["loss"] = (0.0 if b.get("hold_only")
+                     else b["amt"] * b["z"]["risk_pct"] / 100)
+    for b in book:
+        b["w"] = b["amt"] / capital * 100 if capital else 0.0
     return elig, book
 
 
@@ -2394,14 +2515,24 @@ def positions(rows, units, px):
         # «کندلِ دیلی کاملاً زیرِ ناحیه» — دو تعریف، هر دو اندازه‌گیری
         # شدند و هر دو کار می‌کنند؛ کلوز حساس‌تر است (۳٬۴۱۲ رویداد در
         # برابر ۲٬۶۲۱) و مزیتش هم بیشتر.
-        below = c < wz["stop"]
+        # ── حد ضرر = کفِ ناحیهٔ **خلای حجمی** — قاعدهٔ ۳۲ ─────────
+        # «حد ضرر می‌شه هرگاه یک کندلِ دیلی پایینِ **ناحیه** کاملاً
+        # کلوز بدهد.» ناحیه = خلای حجمی (قاعدهٔ ۱۵). قبلاً اینجا کفِ
+        # باندِ باکسِ افقی بود، و روی همان صفحه آلارم از باکسِ افقیِ
+        # دیگری می‌آمد — نهال هم «+۵٫۱٪ بالای حد ضرر» بود و هم «عوض
+        # کن». حالا هر دو از `exit_rule` می‌آیند و نمی‌توانند ناهمخوان
+        # باشند.
+        fired, why, vlo = exit_rule(r)
+        stop = vlo if vlo else wz["stop"]
+        below = fired
         out.append({
             "sym": r["sym"], "units": u, "px": c,
             "value": u * c,
-            "zone_lo": wz["stop"], "zone_hi": wz["lo"],
+            "zone_lo": stop, "zone_hi": wz["lo"],
             "wst": r["wst"], "mst": r["mst"],
-            "below": below,
-            "dist_stop": (c / wz["stop"] - 1) * 100 if wz["stop"] else 0,
+            "below": below, "why": why,
+            "stop_src": "خلای حجمی" if vlo else "باکسِ افقی",
+            "dist_stop": (c / stop - 1) * 100 if stop else 0,
             # ── دو اصلِ حد سود ────────────────────────────────────
             # مصطفی: «حد سود می‌بایست بر دو اصل فعال بشود.» و جای
             # دیگر: «مگر قرار نشد حد سود مصادف بشه با وقتی که باکسِ
@@ -2525,7 +2656,23 @@ def audit(rows, book):
         # باکس، ناحیهٔ خلای حجمی سالم، ولی «ماهِ جاری زیر» بیرونش
         # می‌انداخت. مصطفی: «ما فقط در صورتی می‌فروشیم که زیرِ باکس
         # بسته شود.»
-        kept = bool(r.get("kept"))
+        kept = bool(r.get("kept") or r.get("held_keep"))
+        # ── نمادی که **داری**: فقط `exit_rule`، و هیچ چیزِ دیگر ────
+        # ⚠️ قبلاً ردیفِ نگه‌داشته هم با «هفتگی زیر است» و «کلوز زیرِ
+        # حدضرر» (هر دو **باکسِ افقی**) سنجیده می‌شد. بازرس ردیفِ ناقض
+        # را از دفتر **بیرون می‌اندازد**، و rebalance هر چیزی را که داری
+        # و در دفتر نیست می‌فروشد — یعنی همان خروجِ باکسِ افقی، از درِ
+        # پشتیِ سوم. نهال با خلای حجمیِ «بالا» از این راه هم فروخته
+        # می‌شد. نگه‌دار ورود نیست، پس هندسهٔ ورود و نقدشوندگی و
+        # ماهِ جاری هم درباره‌اش معنا ندارند.
+        if r.get("held_keep"):
+            fired, why_e, _lo = exit_rule(r)
+            if fired:
+                bad.append((r["sym"], [f"نگه‌دار ولی خروج خورده — "
+                                       f"{why_e}"]))
+            else:
+                clean.append(r)
+            continue
         # ۱. قیمت نباید زیرِ حدضرر باشد — استاپی که خورده استاپ نیست
         if px < z["stop"]:
             why.append(f"کلوز {px:,.0f} زیرِ حدضرر {z['stop']:,.0f}")
@@ -3005,6 +3152,20 @@ def compass(px, units, cash, stamp):
     # دو گاردِ ساده: (۱) تا وقتی سبد کامل قیمت نخورده لنگر ننویس.
     # (۲) ترکیبِ سبد را هم ذخیره کن، و اگر عوض شده بود عدد را
     # **بازده نخوان**.
+    # ⚠️ لنگرِ **قدیمی** — با کدِ پیش از ۱ اکتبر نوشته شده و کلیدِ
+    # `units` ندارد، پس گاردِ ترکیب رویش کار نمی‌کند و همان عددِ
+    # «+۲۶٫۴۶٪ در ۴ روز» دوباره چاپ می‌شد. روی ماشینِ او دقیقاً همین
+    # شد: اصلاحِ دیروز فقط لنگرهای **تازه** را می‌گرفت.
+    # چنین لنگری قابلِ اعتماد نیست؛ کنار گذاشته می‌شود و امروز تازه
+    # بسته می‌شود — و صریح گفته می‌شود.
+    legacy = None
+    if base and base.get("bench_px") and "units" not in base:
+        legacy = base.get("date")
+        try:
+            bf.rename(bf.with_suffix(".old.json"))
+        except OSError:
+            pass
+        base = None
     if not base or not base.get("bench_px"):
         if pv <= 0:
             return {"blocked": "لنگر نوشته نشد: هیچ قلمی از سبد قیمت "
@@ -3102,6 +3263,7 @@ def compass(px, units, cash, stamp):
     out["days"] = len(hist)
     out["changed"] = changed
     out["miss"] = miss
+    out["legacy"] = legacy
     return out
 
 
@@ -3113,39 +3275,70 @@ def rebalance(units, cash, book, px, capital):
 
     **اول فروش، بعد خرید** — بند ۲ راهنما: «پول آزادشده منبعِ خریدِ
     همان صبح است.»
+
+    ══ بازنویسی — نسخهٔ قبلی خلافِ قاعدهٔ ۳۰ بود ══════════════════════
+
+    نسخهٔ قبلی هر قلم را به **وزنِ برابر** می‌برد. خروجیِ ۳۰ سپتامبرِ
+    او:
+
+        ▼ فروش  کهربا  134,718 واحد   ← کهربا ۷٫۵٪ بالای حد ضرر
+                سینرژی 126,163          ← ۱۱٫۹٪ بالای حد ضرر
+                عیار     4,473          ← ۸٫۳٪ بالای حد ضرر
+
+    یعنی نمادی که **بالای باکس** است فروخته می‌شد فقط چون وزنش از
+    سهمِ برابر بیشتر بود. «وزنِ برابر» قاعدهٔ **من** بود. قاعدهٔ او:
+
+        «اگر بالای باکس باز شد ماهانه یا هفتگی اصلاً نیاز نیست
+         بفروشیم… **ما فقط در صورتی می‌فروشیم که زیرِ باکس باز شه.
+         همین.**»                                       — پیام ۱۱۰
+
+    حالا:
+      ۱. نمادی که داری و `exit_rule` رویش خورده → **کامل** فروخته
+         می‌شود (`build_book` نگهش نداشته، پس در دفتر نیست).
+      ۲. نمادی که داری و خروج نخورده → **دست نمی‌خورد.** نه کم، نه زیاد.
+      ۳. پولِ آزاد = نقد + پولِ فروشِ بند ۱ → روی نمادهای **تازهٔ**
+         دفتر، به نسبتِ وزنشان. قاعدهٔ ۵۶: «نقد نگه نمی‌داری.»
     """
-    want = {}
-    for r in book:
-        c = px.get(norm(r["sym"]))
-        if c:
-            want[r["sym"]] = (capital * r["w"] / 100) / c
+    held = {norm(k) for k in units}
+    in_book = {norm(r["sym"]) for r in book}
     sells, buys, noprice = [], [], []
+    free = float(cash or 0)
+
+    # ── ۱ و ۲ · فروش فقط برای خروج‌خورده‌ها ──────────────────────
     for sym, u in units.items():
         c = px.get(norm(sym))
         if c is None:
             # بی‌صدا ردش نکن — این همان الگویی است که سه بار گرفت.
             noprice.append(sym)
             continue
-        tgt = 0.0
-        for w, wu in want.items():
-            if norm(w) == norm(sym):
-                tgt = wu
-                break
-        if u - tgt > max(1.0, u * 0.02):          # زیرِ ۲٪ اختلاف را دست نزن
-            sells.append({"sym": sym, "units": u - tgt, "px": c,
-                          "amt": (u - tgt) * c, "all": tgt <= 0})
-    for sym, wu in want.items():
-        c = px.get(norm(sym))
-        if c is None:
+        if norm(sym) in in_book:
+            continue                         # نگه‌دار — قاعدهٔ ۳۰
+        if u <= 0:
             continue
-        have = 0.0
-        for s2, u2 in units.items():
-            if norm(s2) == norm(sym):
-                have = u2
-                break
-        if wu - have > max(1.0, wu * 0.02):
-            buys.append({"sym": sym, "units": wu - have, "px": c,
-                         "amt": (wu - have) * c, "new": have <= 0})
+        sells.append({"sym": sym, "units": u, "px": c,
+                      "amt": u * c, "all": True})
+        free += u * c
+
+    # ── ۳ · خرید فقط برای تازه‌ها، با پولِ آزاد ──────────────────
+    new = [r for r in book
+           if norm(r["sym"]) not in held and not r.get("hold_only")
+           and px.get(norm(r["sym"]))]
+    W = sum(max(0.0, r.get("w", 0.0)) for r in new)
+    if new and free > 0 and W > 0:
+        for r in new:
+            c = px[norm(r["sym"])]
+            amt = free * max(0.0, r.get("w", 0.0)) / W
+            if amt <= 0:
+                continue
+            buys.append({"sym": r["sym"], "units": amt / c, "px": c,
+                         "amt": amt, "new": True})
+    elif free > 0 and not STOCK:
+        # هیچ نمادِ تازه‌ای نیست → مبنا. قاعدهٔ ۵۶.
+        c = px.get(norm(BENCH))
+        if c:
+            buys.append({"sym": BENCH, "units": free / c, "px": c,
+                         "amt": free, "new": norm(BENCH) not in held,
+                         "fill": True})
     sells.sort(key=lambda x: -x["amt"])
     buys.sort(key=lambda x: -x["amt"])
     return sells, buys, noprice
@@ -3300,20 +3493,43 @@ def bench_units(rows, units=None, px=None):
 # اجرا ذخیره می‌شود و اجرای بعد با آن مقایسه.
 #
 # فایل: data_bourse/state.json — یک عکسِ ساده از وضعیتِ هر نماد.
-def state_load():
+def _state_raw():
     f = DATA / "state.json"
-    if f.exists():
-        try:
-            d = json.loads(f.read_text(encoding="utf-8"))
-            return d.get("stamp"), d.get("sym", {})
-        except (ValueError, TypeError):
-            pass
-    return None, {}
+    if not f.exists():
+        return {}
+    try:
+        d = json.loads(f.read_text(encoding="utf-8"))
+    except (ValueError, TypeError):
+        return {}
+    # قالبِ قدیم: یک خانه {stamp, sym}
+    if "cur" not in d and "stamp" in d:
+        return {"cur": {"stamp": d.get("stamp"), "sym": d.get("sym", {})}}
+    return d
+
+
+def state_load(stamp=None):
+    """عکسی که امروز باید با آن مقایسه شود — **دیروز**، نه اجرای قبل.
+
+    ⚠️ دو خانه دارد و دلیلش خروجیِ ۳۰ سپتامبرِ اوست: هر چهار اجرا
+    «۰۹‑۳۰ → ۰۹‑۳۰ · هیچ تغییری نبود» چاپ کردند. با یک خانه، هر اجرا
+    عکسِ امروز را رویش می‌نوشت، پس اجرای دومِ همان روز امروز را با
+    خودش مقایسه می‌کرد. اصلاحِ اولم («اگر مُهر همان است رویش ننویس»)
+    فقط **درونِ یک** `--all` کار می‌کرد — اگر او صبح یک بار زده بود و
+    عصر دوباره، باز هم امروز با امروز.
+
+    حالا: `cur` = آخرین روزی که دیده شده، `prev` = روزِ قبل از آن. اگر
+    امروز همان `cur` است، مقایسه با `prev`؛ وگرنه با `cur`.
+    """
+    d = _state_raw()
+    cur, prev = d.get("cur") or {}, d.get("prev") or {}
+    if stamp and cur.get("stamp") == stamp:
+        return prev.get("stamp"), prev.get("sym", {})
+    return cur.get("stamp"), cur.get("sym", {})
 
 
 def state_save(stamp, rows, book):
     bk = {norm(r["sym"]) for r in book}
-    _pstamp, psym = state_load()
+    _pstamp, psym = state_load(stamp)
     d = {"stamp": stamp, "sym": {}}
     for r in rows:
         if not r.get("ok"):
@@ -3328,7 +3544,7 @@ def state_save(stamp, rows, book):
         if out_now:
             exit_at = stamp
         d["sym"][k] = {
-            "vgv": vgv,
+            "vgv": vgv, "ex": bool(exit_rule(r)[0]),
             "wst": r.get("wst"), "mst": r.get("mst"),
             "wd": bool(r.get("w_dead")), "md": bool(r.get("m_dead")),
             "book": k in bk, "exit_at": exit_at,
@@ -3341,23 +3557,39 @@ def state_save(stamp, rows, book):
     #
     # اگر مُهرِ ذخیره‌شده همین امروز است، دست نمی‌زنیم: عکسِ **دیروز**
     # باید بماند تا هر چهار اجرا همان تفاوتِ روزبه‌روز را ببینند.
-    if _pstamp == stamp:
-        return
+    raw = _state_raw()
+    cur = raw.get("cur") or {}
+    if cur.get("stamp") == stamp:
+        # همان روز، اجرای دوباره — فقط `cur` تازه می‌شود، `prev` (دیروز)
+        # دست نمی‌خورد.
+        out = {"prev": raw.get("prev") or {}, "cur": d}
+    else:
+        # روزِ تازه — امروزِ قبلی می‌شود دیروز.
+        out = {"prev": cur, "cur": d}
     (DATA / "state.json").write_text(
-        json.dumps(d, ensure_ascii=False, indent=1), encoding="utf-8")
+        json.dumps(out, ensure_ascii=False, indent=1), encoding="utf-8")
 
 
 # هر رویداد: (اولویت، برچسب، رنگ، توضیح)
 EV = {
-    "vg_break": (0, "شکستِ خلای حجمی ↓", "r",
-                 "حکمِ خلای حجمی از بالا/داخل به **زیر** رفت — "
-                 "قاعدهٔ خروجِ خودت"),
-    "stop": (0, "استاپ خورد", "r",
-             "کلوز از کفِ باکس رد شد؛ سیگنالِ آن افق مرده است"),
-    "wst_down": (1, "زیرِ باکسِ هفتگی", "r",
-                 "وضعیتِ هفتگی به «زیر» رفت"),
-    "mst_down": (1, "زیرِ باکسِ ماهانه", "r",
-                 "وضعیتِ ماهانه به «زیر» رفت"),
+    # ⚠️ تنها رویدادِ **فوری و قرمز** حالا همین است — `exit_rule`،
+    # قاعدهٔ خودِ او. قبلاً «استاپ خورد» و «زیرِ باکسِ هفتگی» (هر دو
+    # **باکسِ افقی**) هم قرمز و فوری بودند، پس تبِ «تصمیمِ امروز» برای
+    # نهال «استاپ خورد» نشان می‌داد در حالی که خلای حجمی‌اش «بالا» بود
+    # و آلارم می‌گفت نگه دار.
+    "exit": (0, "🔄 خروج — قاعدهٔ خودت", "r",
+             "exit_rule خورد: کلوزِ روزِ تصمیم زیرِ ناحیهٔ خلای حجمی، "
+             "یا کندلِ دیلی کاملاً زیرِ ناحیه (قاعده‌های ۱۵، ۳۰، ۳۲)"),
+    "vg_break": (1, "شکستِ خلای حجمی ↓", "r",
+                 "حکمِ خلای حجمی از بالا/داخل به **زیر** رفت"),
+    "stop": (2, "استاپِ باکسِ افقی (خبر)", "y",
+             "کلوز از کفِ باکسِ **افقی** رد شد. خروج نیست — مبنای "
+             "خروج خلای حجمی است؛ اگر آن هم خورده بود، «خروج» جدا "
+             "می‌آید"),
+    "wst_down": (2, "زیرِ باکسِ افقیِ هفتگی (خبر)", "y",
+                 "باکسِ **افقیِ** هفتگی به «زیر» رفت. خروج نیست."),
+    "mst_down": (2, "زیرِ باکسِ افقیِ ماهانه (خبر)", "y",
+                 "باکسِ **افقیِ** ماهانه به «زیر» رفت. خروج نیست."),
     "out": (2, "از دفتر خارج شد", "y",
             "دیروز در دفتر بود، امروز نیست"),
     "vg_back": (3, "بازگشت بالای خلای حجمی ↑", "g",
@@ -3378,7 +3610,7 @@ def state_diff(rows, book, units=None, stamp=None):
     است و تاریخ None — و این را باید گفت، نه اینکه «هیچ تغییری نبود»
     نشان داد. آن دو یکی نیستند.
     """
-    prev_stamp, prev = state_load()
+    prev_stamp, prev = state_load(stamp)
     if not prev:
         return None, []
     # ── آیا دوره نو شده؟ ──────────────────────────────────────────
@@ -3406,6 +3638,7 @@ def state_diff(rows, book, units=None, stamp=None):
         if not o:
             continue
         now = {"vgv": (r.get("vg") or {}).get("حکم"),
+               "ex": bool(exit_rule(r)[0]),
                "wst": r.get("wst"), "mst": r.get("mst"),
                "wd": bool(r.get("w_dead")), "md": bool(r.get("m_dead")),
                "book": k in bk}
@@ -3414,6 +3647,8 @@ def state_diff(rows, book, units=None, stamp=None):
             ev.append("vg_break")
         if o.get("vgv") == "زیر" and now["vgv"] == "بالا":
             ev.append("vg_back")
+        if now.get("ex") and not o.get("ex"):
+            ev.append("exit")
         if (now["wd"] and not o.get("wd")) or (now["md"]
                                               and not o.get("md")):
             ev.append("stop")
@@ -3537,14 +3772,9 @@ def alarms(rows, book, units=None):
                 else NORM_HOLD)
         if n not in held:
             continue
-        if r["wst"] == "زیر" or r["mst"] == "زیر":
-            which = []
-            if r["mst"] == "زیر":
-                which.append("ماهانه")
-            if r["wst"] == "زیر":
-                which.append("هفتگی")
-            sell.append((r["sym"], r["close"], " و ".join(which),
-                         held[n]))
+        fired, why, _lo = exit_rule(r)
+        if fired:
+            sell.append((r["sym"], r["close"], why, held[n]))
     return buy, sell
 
 
@@ -3554,8 +3784,8 @@ def alarm_text(buy, sell, stamp):
     if sell:
         L.append("<b>🔄 آلارمِ جابه‌جایی</b> (نقد نشو — عوض کن)")
         for sym, px, which, units in sell:
-            L.append(f"• <b>{sym}</b> — کلوز {px:,.0f} زیرِ باکسِ "
-                     f"{which} · {units:,} واحد داری")
+            L.append(f"• <b>{sym}</b> — کلوز {px:,.0f} · {which} · "
+                     f"{units:,} واحد داری")
     if buy:
         L.append("<b>🟢 آلارمِ خرید — الان در نوار</b>")
         for sym, aim, stop, risk, tier in buy:
@@ -4794,7 +5024,7 @@ def html(rows, book, capital, stamp, last_date, buy=(), sell=(),
                 f'<td class="td"><span class="badge b-r">🔄 عوض کن'
                 f'</span></td><td class="td n">{n(px2)}</td>'
                 f'<td class="td n">{n(u)}</td>'
-                f'<td class="td">کلوز زیرِ باکسِ {which}</td></tr>')
+                f'<td class="td">{which}</td></tr>')
         for x in sells:
             srows.append(
                 f'<tr><td class="td sym">{x["sym"]}</td>'
@@ -4819,8 +5049,10 @@ def html(rows, book, capital, stamp, last_date, buy=(), sell=(),
             r0 = next((b for b in book
                        if norm(b["sym"]) == norm(x["sym"])), None)
             z = (r0 or {}).get("z") or {}
-            tag = "جدید" if x["new"] else "اضافه کن"
-            cls = "b-g" if x["new"] else "b-y"
+            tag = ("پرکننده" if x.get("fill") else
+                   "جدید" if x["new"] else "اضافه کن")
+            cls = ("b-y" if x.get("fill") else
+                   "b-g" if x["new"] else "b-y")
             brows.append(
                 f'<tr data-s="{x["sym"]}"><td class="td sym">{x["sym"]}'
                 f'</td><td class="td"><span class="badge {cls}">'
@@ -4929,7 +5161,7 @@ def html(rows, book, capital, stamp, last_date, buy=(), sell=(),
         for sym, px, which, units in sell:
             rowsh.append(
                 f'<div class="al al-s"><b>🔄 عوض کن — {sym}</b>'
-                f'<span>کلوز {n(px)} زیرِ باکسِ {which} · '
+                f'<span>کلوز {n(px)} · {which} · '
                 f'{units:,} واحد داری — <b>نقد نشو</b>، ببر روی '
                 f'نمادی که بالای باکسش است</span></div>')
         for sym, aim, stop, risk, tier in buy:
@@ -6048,7 +6280,7 @@ def run_all(argv, stock_share, open_pages=True, adopt=False):
     print("=" * 64)
     for f in made:
         print(f"    {f}")
-    rc = combined(snaps, stock_share, open_pages, adopt)
+    rc = combined(snaps, stock_share, open_pages, adopt, made=made)
     if open_pages:
         for f in made:
             try:
@@ -6059,7 +6291,7 @@ def run_all(argv, stock_share, open_pages=True, adopt=False):
 
 
 def combined(snaps, stock_share=None, open_pages=False,
-             adopt=False):
+             adopt=False, made=None):
     """گزارشِ ترکیبی — یک سرمایه، یک پرتفوی هدف، یک فهرستِ خرید و فروش."""
     share = STOCK_SHARE if stock_share is None else stock_share
     share = max(0.0, min(100.0, share))
@@ -6185,26 +6417,46 @@ def combined(snaps, stock_share=None, open_pages=False,
         for k, v in (x.get("px") or {}).items():
             px.setdefault(k, v)
     tgt = {norm(r["sym"]): r for r in rows}
+    # ⚠️ همان باگِ `rebalance()`، در نسخهٔ دومش: هر قلم را به وزنِ
+    # هدف می‌برد و کهربا و سینرژی و عیار را که **بالای باکس** بودند
+    # می‌فروخت. قاعدهٔ ۳۰ او: «فقط در صورتی می‌فروشیم که زیرِ باکس
+    # باز شه. همین.» حالا همان سه قدم:
+    #   ۱ · داری و در سبدِ هدف نیست = خروج خورده → کامل بفروش
+    #   ۲ · داری و در سبدِ هدف هست   → دست نزن
+    #   ۳ · نقد + پولِ بند ۱         → روی نمادهای تازه، به نسبتِ وزن
+    cash0 = max((float(x.get("cash") or 0) for x in snaps.values()),
+                default=0.0)
+    held = {norm(k) for k in units}
     sells, buys, nopx = [], [], []
+    free = cash0
     for sym, u in units.items():
         k = norm(sym)
         pxx = px.get(k)
         if not pxx:
             nopx.append(sym)
             continue
-        want = (capital * tgt[k]["w2"] / 100 / pxx) if k in tgt else 0.0
-        if u - want > max(1.0, u * 0.02):
-            d = u - want
-            sells.append((sym, d, pxx, d * pxx, want <= 0))
-    for k, r in tgt.items():
-        pxx = px.get(k) or r.get("aim") or r.get("close")
-        if not pxx or r["hold_only"]:
+        if k in tgt or u <= 0:
             continue
-        have = next((u for sm, u in units.items() if norm(sm) == k), 0)
-        want = capital * r["w2"] / 100 / pxx
-        if want - have > max(1.0, want * 0.02):
-            d = want - have
-            buys.append((r["sym"], d, pxx, d * pxx, have <= 0))
+        sells.append((sym, u, pxx, u * pxx, True))
+        free += u * pxx
+    new = [(k, r) for k, r in tgt.items()
+           if k not in held and not r["hold_only"]
+           and (px.get(k) or r.get("aim") or r.get("close"))]
+    W = sum(max(0.0, r["w2"]) for _k, r in new)
+    if new and free > 0 and W > 0:
+        for k, r in new:
+            pxx = px.get(k) or r.get("aim") or r.get("close")
+            amt = free * max(0.0, r["w2"]) / W
+            if amt > 0:
+                buys.append((r["sym"], amt / pxx, pxx, amt, True))
+    elif free > 0:
+        # هیچ نمادِ تازه‌ای نیست → مبنای جهانِ صندوق. قاعدهٔ ۵۶.
+        bn = next((x.get("bench") for x in snaps.values()
+                   if x.get("universe") == "صندوق"), None)
+        pxx = px.get(norm(bn)) if bn else None
+        if pxx:
+            buys.append((bn + " (پرکننده)", free / pxx, pxx, free,
+                         norm(bn) not in held))
     if sells or buys:
         out("\n" + "=" * 64)
         out("  از سبدِ فعلی به سبدِ هدف — یک فهرست، نه دو تا")
@@ -6331,8 +6583,8 @@ def combined(snaps, stock_share=None, open_pages=False,
     if not ab and not asl:
         out("\n  🔕 نه آلارمِ خرید هست نه فروش.")
     for t, sym, px, which, u in asl:
-        out(f"\n  🔄 عوض کن  {sym} ({t}) — کلوز {px:,.0f} زیرِ "
-            f"باکسِ {which} · {u:,} واحد")
+        out(f"\n  🔄 عوض کن  {sym} ({t}) — کلوز {px:,.0f} · "
+            f"{u:,} واحد\n      ↳ {which}")
     for t, sym, aim, stop, risk, tier in ab:
         if t == "سهام" and share == 0:
             out(f"\n  🟡 {sym} (سهام) سیگنال است ولی سهمِ سهام صفر "
@@ -6350,20 +6602,17 @@ def combined(snaps, stock_share=None, open_pages=False,
     # نمی‌شوند، پس او به فایلِ **کهنهٔ اجرای قبل** فرستاده می‌شد. از
     # روی صفحه هم معلوم نبود، چون فایل از اجرای قبل وجود داشت.
     out("\n  داشبوردها:")
+    # ⚠️ قبلاً با حدسِ «فایلی که در ۳۰ دقیقهٔ اخیر نوشته شده» انتخاب
+    # می‌شد، و فایلِ اجرای **دیگری** را هم نشان داد. `run_all` دقیقاً
+    # می‌داند چه ساخته؛ همان را بگیر.
+    LAB = {HZ_OUT["month"]: "صندوق · ماهانه",
+           HZ_OUT["week"]: "صندوق · هفتگی",
+           "stocks_" + HZ_OUT["month"]: "سهام · ماهانه",
+           "stocks_" + HZ_OUT["week"]: "سهام · هفتگی",
+           "dashboard.html": "صندوق", "dashboard_stocks.html": "سهام"}
     seen = 0
-    for tag, f in (
-            ("صندوق · ماهانه", HERE / HZ_OUT["month"]),
-            ("صندوق · هفتگی", HERE / HZ_OUT["week"]),
-            ("سهام · ماهانه", HERE / ("stocks_" + HZ_OUT["month"])),
-            ("سهام · هفتگی", HERE / ("stocks_" + HZ_OUT["week"])),
-            ("صندوق", HERE / "dashboard.html"),
-            ("سهام", HERE / "dashboard_stocks.html")):
-        if not f.exists():
-            continue
-        age = (time.time() - f.stat().st_mtime) / 60
-        if age > 30:                 # مالِ این اجرا نیست
-            continue
-        out(f"    {tag:<16}{f}")
+    for f in (made or []):
+        out(f"    {LAB.get(Path(f).name, Path(f).name):<16}{f}")
         seen += 1
     if not seen:
         out("    ⚠️  هیچ فایلی از این اجرا پیدا نشد.")
@@ -6413,7 +6662,7 @@ def combined(snaps, stock_share=None, open_pages=False,
 def main():
     global REQUIRE_CUR_MONTH, MAX_INVESTED, MAX_WEIGHT
     global STOCK, DATA, OUT, MIN_VALUE_BN, WINRATE, LIVE_STATE, BOX_KIND
-    global BENCH_FILTER, BENCH_LOOK, BENCH, HZ, CAT_RULE
+    global BENCH_FILTER, BENCH_LOOK, BENCH, HZ, CAT_RULE, STOCK_SHARE
     ap = argparse.ArgumentParser()
     ap.add_argument("--capital", type=float, default=0,
                     help="سرمایه به ریال؛ ۰ یعنی از data_bourse/capital.txt")
@@ -6499,6 +6748,8 @@ def main():
     if args.max_weight is not None:
         MAX_WEIGHT = args.max_weight
     REQUIRE_CUR_MONTH = args.curmonth
+    if args.stock_share is not None:
+        STOCK_SHARE = max(0.0, min(100.0, args.stock_share))
 
     # ── --all: هر دو جهان، بعد یک گزارشِ ترکیبی ────────────────────
     # قبل از هر کارِ دیگری، چون این اجرا خودش دو زیرفرایند می‌سازد و
@@ -6511,15 +6762,18 @@ def main():
         # ⚠️ `--hz` اینجا **نمی‌افتد**: run_all خودش حلقهٔ افق را
         # می‌زند و لازم دارد بداند او کدام را خواسته. بالاتر جداش
         # می‌کند. بقیه می‌افتند چون زیرفرایند نباید دوباره صداشان کند.
+        # ⚠️ `--stock-share` قبلاً اینجا می‌افتاد، پس زیرفرایندِ سهام
+        # همیشه سهمِ صفر می‌دید حتی اگر او ۲۰ داده بود — و گزارشِ
+        # ترکیبی ۲۰. حالا پاس داده می‌شود.
         drop = {"--all", "--stocks", "--export", "--no-open",
-                "--stock-share", "--adopt"}
+                "--adopt"}
         passthru, skip = [], False
         for a in sys.argv[1:]:
             if skip:
                 skip = False
                 continue
             if a in drop:
-                skip = a in ("--export", "--stock-share")
+                skip = a in ("--export",)
                 continue
             if a.split("=")[0] in drop:
                 continue
@@ -6804,13 +7058,20 @@ def main():
             ser = idx_series(nm)
             if ser:
                 PX[norm(nm)] = ser[max(ser)]
+    # ⚠️ `hold_px.json` (قیمتِ اقلامِ غیرصندوقیِ پرتفو، مثلِ فباهنر)
+    # قبلاً اینجا به `PX` اضافه می‌شد. ولی `PX` مبنای **معامله** است:
+    # rebalance هر چیزی را که قیمت دارد و در دفتر نیست می‌فروشد، پس
+    # داشبوردِ **صندوق** می‌توانست بگوید «فباهنر را بفروش». حالا آن
+    # قیمت فقط در `CAP_PX` (ارزش‌گذاری) می‌نشیند — شمرده می‌شود، معامله
+    # نمی‌شود.
+    _hold_px = {}
     hpf = DATA / "hold_px.json"
     if hpf.exists():
         try:
-            for k, v in json.loads(hpf.read_text(encoding="utf-8")).items():
-                PX[norm(k)] = v
+            _hold_px = {norm(k): v for k, v in
+                        json.loads(hpf.read_text(encoding="utf-8")).items()}
         except ValueError:
-            pass
+            _hold_px = {}
 
     capfile = DATA / "capital.txt"
     # ══ سرمایه — هر اجرا از نو، هیچ‌وقت از کَش ══════════════════════
@@ -6832,15 +7093,33 @@ def main():
     # حالا: سرمایه **همیشه** از `HOLDING` و `CASH` حساب می‌شود.
     # `capital.txt` و `--capital` فقط **بازنویسیِ عمدی**اند و اگر با
     # عددِ واقعی نخوانند، بلند گفته می‌شود.
-    px = {r["sym"]: r["close"] for r in rows}
-    hf = DATA / "hold_px.json"
-    if hf.exists():
-        try:
-            px.update(json.loads(hf.read_text(encoding="utf-8")))
-        except ValueError:
-            pass
     _hu, _hc = holdings_load()
-    _have, _miss = port_value(_hu, 0.0, PX)
+    # ⚠️ در جهانِ سهام صندوق‌ها قیمت ندارند، پس سرمایه «۰٫۰ دارایی +
+    # ۱۱٫۶ نقد = ۱۱٫۶ میلیارد» می‌شد — فقط نقد، در حالی که پرتفو
+    # ۱۳۴٫۳ است. قیمتِ اقلامِ نگه‌داشته را از پوشهٔ جهانِ دیگر
+    # می‌خوانیم، **فقط برای شمردنِ کلِ پرتفو**.
+    #
+    # ⚠️⚠️ و عمداً به `PX` اضافه نمی‌شود: اگر بشود، rebalanceِ جهانِ
+    # سهام صندوق‌ها را «داری و در دفترِ سهام نیست» می‌خواند و **همهٔ
+    # صندوق‌هایت را می‌فروشد**. قیمتِ جهانِ دیگر فقط شمرده می‌شود،
+    # معامله نمی‌شود.
+    other = HERE / ("data_bourse" if STOCK else "data_stocks")
+    CAP_PX = {**_hold_px, **PX}
+    for k in _hu:
+        if norm(k) in CAP_PX:
+            continue
+        f = other / f"{k}.csv"
+        if f.exists():
+            try:
+                last = None
+                with f.open(encoding="utf-8-sig", newline="") as fh:
+                    for row in csv.DictReader(fh):
+                        last = row
+                if last and float(last.get("close") or 0) > 0:
+                    CAP_PX[norm(k)] = float(last["close"])
+            except (OSError, ValueError, KeyError):
+                pass
+    _have, _miss = port_value(_hu, 0.0, CAP_PX)
     live_cap = _have + _hc
 
     override = args.capital
@@ -6881,13 +7160,6 @@ def main():
         # capital مخرجِ «ریسکِ کل» و «نقد» است، پس عددِ ساختگی یعنی دو
         # کاشیِ داشبورد غلط — و غلط‌بودنشان از روی صفحه معلوم نیست.
         # حالا: ارزشِ روزِ آنچه داریم + نقد.
-        px = {r["sym"]: r["close"] for r in rows}
-        hf = DATA / "hold_px.json"
-        if hf.exists():
-            try:
-                px.update(json.loads(hf.read_text(encoding="utf-8")))
-            except ValueError:
-                pass
         # نه پرتفو و نه بازنویسی — اینجا واقعاً چیزی نیست.
         print("\n      ⚠️  نه پرتفو قیمت خورد و نه --capital دادی، "
               "پس سرمایه صفر است و همهٔ درصدها بی‌معنی‌اند.")
@@ -6917,7 +7189,28 @@ def main():
         if nb:
             print("      مبنای سنجش: "
                   + " · ".join(f"{k} {v}" for k, v in sorted(nb.items())))
-    elig, book = build_book(rows, capital)
+    # ══ جهانِ سهام: پولی که خرجِ سهام می‌شود = سهمِ سهام ══════════
+    # ⚠️ اجرای مستقلِ سهام `STOCK_SHARE` را نمی‌دید و کلِ نقد را خرجِ
+    # سهام می‌کرد — خروجیِ او «نقد ۵۰٪ · خرید سباقر ۲٬۸۹۷ م.ر» داد، در
+    # حالی که گزارشِ ترکیبیِ همان اجرا گفت «سهام ۰٪». دو حرف در یک
+    # خروجی. نقد **یکی** است و بینِ دو جهان تقسیم می‌شود؛ اجرای سهام
+    # فقط سهمِ خودش را می‌بیند.
+    TOTAL_CAP = capital
+    CASH_SIZE = None
+    if STOCK:
+        _sv = sum(u * PX[norm(k)] for k, u in _hu.items()
+                  if norm(k) in PX)
+        CASH_SIZE = _hc * STOCK_SHARE / 100
+        capital = _sv + CASH_SIZE
+        print(f"      کلِ پرتفو {TOTAL_CAP / 1e9:,.1f} میلیارد · سهام "
+              f"{_sv / 1e9:,.2f} + سهمِ سهام از نقد {STOCK_SHARE:.0f}٪ "
+              f"= {capital / 1e9:,.2f} میلیارد قابلِ معامله در این جهان")
+        if STOCK_SHARE == 0:
+            print("      سهمِ سهام صفر است (docs/34: با کارمزدِ ۱٫۲٪ "
+                  "چرخشِ سهام از هولدِ شاخص عقب است).")
+            print("      پس این داشبورد **سیگنال** است نه سفارش. با "
+                  "--stock-share N عوض کن.")
+    elig, book = build_book(rows, max(capital, 1.0))
 
     # ── بازرس: هیچ ردیفی که ثابت‌های دفتر را نقض کند نباید رد شود ──
     book, bad = audit(rows, book)
@@ -6942,8 +7235,24 @@ def main():
     last_date = date(y, mo, dd)
     # ── قطب‌نما و فهرستِ خرید/فروش ─────────────────────────────────
     hu, hc = holdings_load()
-    comp = compass(PX, hu, hc, stamp)
-    sells, buys, nopx = rebalance(hu, hc, book, PX, capital)
+    # در جهانِ سهام فقط سهمِ سهام از نقد خرج می‌شود — بالاتر.
+    hc_use = hc if CASH_SIZE is None else CASH_SIZE
+    if STOCK and capital < max(1e6, TOTAL_CAP * 0.005):
+        # کمتر از نیم درصدِ پرتفو در سهام → قطب‌نمای سهام معنا ندارد.
+        # قبلاً «پرتفو ۱۱٫۵۹ م‌لیارد · شاخص کل ۱۱٫۵۹ · برابر» چاپ
+        # می‌کرد: نقد را با نقد مقایسه می‌کرد.
+        comp = {"blocked": "سهامی در سبد نیست (کمتر از ۰٫۵٪ پرتفو) و "
+                "سهمِ سهام از نقد صفر است — قطب‌نمای سهام چیزی برای "
+                "سنجیدن ندارد. قطب‌نمای اصلی در داشبوردِ صندوق است."}
+    else:
+        comp = compass(CAP_PX if not STOCK else PX, hu, hc_use, stamp)
+    sells, buys, nopx = rebalance(hu, hc_use, book, PX, capital)
+    # از اینجا به بعد `capital` فقط **مخرجِ نمایش** است. در جهانِ سهام
+    # پولِ قابلِ معامله می‌تواند صفر باشد (سهمِ سهام ۰٪) و تقسیم بر آن
+    # کرش می‌کرد؛ درصدِ درست هم «چند درصدِ کلِ پرتفو» است، نه «چند
+    # درصدِ پولی که به سهام رسیده».
+    if STOCK:
+        capital = TOTAL_CAP
     pos = positions(rows, hu, PX)
     # سقفِ اختیاریِ ریسکِ کلِ سبد. پیش‌فرض خاموش است، چون اندازه‌گیری
     # نشان داد هم بازده و هم افتِ سرمایه را بدتر می‌کند.
@@ -7219,7 +7528,9 @@ def main():
                   f"{'مبلغ (م.ر)':>14}")
             print("  " + "-" * 60)
             for x in buys:
-                tag = " (جدید)" if x["new"] else ""
+                tag = (" (پرکننده — سیگنال نیست، قاعدهٔ ۵۶)"
+                       if x.get("fill") else
+                       " (جدید)" if x["new"] else "")
                 print(f"  {x['sym']:<12}{x['units']:>14,.0f}"
                       f"{x['px']:>12,.0f}{x['amt']/1e6:>14,.0f}{tag}")
             print(f"  {'جمعِ خرید':<12}{'':>14}{'':>12}"
@@ -7270,6 +7581,13 @@ def main():
         print("\n" + "=" * 64)
         print(f"  قطب‌نما — در برابرِ {BENCH}")
         print("=" * 64)
+        if comp.get("legacy"):
+            print(f"\n  ⚠️  لنگرِ قبلی ({comp['legacy']}) با نسخهٔ قدیمِ "
+                  "برنامه نوشته شده بود و ترکیبِ سبد را")
+            print("      ثبت نکرده بود — همان که «+۲۶٫۴۶٪ در ۴ روز» "
+                  "می‌داد. کنار گذاشته شد")
+            print("      (baseline.old.json) و لنگرِ تازه از امروز "
+                  "بسته شد.")
         if comp.get("changed"):
             # ⚠️ گاردی که نبود و او عددِ ۲۶٫۴۶٪ در ۴ روز را دید.
             print(f"\n  ⚠️  ترکیبِ سبد از روزِ لنگر "
@@ -7298,8 +7616,10 @@ def main():
             print(f"  امروز      {comp['units_now']:>14,.0f} واحد")
             print(f"  تغییر      {ud:>+14,.0f} واحد "
                   f"({comp['units_pct']:+.2f}٪)  ← "
-                  + ("بیشتر شد ✓" if ud > 0 else
-                     "کمتر شد ✗" if ud < 0 else "تغییری نکرد"))
+                  # «+۰ واحد ← بیشتر شد ✓» چاپ می‌شد: ud ممکن است ۰٫۳
+                  # باشد که به ۰ گرد می‌شود. زیرِ نیم واحد = بی‌تغییر.
+                  + ("بیشتر شد ✓" if ud >= 0.5 else
+                     "کمتر شد ✗" if ud <= -0.5 else "تغییری نکرد"))
             print(f"\n  از {comp['base_date']} تا {comp['date']} "
                   f"({comp['days']} روز)\n")
             print(f"  {'پرتفو':<14}{comp['port']/1e9:>10,.2f} م‌لیارد"
@@ -7374,13 +7694,32 @@ def main():
     if ok_n and weak / ok_n >= 0.30:
         print(f"\n  ⚠️  {weak} از {ok_n} نماد روی «ناحیهٔ ارزش» افتاده‌اند.")
         if not (not args.offline and args.ticks):
-            print("      مسیرِ ریزمعاملات خاموش است. بدونِ --no-ticks اجرا کن.")
+            # ⚠️ پیامِ قبلی می‌گفت «بدونِ --no-ticks اجرا کن» — ولی
+            # روشن کردنِ تیک هم کمکی نمی‌کرد (پایین‌تر را ببین).
+            print("      قاعدهٔ ۵ («اگه ناحیه خلا نداد از ۴ ساعته بگیر») "
+                  "فقط با export")
+            print("      چارتیکس H4 کار می‌کند: data/chartix_h4/ با "
+                  "نامِ خودِ نماد.")
+            print("      TSETMC برای روزهای گذشته ریزمعامله نمی‌دهد، "
+                  "پس تیک جایش را نمی‌گیرد.")
         elif not src.get("درهٔ حجمی روی کندلِ ساعتی"):
-            print("      و مسیرِ ساعتی **هیچ** باکسی نساخت — یعنی تیکی"
-                  " خوانده نشده.")
-            print("      `python bourse.py --sample` را بزن و خروجی‌اش را"
-                  " برایم بفرست؛")
-            print("      احتمالاً TSETMC شکلِ XML را عوض کرده.")
+            # ⚠️ پیامِ قبلی می‌گفت «احتمالاً TSETMC شکلِ XML را عوض
+            # کرده» و او را دنبالِ نخودِ سیاه می‌فرستاد. علتِ واقعی در
+            # بندِ ۵ خودِ راهنما نوشته بود: GetTradeHistory برای روزهای
+            # **گذشته** آرایهٔ خالی برمی‌گرداند، و باکس همیشه از دورهٔ
+            # کامل‌شدهٔ قبل ساخته می‌شود. پس مسیرِ تیک برای قاعدهٔ ۵
+            # هرگز جواب نمی‌دهد — خراب نشده، از اول نمی‌توانست.
+            # (این اصلاح یک بار نوشته شد و به خاطرِ خطای دیگری در همان
+            # اسکریپت ذخیره نشد؛ او پیامِ قدیمی را دوباره دید.)
+            print("      مسیرِ ساعتی هیچ باکسی نساخت — و این خرابی نیست:")
+            print("      TSETMC برای روزهای **گذشته** ریزمعامله نمی‌دهد "
+                  "(بندِ ۵ راهنما)،")
+            print("      و باکس همیشه از دورهٔ کامل‌شدهٔ قبل است. پس "
+                  "قاعدهٔ ۵ («اگه ناحیه")
+            print("      خلا نداد از ۴ ساعته بگیر») فقط با **export "
+                  "چارتیکس H4** کار می‌کند:")
+            print("      فایل‌ها در data/chartix_h4/ با نامِ خودِ نماد "
+                  "(مثلاً نهال_H4.csv).")
 
     print(f"\n  {len(hot)} نماد در نوار خرید · {len(elig)} واجد شرط")
 
@@ -7390,8 +7729,9 @@ def main():
         print("  🔔 آلارم")
         print("=" * 64)
         for sym, px, which, units in sell:
-            print(f"  🔄 عوض کن {sym:<10} کلوز {px:>12,.0f} زیرِ باکسِ "
-                  f"{which} · {units:,} واحد")
+            print(f"  🔄 عوض کن {sym:<10} کلوز {px:>12,.0f} · "
+                  f"{units:,} واحد")
+            print(f"     ↳ {which}")
         if sell:
             print("     ↳ نقد نشو. پولش را ببر روی نمادی که بالای"
                   " باکسش است (فهرستِ زیر).")
