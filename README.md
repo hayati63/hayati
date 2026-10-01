@@ -20,7 +20,7 @@
 
 | مسیر | توضیح |
 |---|---|
-| `mql5/Experts/PoursamadiEA.mq5` | **اکسپرت SP2L (H1) + Pro BTB (M15) پورصمدی با ضدمارتینگل** — تنظیمات: `mql5/Presets/Poursamadi_*.set` — راهنمای نصب و تست: [docs/GUIDE_PoursamadiEA_fa.md](docs/GUIDE_PoursamadiEA_fa.md) |
+| `mql5/Experts/PoursamadiEA.mq5` | **اکسپرت SP2L (H1) + Pro BTB (M15) پورصمدی با ضدمارتینگل** — تنظیمات: `mql5/Presets/Poursamadi_*.set` — راهنمای نصب و تست: [docs/GUIDE_PoursamadiEA_fa.md](docs/GUIDE_PoursamadiEA_fa.md) و نسخه‌ی تصویری [docs/GUIDE_PoursamadiEA_fa.html](docs/GUIDE_PoursamadiEA_fa.html) |
 | `mql5/Experts/VolumeGapCascadeEA.mq5` | اکسپرت MT5 (کل منطق Pine + ورود لیمیت/پین‌بار، SL/TP، مدیریت ریسک، آمار R، معیار بهینه‌سازی) |
 | `mql5/Presets/*.set` | تنظیمات آماده: پیش‌فرض H4 پین‌بار، نسخه‌ی وفادار به Pine (H1، ۴ باکس)، بازه‌های بهینه‌سازی |
 | `mql5/Scripts/ExportBarsCSV.mq5` | خروجی گرفتن دیتای M1 با تیک‌ولوم از لایت‌فایننس برای تکرار تحقیق |

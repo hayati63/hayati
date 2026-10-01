@@ -1,0 +1,398 @@
+<title>راهنمای تصویری PoursamadiEA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;700;800&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one reading column of numbered step cards; each step pairs short Persian instructions with a drawn MT5 window mock-up and red numbered callouts. */
+:root{
+  --bg:#f3f5f7; --paper:#ffffff; --ink:#18232f; --muted:#5b6b7b; --line:#d6dde4;
+  --accent:#0e6c7a; --gold:#b8860b; --call:#d1342f; --ok:#1f8a4c; --warn:#b26a00;
+  --win:#eef1f4; --winbar:#dfe5eb; --wintext:#1d2933; --sel:#cfe3f7; --chart:#fbfcfd;
+  --fa:"Vazirmatn",Tahoma,"Segoe UI",sans-serif; --mono:"JetBrains Mono",Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#11171d; --paper:#18212a; --ink:#e6edf3; --muted:#9aaab8; --line:#2c3a47;
+  --accent:#4cb8c7; --gold:#e0b546; --call:#ff6b62; --ok:#4cc985; --warn:#f0a43a;
+  --win:#1f2a35; --winbar:#273543; --wintext:#dbe5ee; --sel:#24496b; --chart:#151d25; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#11171d; --paper:#18212a; --ink:#e6edf3; --muted:#9aaab8; --line:#2c3a47;
+  --accent:#4cb8c7; --gold:#e0b546; --call:#ff6b62; --ok:#4cc985; --warn:#f0a43a;
+  --win:#1f2a35; --winbar:#273543; --wintext:#dbe5ee; --sel:#24496b; --chart:#151d25; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--fa);font-size:16px;line-height:1.9;margin:0;padding-inline:16px;padding-block:24px 64px}
+.wrap{max-width:860px;margin:0 auto;display:flex;flex-direction:column;gap:28px}
+header h1{font-size:clamp(26px,5vw,36px);font-weight:800;margin:0;text-wrap:balance;line-height:1.4}
+header p{color:var(--muted);margin:6px 0 0}
+.toc{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.toc a{font-size:13px;color:var(--accent);text-decoration:none;border:1px solid var(--line);border-radius:999px;padding:2px 12px;background:var(--paper)}
+.toc a:hover,.toc a:focus-visible{border-color:var(--accent);outline:none}
+.phase{font-size:13px;font-weight:700;letter-spacing:.04em;color:var(--gold);margin:12px 0 -14px}
+.step{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:22px;display:flex;flex-direction:column;gap:14px}
+.step h2{margin:0;font-size:21px;display:flex;align-items:center;gap:12px;text-wrap:balance;line-height:1.5}
+.num{flex:none;width:36px;height:36px;border-radius:50%;background:var(--accent);color:var(--paper);display:grid;place-items:center;font-weight:800;font-size:17px;font-variant-numeric:tabular-nums}
+.step ol,.step ul{margin:0;padding-inline-start:22px}
+.step li{margin:2px 0}
+.why{font-size:14px;color:var(--muted);border-inline-start:3px solid var(--gold);padding-inline-start:12px}
+.note{font-size:14px;border-radius:10px;padding:10px 14px;background:color-mix(in srgb,var(--warn) 12%,var(--paper));border:1px solid color-mix(in srgb,var(--warn) 40%,var(--line))}
+.okbox{font-size:14px;border-radius:10px;padding:10px 14px;background:color-mix(in srgb,var(--ok) 12%,var(--paper));border:1px solid color-mix(in srgb,var(--ok) 40%,var(--line))}
+kbd,code,.path{font-family:var(--mono);font-size:13px}
+kbd{border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:0 6px;background:var(--win)}
+.copy{display:flex;gap:8px;align-items:center;flex-wrap:wrap;direction:ltr;justify-content:flex-end}
+.copy code{background:var(--win);border:1px solid var(--line);border-radius:6px;padding:3px 8px;overflow-wrap:anywhere}
+.copy button{font-family:var(--fa);font-size:12px;border:1px solid var(--accent);color:var(--accent);background:transparent;border-radius:6px;padding:2px 10px;cursor:pointer}
+.copy button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+/* ---- MT5 window mock-ups ---- */
+.shot{overflow-x:auto}
+.win{direction:ltr;min-width:320px;border:1px solid var(--line);border-radius:8px;background:var(--win);color:var(--wintext);font-family:"Segoe UI",Tahoma,sans-serif;font-size:13px;line-height:1.5;overflow:hidden}
+.bar{background:var(--winbar);padding:6px 10px;display:flex;gap:6px;align-items:center;font-size:12px;border-bottom:1px solid var(--line)}
+.dots{display:flex;gap:5px;margin-inline-end:8px}.dots i{width:9px;height:9px;border-radius:50%;background:var(--line);display:block}
+.menu{display:flex;gap:16px;padding:4px 10px;border-bottom:1px solid var(--line);font-size:12.5px}
+.body{padding:10px;position:relative}
+.dd{border:1px solid var(--line);background:var(--paper);width:min(260px,100%);box-shadow:0 6px 16px rgba(0,0,0,.12);border-radius:4px}
+.dd div{padding:4px 12px;display:flex;justify-content:space-between;gap:12px}
+.dd .sep{height:1px;padding:0;background:var(--line);margin:3px 0}
+.hl{background:var(--sel);outline:2px solid var(--call);outline-offset:-2px;border-radius:3px}
+.c{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--call);color:#fff;font-size:11.5px;font-weight:700;font-family:var(--fa);flex:none;vertical-align:middle}
+.tree div{padding:2px 0;font-family:var(--mono);font-size:12.5px}
+.tree .in1{padding-left:18px}.tree .in2{padding-left:36px}.tree .in3{padding-left:54px}
+.ico{display:inline-block;width:14px;height:11px;border-radius:2px;background:var(--gold);margin-right:6px;vertical-align:-1px;opacity:.8}
+.file{display:inline-block;width:11px;height:13px;border:1.5px solid var(--muted);border-radius:2px;margin-right:7px;vertical-align:-2px}
+.grid2{display:grid;grid-template-columns:150px 1fr;gap:6px 12px;align-items:center}
+.field{background:var(--paper);border:1px solid var(--line);border-radius:3px;padding:2px 8px;min-height:24px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.tabs{display:flex;gap:2px;padding:0 10px;border-top:1px solid var(--line);background:var(--winbar);font-size:12px;flex-wrap:wrap}
+.tabs span{padding:4px 10px}.tabs .on{background:var(--win);border:1px solid var(--line);border-bottom:none;border-radius:4px 4px 0 0}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--paper);border:1px solid var(--line);border-radius:4px;padding:3px 12px}
+.code{font-family:var(--mono);font-size:12px;background:var(--chart);border:1px solid var(--line);padding:8px;border-radius:4px;white-space:pre;overflow-x:auto}
+.errs{font-family:var(--mono);font-size:12px;padding:6px 8px;background:var(--chart);border-top:1px solid var(--line)}
+.green{color:var(--ok);font-weight:600}
+table.kv{border-collapse:collapse;width:100%;font-size:12.5px}
+table.kv td{border:1px solid var(--line);padding:3px 8px}
+table.kv td:nth-child(odd){color:var(--muted)}
+.chartbox{height:150px;background:var(--chart);border:1px solid var(--line);border-radius:4px;position:relative;overflow:hidden}
+svg text{font-family:"Segoe UI",Tahoma,sans-serif}
+/* ---- tables & checklist ---- */
+.tablewrap{overflow-x:auto}
+table.t{border-collapse:collapse;width:100%;font-size:14px;min-width:520px}
+table.t th,table.t td{border-bottom:1px solid var(--line);padding:8px 10px;text-align:start;vertical-align:top}
+table.t th{font-size:13px;color:var(--muted);font-weight:700}
+.tag{display:inline-block;font-size:12px;font-weight:700;border-radius:999px;padding:0 10px}
+.tag.ok{background:color-mix(in srgb,var(--ok) 18%,var(--paper));color:var(--ok)}
+.tag.warn{background:color-mix(in srgb,var(--warn) 18%,var(--paper));color:var(--warn)}
+.tag.no{background:color-mix(in srgb,var(--call) 15%,var(--paper));color:var(--call)}
+.check{display:flex;flex-direction:column;gap:8px}
+.check label{display:flex;gap:10px;align-items:flex-start;cursor:pointer}
+.check input{width:18px;height:18px;margin-top:6px;accent-color:var(--accent);flex:none}
+.check input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.check input:checked + span{color:var(--muted);text-decoration:line-through}
+.mono-num{font-variant-numeric:tabular-nums}
+@media (max-width:520px){.grid2{grid-template-columns:110px 1fr}.step{padding:16px}}
+@media (prefers-reduced-motion:no-preference){.toc a{transition:border-color .15s}}
+</style>
+
+<div class="wrap" dir="rtl">
+
+<header>
+  <h1>راهنمای تصویری PoursamadiEA</h1>
+  <p>نصب و بک‌تست اکسپرت SP2L + Pro BTB در متاتریدر ۵، قدم به قدم. دایره‌های قرمز روی تصویرها جای کلیک را نشان می‌دهند.</p>
+  <nav class="toc" aria-label="فهرست">
+    <a href="#s1">۱ فایل‌ها</a><a href="#s2">۲ پوشه‌ی داده</a><a href="#s3">۳ کپی</a><a href="#s4">۴ کامپایل</a>
+    <a href="#s5">۵ نوع حساب</a><a href="#s6">۶ ساعت سرور</a><a href="#s7">۷ تستر</a><a href="#s8">۸ تنظیمات</a>
+    <a href="#s9">۹ اجرا و گزارش</a><a href="#s10">۱۰ پنج تست</a><a href="#s11">۱۱ ارسال نتیجه</a><a href="#tf">کدام تایم؟</a>
+  </nav>
+</header>
+
+<section class="step" id="tf" aria-labelledby="tf-h">
+  <h2 id="tf-h">هر استراتژی در چه تایمی؟</h2>
+  <div class="tablewrap"><table class="t">
+    <thead><tr><th>استراتژی</th><th>تایم</th><th>وضعیت</th><th>توضیح</th></tr></thead>
+    <tbody>
+      <tr><td><b>SP2L</b></td><td>فقط یک‌ساعته (H1)</td><td><span class="tag ok">اصلی</span></td><td>روی ۵ و ۱۵ دقیقه ضررده بود.</td></tr>
+      <tr><td><b>Pro BTB</b></td><td>۱۵ دقیقه (M15)</td><td><span class="tag ok">اصلی</span></td><td>فقط شکست قوی حداقل ۲ سقف/کف روزهای قبل، ساعت ۱۰–۱۳ و ۱۵:۳۰–۱۸ سرور.</td></tr>
+      <tr><td>Pro BTB</td><td>۵ دقیقه (M5)</td><td><span class="tag warn">اختیاری</span></td><td>مثبت، ولی در ۲۰۲۰–۲۰۲۵ ضعیف‌تر از ۱۵ دقیقه.</td></tr>
+      <tr><td>MicroMAP و بقیه</td><td>—</td><td><span class="tag no">استفاده نکنید</span></td><td>در تست‌ها مزیت نداشتند.</td></tr>
+    </tbody>
+  </table></div>
+  <div class="okbox">اکسپرت خودش کندل‌های H1 و M15 را می‌خواند. <b>تایم چارتی که اکسپرت را رویش می‌گذارید مهم نیست.</b> فقط یک چارت XAUUSD کافی است.</div>
+</section>
+
+<p class="phase">مرحله‌ی اول · نصب</p>
+
+<section class="step" id="s1" aria-labelledby="s1-h">
+  <h2 id="s1-h"><span class="num">۱</span>فایل zip را باز کنید</h2>
+  <p>فایل <code>PoursamadiEA.zip</code> را روی کامپیوتر Extract کنید. داخلش این‌ها هست:</p>
+  <div class="shot"><div class="win" role="img" aria-label="محتوای فایل zip">
+    <div class="bar"><span class="dots"><i></i><i></i><i></i></span>PoursamadiEA</div>
+    <div class="body tree">
+      <div><span class="ico"></span>PoursamadiEA</div>
+      <div class="in1"><span class="file"></span>GUIDE_PoursamadiEA_fa.md</div>
+      <div class="in1"><span class="ico"></span>MQL5</div>
+      <div class="in2"><span class="ico"></span>Experts</div>
+      <div class="in3"><span class="file"></span><b>PoursamadiEA.mq5</b> &nbsp;<span class="c">A</span></div>
+      <div class="in2"><span class="ico"></span>Presets</div>
+      <div class="in3"><span class="file"></span>Poursamadi_default.set &nbsp;<span class="c">B</span></div>
+      <div class="in3"><span class="file"></span>Poursamadi_SP2L_only.set</div>
+      <div class="in3"><span class="file"></span>Poursamadi_BTB_only.set</div>
+      <div class="in3"><span class="file"></span>Poursamadi_fixed_risk.set</div>
+      <div class="in3"><span class="file"></span>Poursamadi_BTB_M5.set</div>
+    </div>
+  </div></div>
+  <p><span class="c">A</span> خود اکسپرت &nbsp; <span class="c">B</span> فایل‌های تنظیمات آماده برای هر تست</p>
+</section>
+
+<section class="step" id="s2" aria-labelledby="s2-h">
+  <h2 id="s2-h"><span class="num">۲</span>پوشه‌ی داده‌ی متاتریدر را باز کنید</h2>
+  <ol><li>متاتریدر ۵ لایت‌فایننس را باز کنید.</li><li>منوی <b>File</b> <span class="c">1</span> و بعد <b>Open Data Folder</b> <span class="c">2</span>.</li></ol>
+  <div class="shot"><div class="win" role="img" aria-label="منوی File در متاتریدر">
+    <div class="bar"><span class="dots"><i></i><i></i><i></i></span>LiteFinance MetaTrader 5</div>
+    <div class="menu"><span class="hl">&nbsp;File&nbsp;</span><span class="c">1</span><span>Edit</span><span>View</span><span>Insert</span><span>Charts</span><span>Tools</span></div>
+    <div class="body"><div class="dd">
+      <div>New Chart</div><div>Open Deleted</div><div class="sep"></div>
+      <div class="hl"><span>Open Data Folder</span><span class="c">2</span></div>
+      <div class="sep"></div><div>Login to Trade Account</div><div>Exit</div>
+    </div></div>
+  </div></div>
+  <p class="why">یک پنجره‌ی ویندوز باز می‌شود که داخلش پوشه‌ی <code>MQL5</code> هست.</p>
+</section>
+
+<section class="step" id="s3" aria-labelledby="s3-h">
+  <h2 id="s3-h"><span class="num">۳</span>فایل‌ها را کپی کنید</h2>
+  <ol>
+    <li><code>PoursamadiEA.mq5</code> را در پوشه‌ی <b>MQL5 → Experts</b> بگذارید <span class="c">1</span>.</li>
+    <li>۵ فایل <code>.set</code> را در پوشه‌ی <b>MQL5 → Presets</b> بگذارید <span class="c">2</span>.</li>
+  </ol>
+  <div class="shot"><div class="win" role="img" aria-label="پوشه‌ی MQL5 در ویندوز">
+    <div class="bar"><span class="dots"><i></i><i></i><i></i></span>…\MetaQuotes\Terminal\XXXXXXXX\MQL5</div>
+    <div class="body tree">
+      <div><span class="ico"></span>MQL5</div>
+      <div class="in1 hl"><span class="ico"></span>Experts &nbsp;<span class="c">1</span> &larr; PoursamadiEA.mq5</div>
+      <div class="in1"><span class="ico"></span>Files</div>
+      <div class="in1"><span class="ico"></span>Include</div>
+      <div class="in1"><span class="ico"></span>Indicators</div>
+      <div class="in1 hl"><span class="ico"></span>Presets &nbsp;<span class="c">2</span> &larr; Poursamadi_*.set</div>
+      <div class="in1"><span class="ico"></span>Scripts</div>
+    </div>
+  </div></div>
+  <p class="why">اگر پوشه‌ی Presets وجود نداشت، خودتان بسازید.</p>
+</section>
+
+<section class="step" id="s4" aria-labelledby="s4-h">
+  <h2 id="s4-h"><span class="num">۴</span>کامپایل در MetaEditor</h2>
+  <ol>
+    <li>در متاتریدر کلید <kbd>F4</kbd> را بزنید تا MetaEditor باز شود.</li>
+    <li>در Navigator سمت چپ: <b>Experts → PoursamadiEA.mq5</b> را دوبار کلیک کنید <span class="c">1</span>.</li>
+    <li>دکمه‌ی <b>Compile</b> را بزنید یا <kbd>F7</kbd> <span class="c">2</span>.</li>
+    <li>پایین صفحه باید <b class="green">0 errors</b> ببینید <span class="c">3</span>.</li>
+  </ol>
+  <div class="shot"><div class="win" role="img" aria-label="MetaEditor و نتیجه‌ی کامپایل">
+    <div class="bar"><span class="dots"><i></i><i></i><i></i></span>MetaEditor - PoursamadiEA.mq5</div>
+    <div class="menu"><span>File</span><span>Edit</span><span>Search</span><span>View</span><span class="hl">&nbsp;&#9654; Compile&nbsp;</span><span class="c">2</span></div>
+    <div class="body" style="display:grid;grid-template-columns:160px 1fr;gap:10px">
+      <div class="tree" style="border-right:1px solid var(--line);padding-right:6px">
+        <div><span class="ico"></span>MQL5</div><div class="in1"><span class="ico"></span>Experts</div>
+        <div class="in2 hl"><span class="file"></span>PoursamadiEA <span class="c">1</span></div>
+        <div class="in1"><span class="ico"></span>Indicators</div>
+      </div>
+      <div class="code">//| PoursamadiEA.mq5
+#include &lt;Trade/Trade.mqh&gt;
+input bool   InpUseSP2L = true;
+input bool   InpUseBTB  = true;
+input double InpRiskPct = 0.5;
+...</div>
+    </div>
+    <div class="tabs"><span class="on">Errors</span><span>Search</span><span>Journal</span></div>
+    <div class="errs">'PoursamadiEA.mq5' compiled &mdash; <span class="green">0 errors</span>, 2 warnings &nbsp;<span class="c">3</span></div>
+  </div></div>
+  <div class="note">چند <b>warning</b> مشکلی ندارد. اگر <b>error</b> دیدید، از پایین صفحه عکس بگیرید و برایم بفرستید. این کد هنوز در MetaEditor واقعی کامپایل نشده.</div>
+</section>
+
+<p class="phase">مرحله‌ی دوم · دو چک قبل از تست</p>
+
+<section class="step" id="s5" aria-labelledby="s5-h">
+  <h2 id="s5-h"><span class="num">۵</span>حساب باید Hedging باشد</h2>
+  <ol>
+    <li>پایین متاتریدر پنجره‌ی <b>Toolbox</b> را باز کنید (<kbd>Ctrl</kbd>+<kbd>T</kbd>) و تب <b>Journal</b> را بزنید <span class="c">1</span>.</li>
+    <li>دنبال خطی بگردید که بعد از ورود به حساب نوشته شده: <code>hedging mode</code> <span class="c">2</span>.</li>
+  </ol>
+  <div class="shot"><div class="win" role="img" aria-label="تب Journal">
+    <div class="tabs"><span>Trade</span><span>History</span><span>News</span><span class="on hl">Journal <span class="c">1</span></span></div>
+    <div class="errs">Network  '12345678': authorized on LiteFinance-MT5-Live<br>
+    Network  '12345678': trading has been enabled - <b class="green">hedging mode</b> &nbsp;<span class="c">2</span></div>
+  </div></div>
+  <p class="why">اکسپرت هم‌زمان چند پوزیشن باز می‌کند. اگر حساب <b>netting</b> باشد، اکسپرت اجرا نمی‌شود و در Journal پیغام می‌دهد. در این صورت از لایت‌فایننس حساب Hedging بگیرید.</p>
+</section>
+
+<section class="step" id="s6" aria-labelledby="s6-h">
+  <h2 id="s6-h"><span class="num">۶</span>ساعت سرور را چک کنید</h2>
+  <ol>
+    <li>چارت <b>XAUUSD</b> را روی تایم <b>H1</b> باز کنید.</li>
+    <li>عقب بروید تا به اول یک هفته برسید (شکاف آخر هفته) <span class="c">1</span>.</li>
+    <li>ساعت <b>اولین کندل دوشنبه</b> را ببینید <span class="c">2</span>؛ یک بار در یک هفته‌ی تابستانی (مثلاً تیر) و یک بار در یک هفته‌ی زمستانی (مثلاً دی).</li>
+  </ol>
+  <div class="shot"><div class="win" role="img" aria-label="اولین کندل دوشنبه روی چارت یک‌ساعته">
+    <div class="bar"><span class="dots"><i></i><i></i><i></i></span>XAUUSD, H1</div>
+    <div class="body"><div class="chartbox">
+      <svg viewBox="0 0 600 150" width="100%" height="150" preserveAspectRatio="none" aria-hidden="true">
+        <g fill="var(--muted)" stroke="var(--muted)">
+          <line x1="40" y1="40" x2="40" y2="90"/><rect x="34" y="50" width="12" height="30"/>
+          <line x1="65" y1="45" x2="65" y2="95"/><rect x="59" y="55" width="12" height="25"/>
+          <line x1="90" y1="50" x2="90" y2="100"/><rect x="84" y="60" width="12" height="28"/>
+          <line x1="115" y1="55" x2="115" y2="100"/><rect x="109" y="62" width="12" height="22"/>
+        </g>
+        <rect x="140" y="10" width="110" height="120" fill="var(--sel)" opacity=".6"/>
+        <text x="195" y="75" text-anchor="middle" font-size="12" fill="var(--wintext)">weekend</text>
+        <g fill="var(--ok)" stroke="var(--ok)">
+          <line x1="275" y1="30" x2="275" y2="95"/><rect x="269" y="45" width="12" height="35"/>
+          <line x1="300" y1="35" x2="300" y2="90"/><rect x="294" y="40" width="12" height="30"/>
+          <line x1="325" y1="25" x2="325" y2="80"/><rect x="319" y="35" width="12" height="28"/>
+        </g>
+        <circle cx="275" cy="18" r="9" fill="var(--call)"/><text x="275" y="22" text-anchor="middle" font-size="11" fill="#fff">2</text>
+        <circle cx="195" cy="20" r="9" fill="var(--call)"/><text x="195" y="24" text-anchor="middle" font-size="11" fill="#fff">1</text>
+        <line x1="0" y1="132" x2="600" y2="132" stroke="var(--line)"/>
+        <text x="65" y="146" font-size="11" text-anchor="middle" fill="var(--muted)">Fri 22:00</text>
+        <text x="275" y="146" font-size="11" text-anchor="middle" fill="var(--call)" font-weight="700">Mon 01:00</text>
+      </svg>
+    </div></div>
+  </div></div>
+  <div class="okbox">اگر در <b>هر دو</b> فصل اولین کندل دوشنبه <b>۰۱:۰۰</b> است، هیچ کاری لازم نیست.</div>
+  <div class="note">اگر ساعت دیگری دیدید، ساعت تابستان و زمستان را برایم بفرستید تا عدد درست <code>InpClockShiftMin</code> را بگویم. پنجره‌های زمانی BTB به این بستگی دارند.</div>
+</section>
+
+<p class="phase">مرحله‌ی سوم · بک‌تست</p>
+
+<section class="step" id="s7" aria-labelledby="s7-h">
+  <h2 id="s7-h"><span class="num">۷</span>Strategy Tester را باز و تنظیم کنید</h2>
+  <p>در متاتریدر <kbd>Ctrl</kbd>+<kbd>R</kbd> را بزنید. در تب <b>Settings</b> دقیقاً این‌ها را بگذارید:</p>
+  <div class="shot"><div class="win" role="img" aria-label="تب Settings در Strategy Tester">
+    <div class="tabs"><span>Overview</span><span class="on">Settings</span><span>Inputs</span><span>Backtest</span><span>Graph</span><span>Journal</span></div>
+    <div class="body grid2">
+      <span>Expert:</span><div class="field">Experts\PoursamadiEA.ex5 <span class="c">1</span></div>
+      <span>Symbol:</span><div class="field">XAUUSD &nbsp;&nbsp; Timeframe: M15 <span class="c">2</span></div>
+      <span>Date:</span><div class="field">Custom period &nbsp; 2020.01.01 — today <span class="c">3</span></div>
+      <span>Forward:</span><div class="field">No</div>
+      <span>Delays:</span><div class="field">Zero latency, ideal execution</div>
+      <span>Modelling:</span><div class="field">Every tick based on real ticks <span class="c">4</span></div>
+      <span>Deposit:</span><div class="field">10000 &nbsp; USD &nbsp;&nbsp; Leverage: 1:100 <span class="c">5</span></div>
+      <span>Optimization:</span><div class="field">Disabled <span class="c">6</span></div>
+      <span></span><div style="display:flex;justify-content:flex-end"><span class="btn">Start</span></div>
+    </div>
+  </div></div>
+  <ul>
+    <li><span class="c">1</span> اکسپرت: PoursamadiEA</li>
+    <li><span class="c">2</span> نماد طلای حساب خودتان (ممکن است <code>XAUUSD</code> یا مثلاً <code>XAUUSD.ecn</code> باشد). تایم: M15.</li>
+    <li><span class="c">3</span> از ۲۰۲۰/۰۱/۰۱ تا امروز. اگر دیتای قدیمی‌تر هست، بعداً یک بار هم از ۲۰۱۵ بگیرید.</li>
+    <li><span class="c">4</span> اگر «real ticks» نبود: <b>1 minute OHLC</b>.</li>
+    <li><span class="c">5</span> سرمایه‌ی ۱۰٬۰۰۰ دلار، لوریج ۱:۱۰۰. <span class="c">6</span> بهینه‌سازی خاموش.</li>
+  </ul>
+</section>
+
+<section class="step" id="s8" aria-labelledby="s8-h">
+  <h2 id="s8-h"><span class="num">۸</span>فایل تنظیمات هر تست را Load کنید</h2>
+  <ol>
+    <li>تب <b>Inputs</b> را بزنید <span class="c">1</span>.</li>
+    <li>روی جدول راست‌کلیک کنید و <b>Load</b> را بزنید <span class="c">2</span>.</li>
+    <li>فایل <code>Poursamadi_default.set</code> را انتخاب کنید <span class="c">3</span>.</li>
+  </ol>
+  <div class="shot"><div class="win" role="img" aria-label="تب Inputs و منوی Load">
+    <div class="tabs"><span>Settings</span><span class="on hl">Inputs <span class="c">1</span></span><span>Backtest</span></div>
+    <div class="body" style="display:grid;grid-template-columns:1fr auto;gap:10px;align-items:start">
+      <table class="kv">
+        <tr><td>InpUseSP2L</td><td>true</td></tr><tr><td>InpUseBTB</td><td>true</td></tr>
+        <tr><td>InpRiskPct</td><td>0.5</td></tr><tr><td>InpAntiMartingale</td><td>true</td></tr>
+        <tr><td>InpBTBTF</td><td>15 Minutes</td></tr><tr><td>InpClockShiftMin</td><td>0</td></tr>
+      </table>
+      <div class="dd" style="width:200px">
+        <div class="hl"><span>Load</span><span class="c">2</span></div><div>Save</div><div class="sep"></div><div>Reset</div>
+        <div class="sep"></div><div style="font-family:var(--mono);font-size:11.5px">Poursamadi_default.set <span class="c">3</span></div>
+      </div>
+    </div>
+  </div></div>
+  <p class="why">این کار همه‌ی تنظیمات را یک‌جا پر می‌کند و لازم نیست چیزی را دستی تایپ کنید.</p>
+</section>
+
+<section class="step" id="s9" aria-labelledby="s9-h">
+  <h2 id="s9-h"><span class="num">۹</span>اجرا و ذخیره‌ی گزارش</h2>
+  <ol>
+    <li>دکمه‌ی <b>Start</b> را بزنید و صبر کنید تا نوار پیشرفت تمام شود.</li>
+    <li>تب <b>Backtest</b> را باز کنید <span class="c">1</span>. این چهار عدد مهم‌اند <span class="c">2</span>.</li>
+    <li>روی گزارش راست‌کلیک کنید و <b>Report → HTML</b> را بزنید <span class="c">3</span>.</li>
+  </ol>
+  <div class="shot"><div class="win" role="img" aria-label="تب Backtest و ذخیره‌ی گزارش">
+    <div class="tabs"><span>Settings</span><span>Inputs</span><span class="on hl">Backtest <span class="c">1</span></span><span>Graph</span></div>
+    <div class="body" style="display:grid;grid-template-columns:1fr auto;gap:10px;align-items:start">
+      <table class="kv">
+        <tr><td>Initial Deposit</td><td>10 000.00</td></tr>
+        <tr class="hl"><td>Total Net Profit <span class="c">2</span></td><td>…</td></tr>
+        <tr class="hl"><td>Profit Factor</td><td>…</td></tr>
+        <tr><td>Expected Payoff</td><td>…</td></tr>
+        <tr class="hl"><td>Balance Drawdown Maximal</td><td>… (… %)</td></tr>
+        <tr class="hl"><td>Total Trades</td><td>…</td></tr>
+      </table>
+      <div class="dd" style="width:190px">
+        <div>Copy</div><div class="sep"></div>
+        <div class="hl"><span>Report &#9656; HTML</span><span class="c">3</span></div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;Open XML (MS Office Excel)</div>
+      </div>
+    </div>
+  </div></div>
+  <p class="why">از تب <b>Graph</b> (نمودار بالانس) هم یک عکس بگیرید.</p>
+</section>
+
+<section class="step" id="s10" aria-labelledby="s10-h">
+  <h2 id="s10-h"><span class="num">۱۰</span>پنج تست، یکی پس از دیگری</h2>
+  <p>مراحل ۸ و ۹ را برای هر ردیف تکرار کنید. فقط فایل <code>.set</code> عوض می‌شود.</p>
+  <div class="tablewrap"><table class="t mono-num">
+    <thead><tr><th>تست</th><th>فایل تنظیمات</th><th>انتظار از بک‌تست من (۲۰۲۰ تا ۲۰۲۵)</th></tr></thead>
+    <tbody>
+      <tr><td><b>A</b> هر دو ستاپ + ضدمارتینگل <span class="tag ok">اصلی</span></td><td><code>Poursamadi_default.set</code></td><td>سود حدود ۶۹٪+، بیشترین افت حدود ۷٪، حدود ۵۰ معامله در سال</td></tr>
+      <tr><td><b>B</b> فقط SP2L</td><td><code>Poursamadi_SP2L_only.set</code></td><td>حدود ۳۸٪+، افت حدود ۵٪، حدود ۳۳ معامله در سال</td></tr>
+      <tr><td><b>C</b> فقط Pro BTB</td><td><code>Poursamadi_BTB_only.set</code></td><td>حدود ۲۰٪+، افت حدود ۳٪، حدود ۱۸ معامله در سال</td></tr>
+      <tr><td><b>D</b> هر دو، ریسک ثابت ۰٫۵٪</td><td><code>Poursamadi_fixed_risk.set</code></td><td>حدود ۳۵٪+، افت حدود ۴٪</td></tr>
+      <tr><td><b>E</b> Pro BTB روی ۵ دقیقه <span class="tag warn">اختیاری</span></td><td><code>Poursamadi_BTB_M5.set</code></td><td>مثبت ولی ضعیف‌تر از C</td></tr>
+    </tbody>
+  </table></div>
+  <p class="why">اعداد شما کمی فرق خواهند داشت (اسپرد، کمیسیون و دیتای بروکر). مهم این است که <b>جهت نتیجه و اندازه‌ی افت</b> نزدیک باشد. اگر خیلی متفاوت بود، از روی گزارش علتش را پیدا می‌کنم.</p>
+</section>
+
+<section class="step" id="s11" aria-labelledby="s11-h">
+  <h2 id="s11-h"><span class="num">۱۱</span>چه چیزهایی برایم بفرستید</h2>
+  <p>هر مورد را که آماده کردید تیک بزنید (فقط برای خودتان ذخیره می‌شود):</p>
+  <div class="check" id="checklist">
+    <label><input type="checkbox" id="ck1"><span>نتیجه‌ی کامپایل (۰ errors یا عکس خطاها)</span></label>
+    <label><input type="checkbox" id="ck2"><span>ساعت اولین کندل دوشنبه در تابستان و زمستان (مرحله‌ی ۶)</span></label>
+    <label><input type="checkbox" id="ck3"><span>گزارش HTML یا عکس تب Backtest برای تست A</span></label>
+    <label><input type="checkbox" id="ck4"><span>همین برای تست‌های B، C و D</span></label>
+    <label><input type="checkbox" id="ck5"><span>عکس نمودار بالانس (تب Graph) برای تست A</span></label>
+    <label><input type="checkbox" id="ck6"><span>هر پیغام خطا در تب Journal تستر (مثلاً invalid stops یا not enough money)</span></label>
+    <label><input type="checkbox" id="ck7"><span>اسپرد طلا (راست‌کلیک روی نماد در Market Watch → Specification) و کمیسیون هر لات</span></label>
+  </div>
+</section>
+
+<p class="phase">مرحله‌ی چهارم · بعد از بک‌تست</p>
+
+<section class="step" aria-labelledby="s12-h">
+  <h2 id="s12-h">اجرا روی دمو یا سنت</h2>
+  <ul>
+    <li>اگر تست A نزدیک جدول بود: اکسپرت را روی یک چارت XAUUSD بکشید، فایل <code>Poursamadi_default.set</code> را Load کنید و دکمه‌ی <b>Algo Trading</b> را روشن کنید.</li>
+    <li>حداقل <b>۳ ماه</b> روی <b>دمو یا حساب سنت</b> اجرا کنید؛ بهتر است روی VPS که همیشه روشن است.</li>
+    <li>فقط <b>یک</b> چارت با این اکسپرت باز باشد؛ دو چارت یعنی معاملات تکراری.</li>
+    <li>با ریسک ۰٫۵٪، حساب کمتر از حدود ۵ تا ۱۰ هزار دلار حجم کمتر از ۰٫۰۱ لات می‌دهد و اکسپرت معامله را رد می‌کند. برای مبلغ کمتر از حساب سنت استفاده کنید.</li>
+    <li>حدود ۴ معامله در ماه دارد. ماه بی‌سود و ۷ تا ۹ ضرر پشت‌سرهم در بک‌تست هم دیده شده و طبیعی است.</li>
+  </ul>
+</section>
+
+</div>
+
+<script>
+(function(){
+  var KEY='poursamadi-guide-checklist';
+  var saved={};
+  try{ saved=JSON.parse(localStorage.getItem(KEY)||'{}')||{}; }catch(e){ saved={}; }
+  var boxes=document.querySelectorAll('#checklist input[type=checkbox]');
+  boxes.forEach(function(b){
+    if(saved[b.id]) b.checked=true;
+    b.addEventListener('change',function(){
+      saved[b.id]=b.checked;
+      try{ localStorage.setItem(KEY,JSON.stringify(saved)); }catch(e){}
+    });
+  });
+})();
+</script>
