@@ -869,27 +869,41 @@ def h1_to_h4(h1):
     return out
 
 
-def chartix_h4(sym):
-    """کندلِ H4 از خروجیِ چارتیکس، اگر برای این نماد export شده باشد."""
-    d = HERE / "data" / "chartix_h4"
-    if not d.exists():
+def chartix_h4(sym, start=None, end=None):
+    """کندلِ H4 از خروجیِ چارتیکس — **فقط** کندل‌های [start, end].
+
+    ⚠️ نسخهٔ اول تاریخ را دور می‌ریخت و همهٔ کندل‌ها را برمی‌گرداند
+    (برای هم‌وزن ۵٬۹۳۸ کندل از ۲۰۱۵)، پس باکس روی **کلِ تاریخچه**
+    ساخته می‌شد نه روی هفتهٔ قبل. قاعدهٔ ۵: «از ۴ ساعته بگیر» — یعنی
+    همان دوره، با رزولوشنِ ریزتر.
+
+    فرمتِ چارتیکس: <DTYYYYMMDD>,<TIME>,<OPEN>,<HIGH>,<LOW>,<CLOSE>,<VOL>
+    """
+    d0 = HERE / "data" / "chartix_h4"
+    if not d0.exists():
         return []
-    for f in d.glob("*.csv"):
-        stem = f.stem.replace("_CHARTIX", "").replace("_H4", "")
+    f = None
+    for g in d0.glob("*.csv"):
+        stem = g.stem.replace("_CHARTIX", "").replace("_H4", "")
         if stem == sym or CX_H4_ALIAS.get(stem) == sym:
+            f = g
             break
-    else:
+    if f is None:
         return []
     out = []
     with f.open(encoding="utf-8-sig", newline="") as fh:
         for row in csv.reader(fh):
-            if len(row) < 7:
+            if len(row) < 7 or not row[0][:1].isdigit():
                 continue
             try:
-                out.append({"h": float(row[3]), "l": float(row[4]),
-                            "c": float(row[5]),
+                ds = row[0].strip()
+                d = date(int(ds[:4]), int(ds[4:6]), int(ds[6:8]))
+                if (start and d < start) or (end and d > end):
+                    continue
+                out.append({"d": d, "h": float(row[3]),
+                            "l": float(row[4]), "c": float(row[5]),
                             "v": float(row[6] or 0) or 1.0})
-            except (TypeError, ValueError):
+            except (TypeError, ValueError, IndexError):
                 continue
     return out
 
@@ -1428,8 +1442,26 @@ def vgap_verdict(rows, tf, near=None):
         v = "دور"                        # ناحیه هست ولی تصمیم نیست
     # حد ضررِ خودِ او: «یک کندلِ دیلی پایینِ ناحیه کاملاً کلوز بدهد»
     broke = any(r["c"] < lo for r in rows if r["d"] > bars[z + 1]["d"])
+    # ── وضعیتِ چسبنده: کلوزهای دیلیِ بعد از روزِ تصمیم در همین دوره ──
+    # همان مدلِ `sticky()`: ناحیه ثابت، هر کلوزِ بیرونِ آن وضعیت را
+    # عوض می‌کند، داخل نه. **بدونِ** فیلترِ فاصله — VGAP_NEAR برای
+    # حکمِ *ورود* است؛ برای «شکسته یا نه» ۱۶٪ بالا یعنی بالا.
+    k = bars[i]["k"]
+    if tf == "d" or LIVE_STATE:
+        live = "بالا" if dec > hi else "زیر" if dec < lo else "داخل"
+        brk = None
+        if LIVE_STATE:
+            px_now = rows[-1]["c"]
+            live = ("بالا" if px_now > hi else "زیر" if px_now < lo
+                    else "داخل")
+    else:
+        kf = ((lambda d: (d.year, d.month)) if tf == "m" else week_key)
+        cur = [r for r in rows if kf(r["d"]) == k]
+        live, brk = sticky(dec, cur[1:], (lo, hi))
     return {"lo": lo, "hi": hi, "verdict": v, "dec": dec,
             "dec_d": bars[i]["d"].isoformat(), "broke": broke,
+            "live": live,
+            "brk": ((brk[0].isoformat(), brk[1], brk[2]) if brk else None),
             "dist": dist, "age": i - z, "zone_d": bars[z]["d"].isoformat()}
 
 
@@ -1482,15 +1514,20 @@ def exit_rule(r):
         lo, hi, dec = x["lo"], x["hi"], x.get("dec")
         if dec is None:
             continue
-        if dec < lo:
-            return (True, f"کلوزِ روزِ تصمیم ({x.get('dec_d')}) زیرِ "
-                    f"ناحیهٔ خلای حجمیِ {fa}", lo)
-        if x.get("broke"):
-            return (True, f"کندلِ دیلی کاملاً زیرِ ناحیهٔ {fa} بسته شد "
-                    f"— قاعدهٔ ۳۲", lo)
-        # بالا یا داخل — دور یا نزدیک فرقی نمی‌کند: زیر نیست
+        # وضعیتِ **چسبنده** — کلوزِ روزِ تصمیم، به‌روزشده با هر کلوزِ
+        # دیلیِ بیرونِ ناحیه در همین دوره. قاعدهٔ ۳۲: «یک کندلِ دیلی
+        # پایینِ ناحیه کاملاً کلوز بدهد → فردای آن روز فروشنده»؛ و
+        # قاعدهٔ ۲۹: اگر بعدش دوباره بالا بست، دوباره بالاست.
+        live = x.get("live") or ("بالا" if dec > hi else
+                                 "زیر" if dec < lo else "داخل")
+        brk = x.get("brk")
+        if live == "زیر":
+            when = (f"کندلِ دیلیِ {brk[0]} زیرِ ناحیه بسته شد — قاعدهٔ ۳۲"
+                    if brk else f"کلوزِ روزِ تصمیم ({x.get('dec_d')}) "
+                    "زیرِ ناحیه")
+            return (True, f"خلای حجمیِ {fa}: {when}", lo)
         return (False, f"بالای ناحیهٔ خلای حجمیِ {fa}"
-                if dec > hi else f"داخلِ ناحیهٔ خلای حجمیِ {fa}", lo)
+                if live == "بالا" else f"داخلِ ناحیهٔ خلای حجمیِ {fa}", lo)
     # هیچ ناحیهٔ خلای حجمی نیست → باکسِ افقی، با برچسب
     which = [fa for k, fa in (("mst", "ماهانه"), ("wst", "هفتگی"))
              if r.get(k) == "زیر"]
@@ -1510,6 +1547,11 @@ def vgap_all(rows):
     for tf, fa in (("m", "ماهانه"), ("w", "هفتگی"), ("d", "دیلی")):
         v = vgap_verdict(rows, tf)
         if v:
+            # حکم = وضعیتِ **چسبنده** (روزِ تصمیم + شکستِ دیلیِ بعدش)،
+            # مگر ناحیه برای ورود زیادی دور باشد. بدونِ این، شکستِ
+            # سه‌شنبه تا یکشنبهٔ بعد در حکم دیده نمی‌شد.
+            if v.get("verdict") != "دور" and v.get("live"):
+                v["verdict"] = v["live"]
             out[fa] = v
     w = (out.get("هفتگی") or {}).get("verdict")
     m = (out.get("ماهانه") or {}).get("verdict")
@@ -1702,6 +1744,46 @@ def state(px, box):
     if px < box[0]:
         return "زیر"
     return "داخل"
+
+
+def sticky(dec_close, later, box):
+    """وضعیتِ روزِ تصمیم، که با هر کلوزِ دیلیِ **بیرونِ** باکس عوض می‌شود.
+
+    مدلِ خودِ او (۱ اکتبر):
+
+        «یه باکس ماهانه داریم… و یک باکس هفتگی که شنبه شکل می‌گیره،
+         و از یکشنبه یا دوشنبه اقدام به خرید و فروش می‌کنیم، و **اون
+         باکس‌ها ثابت می‌مانند تا باکسِ جدید شکل بگیرد**. ولی اگر در
+         طیِ هفته یا ماه اون باکس به پایین کلوز داد، در دیلی باید
+         سیستم آپدیتِ جدید بدهد… هر روز کلوزِ بازارها رو نسبت به باکس
+         بسنجد که آیا شکسته یا نشکسته، که در پولبک‌ها اقدام کنیم.»
+
+    و شکایتش: «این هفته شاخص کل و هم‌وزن و خودِ صندوق‌های اهرمی باکسِ
+    هفتگی‌شان را به بالا شکستند… سیستم اصلاً هیچ آلارمی نداد.»
+
+    علت: `wst` روی کلوزِ **یکشنبه** یخ می‌زد و تا یکشنبهٔ بعد عوض
+    نمی‌شد، پس شکستِ سه‌شنبه دیده نمی‌شد. و `mst` برعکس روی کلوزِ
+    **امروز** بود، پس پولبک به داخلِ باکس سیگنال را می‌کشت — در حالی
+    که قاعدهٔ ۹ او می‌گوید بعد از شکست به بالا، پولبک **جای خرید** است.
+
+    حالا:
+      · باکس ثابت است (از دورهٔ بسته‌شده).
+      · وضعیتِ اول = کلوزِ روزِ تصمیم.
+      · هر کلوزِ دیلیِ **بالای** باکس → «بالا». هر کلوزِ **زیرِ** باکس
+        → «زیر». کلوزِ **داخل** وضعیت را عوض نمی‌کند — پولبک یا تست است.
+
+    خروجی: (وضعیت، آخرین شکست یا None)  ·  شکست = (تاریخ، جهت، کلوز)
+    """
+    st = state(dec_close, box)
+    brk = None
+    if box is None:
+        return st, None
+    for b in later:
+        sd = state(b["c"], box)
+        if sd in ("بالا", "زیر") and sd != st:
+            st = sd
+            brk = (b["d"], sd, b["c"])
+    return st, brk
 
 
 def state4(px, box):
@@ -1945,23 +2027,28 @@ def analyse(sym, rows, ins=None, allow_ticks=False):
     # از ۱۳۴ نماد نشسته بود و در داشبورد **هیچ علامتی نداشت**. پس
     # حالا اول H4 امتحان می‌شود، و اگر آن هم نبود نماد صریحاً
     # «ناحیه نداد» می‌گیرد — نه باکسِ ساختگی.
-    h4c = None
-    if wb is None or mb is None:
-        h4c = chartix_h4(sym)
-        if not h4c and allow_ticks and ins:
+    # ⚠️ هر افق H4ِ **دورهٔ خودش** را می‌گیرد — هفتهٔ قبل برای
+    # هفتگی، ماهِ قبل برای ماهانه. نسخهٔ اول کلِ تاریخچه را می‌گرفت.
+    if wb is None:
+        pw = by_w[ws[-2]]
+        h4w = chartix_h4(sym, pw[0]["d"], pw[-1]["d"])
+        if not h4w and allow_ticks and ins:
             h1all = []
-            for d in sorted({b["d"] for b in by_w[ws[-2]]}):
+            for d in sorted({b["d"] for b in pw}):
                 h1all.extend(get_h1(sym, ins, d, quiet=True))
-            h4c = h1_to_h4(h1all)
-    if wb is None and h4c and len(h4c) >= 6:
-        wb = make_box(h4c)
-        if wb is not None:
-            fb.append("هفتگی←چهارساعته")
-            wbars_used = h4c
-    if mb is None and h4c and len(h4c) >= 6:
-        mb = make_box(h4c)
-        if mb is not None:
-            fb.append("ماهانه←چهارساعته")
+            h4w = h1_to_h4(h1all)
+        if len(h4w) >= 6:
+            wb = make_box(h4w)
+            if wb is not None:
+                fb.append("هفتگی←چهارساعته")
+                wbars_used = h4w
+    if mb is None:
+        pm = by_m[ms[-2]]
+        h4m = chartix_h4(sym, pm[0]["d"], pm[-1]["d"])
+        if len(h4m) >= 6:
+            mb = make_box(h4m)
+            if mb is not None:
+                fb.append("ماهانه←چهارساعته")
 
     # آخرین چاره، فقط با پرچمِ صریح. با --no-weak-box کاملاً خاموش.
     if WEAK_BOX:
@@ -2052,7 +2139,19 @@ def analyse(sym, rows, ins=None, allow_ticks=False):
     # امروز از کفِ باکس رد شده.
     w_dead = state(dec_w, wb) != "زیر" and px < wb[0]
     m_dead = state(px, mb) != "زیر" and px < mb[0]
+    # ── وضعیتِ چسبنده — باکسِ ثابت، شکستِ دیلی ─────────────────────
+    # کلوزهای **بعد از روزِ تصمیم** در همین دوره. با --now همان رفتارِ
+    # قدیمی (کلوزِ امروز) می‌ماند.
+    cw_after = [b for b in by_w[ws[-1]] if b["d"] > dec_wd]
+    cm_after = [b for b in by_m[ms[-1]] if b["d"] > dec_md]
+    if LIVE_STATE:
+        wst_s, w_brk = state(px, wb), None
+        mst_s, m_brk = state(px, mb), None
+    else:
+        wst_s, w_brk = sticky(dec_w, cw_after, wb)
+        mst_s, m_brk = sticky(dec_m, cm_after, mb)
     return {**base, "ok": True, "reason": "",
+            "w_brk": w_brk, "m_brk": m_brk,
             "w_dead": w_dead, "m_dead": m_dead,
             "flags": flag_targets(rows, px),
             "w4": state4(dec_w, wb), "m4": state4(px, mb),
@@ -2074,7 +2173,7 @@ def analyse(sym, rows, ins=None, allow_ticks=False):
             #  · وضعیتِ ماهانه هم تا آخرِ ماه تصمیمی ندارد (بند ۲: «فقط
             #    پایان ماه»)، و فریز کردنش یعنی سه هفته عددِ کهنه.
             # اندازه‌گیریِ `decision_day.py` هم فقط دربارهٔ هفته بود.
-            "mst": state(px, mb), "wst": state(dec_w, wb),
+            "mst": mst_s, "wst": wst_s,
             "cur_box": cur, "cur_st": state(px, cur) if cur else "؟",
             "cur4": state4(px, cur) if cur else "؟",
             "month": zone(mb, px, BAND["month"]),
@@ -3778,9 +3877,172 @@ def alarms(rows, book, units=None):
     return buy, sell
 
 
-def alarm_text(buy, sell, stamp):
+def period_breaks(rows, name=None):
+    """شکست‌های **دورهٔ جاری** روی دادهٔ خام — برای شاخص‌ها.
+
+    نمادها این را از `analyse()` می‌گیرند (`w_brk`، `m_brk`، `vg.brk`).
+    شاخص نماد نیست و از آن مسیر رد نمی‌شود، پس همین محاسبه اینجا
+    تکرار می‌شود: باکسِ ثابت از دورهٔ بسته‌شده، و هر کلوزِ دیلیِ
+    بیرونِ آن بعد از روزِ تصمیم.
+    """
+    out = []
+    if len(rows) < 30:
+        return out
+    by_w, by_m = defaultdict(list), defaultdict(list)
+    for b in rows:
+        by_w[week_key(b["d"])].append(b)
+        by_m[(b["d"].year, b["d"].month)].append(b)
+    for fa, grp in (("هفتگی", by_w), ("ماهانه", by_m)):
+        ks = sorted(grp)
+        if len(ks) < 2 or not grp[ks[-1]]:
+            continue
+        prev = grp[ks[-2]]
+        box = make_box(prev)
+        src = "دیلی"
+        if box is None and name:
+            # قاعدهٔ ۵: «اگه ناحیه خلا نداد از ۴ ساعته بگیر»
+            h4 = chartix_h4(name, prev[0]["d"], prev[-1]["d"])
+            if len(h4) >= 6:
+                box = make_box(h4)
+                src = "۴ساعته"
+        if box is None:
+            continue
+        cur = grp[ks[-1]]
+        st, brk = sticky(cur[0]["c"], cur[1:], box)
+        if brk:
+            out.append({"hz": fa, "kind": "باکس" + (
+                            "" if src == "دیلی" else f" ({src})"),
+                        "dir": brk[1],
+                        "date": brk[0].isoformat(), "close": brk[2],
+                        "lo": box[0], "hi": box[1], "now": st})
+    vg = vgap_all(rows)
+    for fa in ("هفتگی", "ماهانه"):
+        x = vg.get(fa)
+        if x and x.get("brk"):
+            d, dr, c = x["brk"]
+            out.append({"hz": fa, "kind": "خلای حجمی", "dir": dr,
+                        "date": d, "close": c, "lo": x["lo"],
+                        "hi": x["hi"], "now": x.get("live")})
+    return out
+
+
+def row_breaks(r):
+    """شکست‌های دورهٔ جاریِ یک نمادِ تحلیل‌شده — هر دو ناحیه، هر دو افق."""
+    out = []
+    for fa, key, zk in (("هفتگی", "w_brk", "week"),
+                        ("ماهانه", "m_brk", "month")):
+        b = r.get(key)
+        z = r.get(zk) or {}
+        if b:
+            # ⚠️ `zone()` **نوارِ خرید** را برمی‌گرداند نه خودِ باکس:
+            # «lo»ِ آن سقفِ باکس است و «stop» کفِ آن. باکس = (stop, lo).
+            out.append({"hz": fa, "kind": "باکس", "dir": b[1],
+                        "date": b[0].isoformat()
+                        if hasattr(b[0], "isoformat") else str(b[0]),
+                        "close": b[2], "lo": z.get("stop"),
+                        "hi": z.get("lo"), "aim": z.get("aim"),
+                        "now": r.get("wst" if fa == "هفتگی" else "mst")})
+    for fa in ("هفتگی", "ماهانه"):
+        x = (r.get("vg") or {}).get(fa)
+        if x and x.get("brk"):
+            d, dr, c = x["brk"]
+            out.append({"hz": fa, "kind": "خلای حجمی", "dir": dr,
+                        "date": d, "close": c, "lo": x["lo"],
+                        "hi": x["hi"], "now": x.get("live")})
+    return out
+
+
+def break_alarms(rows, units=None):
+    """آلارمِ شکستِ ناحیه — قاعده‌های ۹، ۱۰، ۲۹، ۷۸.
+
+    «اگر در طیِ هفته یا ماه آن باکس شکست، در دیلی باید سیستم آپدیتِ
+     جدید بدهد… که در پولبک‌ها اقدام به خرید و فروش کنیم.»
+    «این هفته شاخص کل و هم‌وزن و خودِ صندوق‌های اهرمی باکسِ هفتگی‌شان
+     را به بالا شکستند… سیستم اصلاً هیچ آلارمی نداد.»       — ۱ اکتبر
+
+    تا امروز شکست‌ها فقط در یک تبِ HTML بودند و **هیچ آلارمی**
+    نمی‌ساختند، و او خروجیِ ترمینال را می‌خواند. حالا سه دسته:
+
+      ۱ · شاخص کل و هم‌وزن — مبنای اهرمی‌ها (قاعدهٔ ۶۴)
+      ۲ · نمادهایی که **داری** — هر دو جهت
+      ۳ · شکست به بالا · خرید روی پولبک — بزرگ‌ترینِ هر دسته (قاعدهٔ
+          ۳۷)، فقط با حجمِ کافی (قاعدهٔ ۳۹)
+
+    هر ردیف: افق، کدام ناحیه، جهت، **تاریخِ شکست**، و سطحِ پولبک.
+    """
+    held = {norm(k) for k in (units or {})} or set(NORM_HOLD)
+    idx = []
+    for nm in BENCH_IDX:
+        for b in period_breaks(idx_bars(nm), nm):
+            idx.append({**b, "sym": nm})
+    mine, ups = [], defaultdict(list)
+    for r in rows:
+        if not r.get("ok"):
+            continue
+        bs = row_breaks(r)
+        if not bs:
+            continue
+        k = norm(r["sym"])
+        for b in bs:
+            e = {**b, "sym": r["sym"], "cat": r.get("cat", "؟"),
+                 "px": r["close"], "value_bn": r.get("value_bn", 0)}
+            if k in held:
+                mine.append(e)
+            elif (b["dir"] == "بالا" and b["now"] == "بالا"
+                  and r.get("value_bn", 0) >= MIN_VALUE_BN):
+                ups[r.get("cat", "؟")].append(e)
+    # از هر دسته بزرگ‌ترین — قاعدهٔ ۳۷
+    top = []
+    for c, es in ups.items():
+        best = max(es, key=lambda e: e["value_bn"])
+        top.append({**best, "n_cat": len({e["sym"] for e in es})})
+    top.sort(key=lambda e: -e["value_bn"])
+    return {"idx": idx, "mine": mine, "ups": top}
+
+
+def break_lines(ba, fmt=lambda x: f"{x:,.0f}"):
+    """متنِ آلارمِ شکست — یک‌جا، تا کنسول و گزارش و تلگرام یکی بگویند."""
+    L = []
+    if not ba or not (ba["idx"] or ba["mine"] or ba["ups"]):
+        return L
+
+    def one(e, extra=""):
+        up = e["dir"] == "بالا"
+        ic = "🟢" if up else "🔴"
+        act = ("خرید روی پولبک تا " + fmt(e["hi"]) if up
+               else "فروش روی پولبک تا " + fmt(e["lo"]))
+        held_now = (e.get("now") == e["dir"])
+        tail = "" if held_now else f" · امروز «{e.get('now')}» — برگشته"
+        return (f"{ic} {e['sym']:<10} {e['hz']} · {e['kind']} · شکست به "
+                f"{e['dir']} {e['date']} (کلوز {fmt(e['close'])}) · "
+                f"ناحیه {fmt(e['lo'])}–{fmt(e['hi'])} → {act}{tail}{extra}")
+
+    if ba["idx"]:
+        L.append("── شاخص‌ها — مبنای صندوق‌های اهرمی (قاعدهٔ ۶۴) ──")
+        L += [one(e) for e in ba["idx"]]
+    if ba["mine"]:
+        L.append("── نمادهایی که داری ──")
+        for e in ba["mine"]:
+            note = ""
+            if e["dir"] == "زیر" and e["kind"] == "باکس":
+                note = " (باکسِ افقی — خبر؛ خروج با خلای حجمی است)"
+            L.append(one(e, note))
+    if ba["ups"]:
+        L.append("── شکست به بالا · خرید روی پولبک — بزرگ‌ترینِ هر دسته ──")
+        for e in ba["ups"]:
+            L.append(one(e, f" · {e['cat']}"
+                     + (f" ({e['n_cat']} نماد در دسته)"
+                        if e.get("n_cat", 1) > 1 else "")))
+    return L
+
+
+def alarm_text(buy, sell, stamp, ba=None):
     """متنِ آلارم — همان چیزی که به تلگرام می‌رود و بالای صفحه می‌آید."""
     L = []
+    bl = break_lines(ba) if ba else []
+    if bl:
+        L.append("<b>🔔 شکستِ ناحیه — هفته و ماهِ جاری</b>")
+        L += ["• " + ln for ln in bl]
     if sell:
         L.append("<b>🔄 آلارمِ جابه‌جایی</b> (نقد نشو — عوض کن)")
         for sym, px, which, units in sell:
@@ -3793,7 +4055,7 @@ def alarm_text(buy, sell, stamp):
             L.append(f"• <b>{sym}</b>{tag} ورود {aim:,.0f} | "
                      f"استاپ {stop:,.0f} | ریسک {risk:.1f}٪")
     if not L:
-        L.append("امروز نه آلارمِ خرید هست نه فروش.")
+        L.append("امروز نه شکستی هست، نه آلارمِ خرید، نه فروش.")
     return f"<b>بورس — {stamp}</b>\n" + "\n".join(L)
 
 
@@ -3820,7 +4082,7 @@ def telegram(text):
 # ══ ۵. صفحه ═════════════════════════════════════════════════════════
 def html(rows, book, capital, stamp, last_date, buy=(), sell=(),
          comp=None, sells=(), buys=(), nopx=(), pos=(), rr=None,
-         drv=None, bu=None, dif=None, dstamp=None):
+         drv=None, bu=None, dif=None, dstamp=None, ba=None):
     """داشبورد — با همان فرمتِ فایلی که مصطفی فرستاد.
 
     `dashboard_monthly.html` او: تمِ تیره، تب‌های قرصی، کاشیِ آمار،
@@ -4862,6 +5124,54 @@ def html(rows, book, capital, stamp, last_date, buy=(), sell=(),
     # ترتیبِ اجرا: اول فروش، بعد خرید (بند ۲ راهنما).
     def _todaybox():
         blocks = []
+
+        # ── ۰٫۱ آلارمِ شکستِ ناحیه — اولین چیزی که می‌بیند ──────────
+        # «اگر در طیِ هفته یا ماه آن باکس شکست، در دیلی باید سیستم
+        #  آپدیتِ جدید بدهد… این هفته شاخص کل و هم‌وزن و اهرمی‌ها
+        #  باکسِ هفتگی‌شان را به بالا شکستند و سیستم هیچ آلارمی نداد.»
+        def _bt(e):
+            up = e["dir"] == "بالا"
+            back = e.get("now") != e["dir"]
+            cls = "b-y" if back else ("b-g" if up else "b-r")
+            act = (f"خرید روی پولبک تا {n(e['hi'])}" if up
+                   else f"فروش روی پولبک تا {n(e['lo'])}")
+            return (f'<tr><td class="td sym">{e["sym"]}</td>'
+                    f'<td class="td">{e["hz"]}</td>'
+                    f'<td class="td">{e["kind"]}</td>'
+                    f'<td class="td"><span class="badge {cls}">'
+                    f'{"▲" if up else "▼"} {e["dir"]}</span></td>'
+                    f'<td class="td">{e["date"]}</td>'
+                    f'<td class="td n">{n(e["close"])}</td>'
+                    f'<td class="td n">{n(e["lo"])}–{n(e["hi"])}</td>'
+                    f'<td class="td"><b>{act}</b>'
+                    + (f' · امروز «{e.get("now")}» — برگشته' if back
+                       else '') + '</td></tr>')
+        if ba and (ba.get("idx") or ba.get("mine") or ba.get("ups")):
+            hh = ('<thead><tr>' + "".join(
+                f'<th class="th">{c}</th>' for c in
+                ("نماد", "افق", "ناحیه", "جهت", "تاریخِ شکست",
+                 "کلوزِ شکست", "ناحیه", "اقدام")) + '</tr></thead>')
+            parts = ['<h3>🔔 شکستِ ناحیه — هفتهٔ جاری و ماهِ جاری</h3>'
+                     '<div class="note">باکس از دورهٔ بسته‌شده <b>ثابت</b> '
+                     'است و هر کلوزِ دیلیِ بیرونِ آن اینجا می‌آید. '
+                     'شکست به بالا = خرید روی پولبک به سقفِ ناحیه '
+                     '(قاعده‌های ۹ و ۲۹)؛ شکست به زیر = فروش روی پولبک '
+                     'به کفِ ناحیه (قاعده‌های ۱۰ و ۳۲). خروجِ نمادی که '
+                     'داری فقط با <b>خلای حجمی</b> است؛ شکستِ باکسِ '
+                     'افقی به زیر خبر است.</div>']
+            for ttl, key in (("شاخص‌ها — مبنای صندوق‌های اهرمی", "idx"),
+                             ("نمادهایی که داری", "mine"),
+                             ("شکست به بالا — بزرگ‌ترینِ هر دسته", "ups")):
+                es = ba.get(key) or []
+                if es:
+                    parts.append(f'<h3>{ttl}</h3><div class="wrap">'
+                                 f'<table class="table">{hh}<tbody>'
+                                 + "".join(_bt(e) for e in es)
+                                 + '</tbody></table></div>')
+            blocks.append("".join(parts))
+        else:
+            blocks.append('<div class="note">🔔 در هفتهٔ جاری و ماهِ '
+                          'جاری هیچ شکستِ ناحیه‌ای نبود.</div>')
 
         # ۰ ── شکستِ ناحیهٔ **جاری**، نه فقط تغییرِ امروز ────────────
         # «دیوس مگه من گفتم چک کن ببین ناحیه‌ای شکسته یا نه — یه
@@ -6096,7 +6406,7 @@ SNAP_KEYS = ("stamp", "capital", "cash", "units", "book", "pos",
 
 def snap_write(path, stamp, capital, units, cash, book, pos,
                buy, sell, sells, buys, nopx, px, comp, bu=None,
-               dif=None, dstamp=None):
+               dif=None, dstamp=None, ba=None):
     """عکسِ یک اجرا — چیزی که گزارشِ ترکیبی لازم دارد، نه بیشتر.
 
     ردیف‌های دفتر پر از کلیدهای داخلی‌اند (hist، flags، z…) که در
@@ -6117,6 +6427,7 @@ def snap_write(path, stamp, capital, units, cash, book, pos,
                 "risk_pct": z.get("risk_pct")}
 
     data = {
+        "breaks": ba or {},
         "universe": "سهام" if STOCK else "صندوق",
         "bench": BENCH, "cost": COST_STOCK if STOCK else COST_FUND,
         "stamp": stamp, "capital": capital, "cash": cash,
@@ -6405,6 +6716,32 @@ def combined(snaps, stock_share=None, open_pages=False,
         out(f"  نقد: {100 - tw:.1f}٪ · اگر همهٔ استاپ‌ها بخورند: "
             f"{rk / capital * 100:.2f}٪ سرمایه "
             f"({rk / 1e6:,.0f} میلیون ریال)")
+
+    # ── شکستِ ناحیه — هر دو جهان ──────────────────────────────────
+    # «سیستم اصلاً هیچ آلارمی نداد» — ۱ اکتبر. شاخص‌ها یک بار (در هر
+    # دو عکس هستند)، نمادها از هر جهان.
+    seen_idx, idx_all, mine_all, ups_all = set(), [], [], []
+    for tag, x in snaps.items():
+        b = x.get("breaks") or {}
+        for e in b.get("idx", []):
+            key = (e["sym"], e["hz"], e["kind"], e["date"])
+            if key not in seen_idx:
+                seen_idx.add(key)
+                idx_all.append(e)
+        mine_all += [{**e, "sym": f"{e['sym']} ({tag})"}
+                     for e in b.get("mine", [])]
+        ups_all += [{**e, "sym": f"{e['sym']} ({tag})"}
+                    for e in b.get("ups", [])]
+    blines = break_lines({"idx": idx_all, "mine": mine_all,
+                          "ups": ups_all})
+    out("\n" + "=" * 64)
+    out("  🔔 شکستِ ناحیه — هفتهٔ جاری و ماهِ جاری، هر دو جهان")
+    out("=" * 64)
+    if blines:
+        for ln in blines:
+            out("  " + ln)
+    else:
+        out("  هیچ شکستی در این هفته و این ماه نبود.")
 
     # ── از سبدِ فعلی به سبدِ هدفِ **ترکیبی** ────────────────────────
     # این بخش دلیلِ اصلیِ وجودِ --all است. فهرستِ خرید و فروشِ هر
@@ -7235,6 +7572,9 @@ def main():
     last_date = date(y, mo, dd)
     # ── قطب‌نما و فهرستِ خرید/فروش ─────────────────────────────────
     hu, hc = holdings_load()
+    # شکستِ ناحیه — یک بار، اینجا، تا ترمینال و HTML و گزارشِ ترکیبی
+    # همه از **یک** عدد بخوانند.
+    BA = break_alarms(rows, hu)
     # در جهانِ سهام فقط سهمِ سهام از نقد خرج می‌شود — بالاتر.
     hc_use = hc if CASH_SIZE is None else CASH_SIZE
     if STOCK and capital < max(1e6, TOTAL_CAP * 0.005):
@@ -7367,7 +7707,7 @@ def main():
     buy, sell = alarms(rows, book, hu)
     OUT.write_text(html(rows, book, capital, stamp, last_date,
                         buy, sell, comp, sells, buys, nopx, pos, rr,
-                        DRV, BU, DIF, DSTAMP),
+                        DRV, BU, DIF, DSTAMP, ba=BA),
                    encoding="utf-8")
     print(f"      {OUT}")
 
@@ -7723,6 +8063,20 @@ def main():
 
     print(f"\n  {len(hot)} نماد در نوار خرید · {len(elig)} واجد شرط")
 
+    # ── آلارمِ شکستِ ناحیه — همیشه، نه فقط وقتی آلارمِ دیگری هست ──
+    # «سیستم اصلاً هیچ آلارمی نداد و آپدیتی نکرد» — ۱ اکتبر.
+    bl = break_lines(BA)
+    print("\n" + "=" * 64)
+    print(f"  🔔 شکستِ ناحیه — هفتهٔ جاری و ماهِ جاری (کلوزِ {stamp})")
+    print("=" * 64)
+    print("  باکس از دورهٔ بسته‌شده ثابت است؛ هر کلوزِ دیلیِ بیرونِ آن "
+          "اینجا می‌آید.")
+    if bl:
+        for ln in bl:
+            print("  " + ln)
+    else:
+        print("  هیچ شکستی در این هفته و این ماه نبود.")
+
     # ── آلارم ──
     if buy or sell:
         print("\n" + "=" * 64)
@@ -7743,7 +8097,7 @@ def main():
         print("\n  🔕 امروز نه آلارمِ خرید هست نه فروش.")
 
     if args.telegram:
-        txt = alarm_text(buy, sell, stamp)
+        txt = alarm_text(buy, sell, stamp, BA)
         if book:
             txt += "\n\n<b>سفارشِ امروز</b>"
             for r in book:
@@ -7761,7 +8115,7 @@ def main():
     if args.export:
         snap_write(args.export, stamp, capital, hu, hc, book, pos,
                    buy, sell, sells, buys, nopx, PX, comp, BU,
-                   DIF, DSTAMP)
+                   DIF, DSTAMP, ba=BA)
         print(f"      عکسِ اجرا: {args.export}")
 
     if args.open and not args.export:
