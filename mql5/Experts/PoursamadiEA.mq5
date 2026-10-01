@@ -19,7 +19,7 @@
 //| Needs a HEDGING account (several positions at once).               |
 //+------------------------------------------------------------------+
 #property copyright "research build"
-#property version   "1.20"
+#property version   "1.30"
 
 #include <Trade/Trade.mqh>
 
@@ -36,6 +36,7 @@ input double InpMaxSpreadUSD   = 1.00;   // skip new entries when spread is wide
 input int    InpMaxHoldHours   = 24;     // close any position after this many hours
 input bool   InpRoundNearest   = true;   // round lots to the nearest step (false = always down)
 input double InpMinLotMaxX     = 2.0;    // allow the minimum lot if it risks <= x times the plan (0 = skip)
+input double InpMaxMarginPct   = 30.0;   // one trade may use at most this % of free margin (0 = off)
 
 input group "SP2L (H1)"
 input int    InpSpikeBars      = 3;      // strong candles in the spike
@@ -144,7 +145,23 @@ double LotsFor(double entry, double stopPx, double pct, double units)
          return vmin;
       return 0.0;
      }
-   return MathMin(lots, vmax);
+   lots = MathMin(lots, vmax);
+   // margin guard: with high risk and a tight stop the position can get large; cap it so one
+   // trade never uses more than InpMaxMarginPct of the free margin (no margin call / stop-out)
+   if(InpMaxMarginPct > 0)
+     {
+      double m1 = 0.0;
+      if(OrderCalcMargin(t, _Symbol, 1.0, entry, m1) && m1 > 0)
+        {
+         double maxLots = AccountInfoDouble(ACCOUNT_MARGIN_FREE) * InpMaxMarginPct / 100.0 / m1;
+         maxLots = MathFloor(maxLots / step) * step;
+         if(lots > maxLots)
+            lots = maxLots;
+         if(lots < vmin)
+            return 0.0;
+        }
+     }
+   return lots;
   }
 
 double Np(double p) { return NormalizeDouble(p, _Digits); }

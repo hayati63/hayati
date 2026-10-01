@@ -1,10 +1,10 @@
-; PoursamadiEA - test C: Pro BTB (M15) only, default money management
-InpUseSP2L=false
+; PoursamadiEA - CENT account, maximum recommended: 4% risk, x1.5 after each win, cap 8% (expect ~50-55% drawdowns)
+InpUseSP2L=true
 InpUseBTB=true
-InpRiskPct=0.5
+InpRiskPct=4.0
 InpAntiMartingale=true
 InpAMMult=1.5
-InpAMCapPct=1.5
+InpAMCapPct=8.0
 InpMaxSpreadUSD=1.0
 InpMaxHoldHours=24
 InpRoundNearest=true

@@ -34,7 +34,7 @@ enum ENUM_DEAL_PROPERTY_INTEGER { DEAL_MAGIC, DEAL_POSITION_ID, DEAL_ENTRY, DEAL
 enum ENUM_DEAL_PROPERTY_DOUBLE { DEAL_PROFIT, DEAL_SWAP, DEAL_COMMISSION, DEAL_FEE, DEAL_VOLUME, DEAL_PRICE };
 enum ENUM_DEAL_PROPERTY_STRING { DEAL_SYMBOL };
 enum ENUM_DEAL_ENTRY { DEAL_ENTRY_IN, DEAL_ENTRY_OUT, DEAL_ENTRY_INOUT, DEAL_ENTRY_OUT_BY };
-enum ENUM_ACCOUNT_INFO_DOUBLE { ACCOUNT_EQUITY, ACCOUNT_BALANCE };
+enum ENUM_ACCOUNT_INFO_DOUBLE { ACCOUNT_EQUITY, ACCOUNT_BALANCE, ACCOUNT_MARGIN_FREE };
 enum ENUM_ACCOUNT_INFO_INTEGER { ACCOUNT_MARGIN_MODE };
 enum ENUM_ACCOUNT_MARGIN_MODE { ACCOUNT_MARGIN_MODE_RETAIL_NETTING, ACCOUNT_MARGIN_MODE_EXCHANGE, ACCOUNT_MARGIN_MODE_RETAIL_HEDGING };
 enum ENUM_MQL_INFO_INTEGER { MQL_TESTER, MQL_OPTIMIZATION, MQL_VISUAL_MODE };
@@ -201,6 +201,7 @@ inline string OrderGetString(ENUM_ORDER_PROPERTY_STRING) { return "XAUUSD"; }
 inline long OrderGetInteger(ENUM_ORDER_PROPERTY_INTEGER p) { auto& x = EMU_ORD()[EMU_OSEL()]; return p == ORDER_MAGIC ? x.magic : x.type; }
 inline double OrderGetDouble(ENUM_ORDER_PROPERTY_DOUBLE p) { auto& x = EMU_ORD()[EMU_OSEL()];
   switch (p) { case ORDER_PRICE_OPEN: return x.price; case ORDER_SL: return x.sl; case ORDER_TP: return x.tp; case ORDER_VOLUME_CURRENT: return x.vol; } return 0; }
+inline bool OrderCalcMargin(ENUM_ORDER_TYPE, const string&, double vol, double px, double& m) { m = px * 100.0 * vol / 100.0; return true; }   // 1:100
 inline bool OrderCalcProfit(ENUM_ORDER_TYPE t, const string&, double vol, double a, double b, double& pr) { pr = (t == ORDER_TYPE_BUY ? (b - a) : (a - b)) * 100.0 * vol; return true; }
 inline double AccountInfoDouble(ENUM_ACCOUNT_INFO_DOUBLE) { return EMU_BAL(); }
 inline long AccountInfoInteger(ENUM_ACCOUNT_INFO_INTEGER) { return ACCOUNT_MARGIN_MODE_RETAIL_HEDGING; }

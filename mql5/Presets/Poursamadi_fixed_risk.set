@@ -9,6 +9,7 @@ InpMaxSpreadUSD=1.0
 InpMaxHoldHours=24
 InpRoundNearest=true
 InpMinLotMaxX=2.0
+InpMaxMarginPct=30.0
 InpSpikeBars=3
 InpSpikeATR=1.0
 InpSP2LWait=12
