@@ -6,6 +6,8 @@
 
 **گزارش کامل (فارسی): [docs/REPORT_fa.md](docs/REPORT_fa.md)** — اول این را بخوانید.
 
+**استراتژی‌های خارجی (ICT، آل بروکس، شکست رنج سشن، لاکپشت‌ها) + جمع‌بندی کل پروژه: [docs/REPORT_foreign_fa.md](docs/REPORT_foreign_fa.md)**
+
 **استراتژی‌های پورصمدی (SP2L، Pro BTB، MicroMAP): [docs/REPORT_poursamadi_fa.md](docs/REPORT_poursamadi_fa.md)** — تنها مواردی که خارج از نمونه مزیت نشان دادند.
 
 خلاصه: روی داده‌ی ۲۰۱۲ تا ۲۰۲۵، نسخه‌ی H1 با هیچ حد ضرر/ریواردی بعد از هزینه‌ها سودده نشد؛
