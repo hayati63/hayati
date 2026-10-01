@@ -5915,29 +5915,85 @@ def run_all(argv, stock_share, open_pages=True, adopt=False):
     """
     import subprocess
     here = Path(__file__).resolve()
-    snaps = {}
+
+    # ── «--all --hz both»: چهار داشبورد، بی تو در تو شدن ───────────
+    # ⚠️ باگی که اینجا بود: `--hz` در لیستِ حذفِ passthru نبود، پس
+    # هر زیرفرایند خودش به `args.hz == "both"` می‌خورد و **زیرفرایندِ
+    # خودش** را می‌ساخت. تو در تو، و دو برابر کار.
+    #
+    # حالا حلقهٔ افق **اینجا** زده می‌شود و به زیرفرایند همیشه یک
+    # افقِ مشخص می‌رود. چهار فایل درمی‌آید:
+    #     dashboard_monthly.html          dashboard_weekly.html
+    #     stocks_dashboard_monthly.html   stocks_dashboard_weekly.html
+    hzs, clean, skip = [], [], False
+    for a in argv:
+        if skip:
+            hzs.append(a)
+            skip = False
+            continue
+        if a == "--hz":
+            skip = True
+            continue
+        if a.startswith("--hz="):
+            hzs.append(a.split("=", 1)[1])
+            continue
+        clean.append(a)
+    want = (["month", "week"] if (not hzs or hzs[-1] == "both")
+            else [hzs[-1]])
+
+    snaps, made = {}, []
     for tag, extra, out in (
             ("صندوق", [], HERE / "data_bourse" / "snap.json"),
             ("سهام", ["--stocks"], HERE / "data_stocks" / "snap.json")):
-        print("\n" + "█" * 64)
-        print(f"  █  جهانِ {tag}")
-        print("█" * 64)
-        cmd = [sys.executable, str(here)] + argv + extra + [
-            "--export", str(out), "--no-open"]
-        r = subprocess.run(cmd)
-        if r.returncode == 0 and out.exists():
-            try:
-                snaps[tag] = json.loads(out.read_text(encoding="utf-8"))
-            except ValueError:
-                print(f"  ⚠️  عکسِ جهانِ {tag} خوانده نشد.")
-        else:
-            print(f"  ⚠️  جهانِ {tag} کامل نشد "
-                  f"(کدِ خروج {r.returncode}) — از گزارشِ ترکیبی "
-                  f"کنار می‌ماند.")
+        for hz in want:
+            fa = "ماهانه" if hz == "month" else "هفتگی"
+            print("\n" + "█" * 64)
+            print(f"  █  جهانِ {tag} — افقِ {fa}")
+            print("█" * 64)
+            cmd = [sys.executable, str(here)] + clean + extra + [
+                "--hz", hz, "--export", str(out), "--no-open"]
+            r = subprocess.run(cmd)
+            if r.returncode != 0:
+                # جداکردنِ «داده نیست» از «خراب شد» — چون اولی روی
+                # ماشینِ خودش با شبکه حل می‌شود و دومی نه.
+                dd = HERE / ("data_stocks" if extra else "data_bourse")
+                if not dd.exists() or not any(dd.glob("*.csv")):
+                    print(f"  ⚠️  جهانِ {tag}: پوشهٔ {dd.name} خالی "
+                          f"است، پس آفلاین ساختنی نیست.")
+                    print("      یک بار **بدونِ** --offline بزن تا "
+                          "دادهٔ این جهان دانلود شود.")
+                else:
+                    print(f"  ⚠️  جهانِ {tag} ({fa}) کامل نشد "
+                          f"(کدِ خروج {r.returncode}).")
+                continue
+            made.append(HERE / (("stocks_" if extra else "")
+                                + HZ_OUT[hz]))
+            # عکسِ سبد را از افقِ **هفتگی** می‌گیریم، چون قاعدهٔ ۸۱
+            # خودش: «پرتفو هدفِ روزانه بر اساسِ نواحیِ هفتگی و ماهانه
+            # که فقط در پایانِ ماه هست، ولی هفتگی می‌بایست آپدیت
+            # شود.» پس آنچه هر روز عوض می‌شود هفتگی است.
+            if out.exists() and (hz == "week" or tag not in snaps):
+                try:
+                    snaps[tag] = json.loads(
+                        out.read_text(encoding="utf-8"))
+                except ValueError:
+                    print(f"  ⚠️  عکسِ جهانِ {tag} خوانده نشد.")
     if not snaps:
         print("\n  هیچ‌کدام از دو جهان نتیجه نداد.")
         return 1
-    return combined(snaps, stock_share, open_pages, adopt)
+    print("\n" + "=" * 64)
+    print(f"  {len(made)} داشبورد ساخته شد")
+    print("=" * 64)
+    for f in made:
+        print(f"    {f}")
+    rc = combined(snaps, stock_share, open_pages, adopt)
+    if open_pages:
+        for f in made:
+            try:
+                webbrowser.open(f.as_uri())
+            except Exception:                        # noqa: BLE001
+                pass
+    return rc
 
 
 def combined(snaps, stock_share=None, open_pages=False,
@@ -6373,6 +6429,9 @@ def main():
         # صندوق سبدِ صندوق را ثبت می‌کند و اجرای سهام سبدِ سهام را،
         # در **دو فایلِ جدا** — و مدلِ «یک پرتفو، یک سرمایه» می‌شکند.
         # سبدِ ترکیبی آخرِ کار یک‌جا ثبت می‌شود.
+        # ⚠️ `--hz` اینجا **نمی‌افتد**: run_all خودش حلقهٔ افق را
+        # می‌زند و لازم دارد بداند او کدام را خواسته. بالاتر جداش
+        # می‌کند. بقیه می‌افتند چون زیرفرایند نباید دوباره صداشان کند.
         drop = {"--all", "--stocks", "--export", "--no-open",
                 "--stock-share", "--adopt"}
         passthru, skip = [], False
