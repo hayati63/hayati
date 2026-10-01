@@ -2989,12 +2989,60 @@ def compass(px, units, cash, stamp):
             base = json.loads(bf.read_text(encoding="utf-8"))
         except ValueError:
             base = None
+    # ══ لنگر — و اینجا هم باگ بود ══════════════════════════════════
+    #
+    # خروجیِ او: «روزِ لنگر ۴۳۳٬۹۳۶ واحد · امروز ۵۴۸٬۷۵۰ واحد ·
+    # ‎+۲۶٫۴۶٪» روی **۴ روز**. بازدهِ ۲۶٪ بر کهربا در چهار روز وجود
+    # ندارد — و جدولِ «واحدِ کهربا» در همان صفحه +۱٫۰۷٪ ماهانه
+    # می‌گفت. دو عدد در یک صفحه، یکی غلط.
+    #
+    # علت: لنگر فقط `capital` را ذخیره می‌کرد. اگر روزِ لنگر بخشی از
+    # سبد **قیمت نخورده** بود، `port_value` کم‌برآورد می‌داد و همان
+    # عددِ کم تا ابد می‌ماند؛ بعد هر روز «رشد» دیده می‌شد. همین‌طور
+    # اگر بین لنگر و امروز خرید و فروش شده بود، اختلافِ **ترکیب** به
+    # حسابِ **بازده** نوشته می‌شد.
+    #
+    # دو گاردِ ساده: (۱) تا وقتی سبد کامل قیمت نخورده لنگر ننویس.
+    # (۲) ترکیبِ سبد را هم ذخیره کن، و اگر عوض شده بود عدد را
+    # **بازده نخوان**.
     if not base or not base.get("bench_px"):
+        if pv <= 0:
+            return {"blocked": "لنگر نوشته نشد: هیچ قلمی از سبد قیمت "
+                    "نخورد، پس سرمایهٔ مبنا صفر می‌شد و از فردا هر "
+                    "عددی «رشدِ بی‌نهایت» می‌داد."}
+        # نمادهای بی‌قیمت **در خودِ لنگر** ثبت می‌شوند تا مقایسهٔ
+        # فردا روی همان مبنا بسته شود، نه مبنای بزرگ‌تر. سه سهمِ
+        # یک‌واحدی مجموعاً ۲۴ هزار ریال‌اند و بستنِ کلِ قطب‌نما به
+        # خاطرشان از خودِ باگ بدتر بود.
         base = {"date": stamp, "bench": BENCH, "bench_px": bpx,
-                "capital": pv}
+                "capital": pv, "miss": list(miss),
+                "units": {norm(k): float(v) for k, v in units.items()
+                          if norm(k) in px or k in px},
+                "cash": float(cash)}
         DATA.mkdir(exist_ok=True)
         bf.write_text(json.dumps(base, ensure_ascii=False, indent=1),
                       encoding="utf-8")
+
+    # ترکیب عوض شده؟ آن‌وقت این عدد بازده نیست.
+    # ⚠️ نسخهٔ اولِ این مقایسه **به‌دروغ** روشن می‌شد: لنگر فقط
+    # نمادهای قیمت‌خورده را ثبت می‌کند، ولی مقایسه با **همهٔ** سبد
+    # بود، پس سه سهمِ بی‌قیمت همیشه «تغییرِ ترکیب» می‌ساختند — در
+    # همان اجرایی که لنگر نوشته شده بود.
+    #
+    # مقایسهٔ منصفانه: فقط روی نمادهایی که **در لنگر هستند**، به‌علاوهٔ
+    # نمادِ تازه‌ای که امروز قیمت دارد و در لنگر نبود.
+    bu0 = base.get("units")
+    changed = None
+    if bu0 is not None:
+        priced = {norm(k): float(v) for k, v in units.items()
+                  if norm(k) in px or k in px}
+        new_sym = set(priced) - set(bu0)
+        gone = set(bu0) - set(priced)
+        moved = [k for k, v in bu0.items()
+                 if k in priced
+                 and abs(priced[k] - v) > max(1.0, abs(v) * 0.001)]
+        if new_sym or gone or moved:
+            changed = base.get("date")
 
     bench_val = base["capital"] * (bpx / base["bench_px"])
     # ── معیارِ اصلی: **تعدادِ واحدِ کهربا** ─────────────────────────
@@ -3052,6 +3100,8 @@ def compass(px, units, cash, stamp):
     d = [ex[i] - ex[i - 1] for i in range(1, len(ex))]
     out["sd"] = statistics.pstdev(d) if len(d) >= 5 else None
     out["days"] = len(hist)
+    out["changed"] = changed
+    out["miss"] = miss
     return out
 
 
@@ -3284,6 +3334,15 @@ def state_save(stamp, rows, book):
             "book": k in bk, "exit_at": exit_at,
             "close": r.get("close")}
     DATA.mkdir(exist_ok=True)
+    # ⚠️ با `--hz both` چهار زیرفرایند پشتِ سرِ هم می‌آیند و هر کدام
+    # این فایل را رویش می‌نوشت. نتیجه: فقط اجرای **اول** تفاوتِ واقعی
+    # را می‌دید و سه تای بعدی «۲۰۲۶‑۰۹‑۳۰ → ۲۰۲۶‑۰۹‑۳۰» چاپ می‌کردند —
+    # روز را با خودش مقایسه می‌کردند. در خروجیِ او دقیقاً همین بود.
+    #
+    # اگر مُهرِ ذخیره‌شده همین امروز است، دست نمی‌زنیم: عکسِ **دیروز**
+    # باید بماند تا هر چهار اجرا همان تفاوتِ روزبه‌روز را ببینند.
+    if _pstamp == stamp:
+        return
     (DATA / "state.json").write_text(
         json.dumps(d, ensure_ascii=False, indent=1), encoding="utf-8")
 
@@ -4897,6 +4956,9 @@ def html(rows, book, capital, stamp, last_date, buy=(), sell=(),
     def _compass():
         if not comp:
             return ""
+        if comp.get("blocked"):
+            return (f'<div class="feebox"><b>قطب‌نما بسته است.</b> '
+                    f'{comp["blocked"]}</div>')
         ex, rial = comp["excess_pct"], comp["excess_rial"]
         up = ex >= 0
         cls = "g" if up else "r"
@@ -5163,8 +5225,8 @@ def html(rows, book, capital, stamp, last_date, buy=(), sell=(),
                 '· سقفِ ریسکِ هر نماد ۵٪: ۱٫۱۵۲ → ۰٫۸۱۳<br>'
                 '· سقفِ ریسکِ کلِ سبد ۵٪: ۱٫۱۵۲ → ۱٫۰۴۵ — و بیشینه افت '
                 'از ‎−۷٫۲٪ به ‎−۹٫۵٪ <b>بدتر</b> شد.<br>'
-                'آخری غیرشهودی است: سقف پول را می‌برد روی کهربا، و '
-                'کهربا در این پنجره افتِ بیشتری از سبدِ شش‌تایی داشت. '
+                f'آخری غیرشهودی است: سقف پول را می‌برد روی {BENCH}، و '
+                f'{BENCH} در این پنجره افتِ بیشتری از سبدِ شش‌تایی داشت. '
                 'یعنی «کم کردنِ ریسک» با این تعریف ریسکِ واقعی را زیاد '
                 'کرد. با <code>--risk-cap N</code> می‌شود تحمیلش کرد.'
                 '</div>')
@@ -6283,11 +6345,28 @@ def combined(snaps, stock_share=None, open_pages=False,
     out("\n" + "=" * 64)
     out("  این خوانشِ قاعده‌های خودت روی داده است، نه توصیهٔ مالی.")
     out("=" * 64)
+    # ⚠️ قبلاً همیشه `dashboard.html` و `dashboard_stocks.html` را
+    # چاپ می‌کرد — نام‌های **قدیمی**. با `--hz both` این دو ساخته
+    # نمی‌شوند، پس او به فایلِ **کهنهٔ اجرای قبل** فرستاده می‌شد. از
+    # روی صفحه هم معلوم نبود، چون فایل از اجرای قبل وجود داشت.
     out("\n  داشبوردها:")
-    for tag, f in (("صندوق", HERE / "dashboard.html"),
-                   ("سهام", HERE / "dashboard_stocks.html")):
-        if f.exists():
-            out(f"    {tag:<8}{f}")
+    seen = 0
+    for tag, f in (
+            ("صندوق · ماهانه", HERE / HZ_OUT["month"]),
+            ("صندوق · هفتگی", HERE / HZ_OUT["week"]),
+            ("سهام · ماهانه", HERE / ("stocks_" + HZ_OUT["month"])),
+            ("سهام · هفتگی", HERE / ("stocks_" + HZ_OUT["week"])),
+            ("صندوق", HERE / "dashboard.html"),
+            ("سهام", HERE / "dashboard_stocks.html")):
+        if not f.exists():
+            continue
+        age = (time.time() - f.stat().st_mtime) / 60
+        if age > 30:                 # مالِ این اجرا نیست
+            continue
+        out(f"    {tag:<16}{f}")
+        seen += 1
+    if not seen:
+        out("    ⚠️  هیچ فایلی از این اجرا پیدا نشد.")
 
     # ── ثبتِ سبدِ ترکیبی ──────────────────────────────────────────
     if adopt and rows:
@@ -6734,14 +6813,69 @@ def main():
             pass
 
     capfile = DATA / "capital.txt"
-    capital = args.capital
-    if not capital and capfile.exists():
+    # ══ سرمایه — هر اجرا از نو، هیچ‌وقت از کَش ══════════════════════
+    #
+    # ⚠️⚠️ بزرگ‌ترین باگی که تا امروز از این برنامه درآمد، و او با یک
+    # نگاه گرفتش: «از بیخ غلطه».
+    #
+    # `capital.txt` یک **کَشِ بی‌انقضا** بود: یک بار نوشته می‌شد و از
+    # آن به بعد همیشه خوانده می‌شد. روی ماشینِ او ۱۲٫۵ میلیارد مانده
+    # بود (از اجرایی که سبد قیمت نخورده بود) در حالی که پرتفوی واقعی
+    # ۱۳۴٫۳ میلیارد است — **۱۰٫۷ برابر**.
+    #
+    # و capital مخرجِ همه‌چیز است: وزنِ هر قلم، «تعداد»، «مبلغ»،
+    # «٪ سرمایه»، ریسکِ کل، درصدِ نقد. یعنی کلِ فهرستِ سفارش ۱۰٫۷ برابر
+    # کوچک بود. در خروجیِ او این‌طور دیده می‌شد: فروشِ ۱۱۵٬۹۷۶ م.ر در
+    # برابرِ خریدِ ۵٬۷۶۹ م.ر، و «نقد: ۰٪» — یعنی ۱۱۰ میلیارد جایی
+    # نمی‌رفت و برنامه هم نمی‌فهمید.
+    #
+    # حالا: سرمایه **همیشه** از `HOLDING` و `CASH` حساب می‌شود.
+    # `capital.txt` و `--capital` فقط **بازنویسیِ عمدی**اند و اگر با
+    # عددِ واقعی نخوانند، بلند گفته می‌شود.
+    px = {r["sym"]: r["close"] for r in rows}
+    hf = DATA / "hold_px.json"
+    if hf.exists():
         try:
-            capital = float(capfile.read_text(encoding="utf-8").strip()
-                            .replace(",", ""))
+            px.update(json.loads(hf.read_text(encoding="utf-8")))
         except ValueError:
-            capital = 0
-    if not capital:
+            pass
+    _hu, _hc = holdings_load()
+    _have, _miss = port_value(_hu, 0.0, PX)
+    live_cap = _have + _hc
+
+    override = args.capital
+    if not override and capfile.exists():
+        try:
+            override = float(capfile.read_text(encoding="utf-8").strip()
+                             .replace(",", ""))
+        except ValueError:
+            override = 0
+
+    capital = live_cap
+    if live_cap > 0:
+        print(f"\n      سرمایه از پرتفو: {_have / 1e9:,.1f} دارایی + "
+              f"{_hc / 1e9:,.1f} نقد = {live_cap / 1e9:,.1f} میلیارد ریال")
+        if _miss:
+            print(f"      ⚠️  قیمتِ {'، '.join(_miss)} پیدا نشد — "
+                  f"سرمایه **کم‌برآورد** است.")
+        if override and abs(override - live_cap) / live_cap > 0.20:
+            # ۲۰٪ عمدی است: نوسانِ روزانه از آن کمتر است، پس اختلافِ
+            # بیشتر یعنی فایل کهنه است نه بازار تکان خورده.
+            src = "--capital" if args.capital else capfile.name
+            print(f"      ⚠️  {src} عددِ {override / 1e9:,.1f} میلیارد "
+                  f"دارد که {abs(override / live_cap - 1) * 100:,.0f}٪ با "
+                  f"پرتفوی واقعی فرق می‌کند.")
+            if args.capital:
+                print("      چون خودت --capital دادی، همان را می‌گیرم.")
+                capital = override
+            else:
+                print(f"      **نادیده گرفته شد** و از پرتفو حساب شد. "
+                      f"اگر عمدی بود با --capital بده.")
+                capfile.write_text(str(int(live_cap)), encoding="utf-8")
+        elif args.capital:
+            capital = override
+    else:
+        capital = override
         # ── سرمایه را از خودِ پرتفو حساب کن، نه یک عددِ ساختگی ──────
         # قبلاً اینجا «یک میلیارد» فرض می‌شد و بی‌صدا رد می‌شد. ولی
         # capital مخرجِ «ریسکِ کل» و «نقد» است، پس عددِ ساختگی یعنی دو
@@ -6754,21 +6888,12 @@ def main():
                 px.update(json.loads(hf.read_text(encoding="utf-8")))
             except ValueError:
                 pass
-        hu, hc = holdings_load()
-        have, miss = port_value(hu, 0.0, PX)
-        capital = have + hc
-        capfile.parent.mkdir(exist_ok=True)
+        # نه پرتفو و نه بازنویسی — اینجا واقعاً چیزی نیست.
+        print("\n      ⚠️  نه پرتفو قیمت خورد و نه --capital دادی، "
+              "پس سرمایه صفر است و همهٔ درصدها بی‌معنی‌اند.")
+    capfile.parent.mkdir(exist_ok=True)
+    if capital > 0 and not args.capital:
         capfile.write_text(str(int(capital)), encoding="utf-8")
-        print(f"\n      سرمایه از پرتفو حساب شد: "
-              f"{have / 1e9:,.1f} سهام + {hc / 1e9:,.1f} نقد "
-              f"= {capital / 1e9:,.1f} میلیارد ریال")
-        if miss:
-            # نمادِ غیرصندوقی در دیدبانِ صندوق‌ها نیست، پس ارزشش
-            # شمرده نشده و سرمایه **کم‌برآورد** است. سکوت نکن.
-            print(f"      ⚠️  قیمتِ {'، '.join(miss)} پیدا نشد — "
-                  f"سرمایه کم‌برآورد است.")
-            print(f"      عددِ درست را در {capfile} بنویس یا "
-                  f"--capital بده.")
 
     # محرک **قبل از** مبنا، چون در حالتِ سهام مبنای هر نماد از
     # محرکِ اندازه‌گیری‌شده‌اش می‌آید (`bench_for`).
@@ -7065,7 +7190,10 @@ def main():
         print("     سقفِ ریسکِ هر نماد ۵٪   ۱٫۱۵۲ → ۰٫۸۱۳")
         print("     سقفِ ریسکِ کلِ سبد ۵٪    ۱٫۱۵۲ → ۱٫۰۴۵، و افت از")
         print("                            −۷٫۲٪ به −۹٫۵٪ **بدتر** شد")
-        print("     سقف پول را می‌برد روی کهربا، و کهربا در این پنجره")
+        # ⚠️ متنِ ثابتِ «کهربا» در جهانِ سهام غلط بود — آنجا مبنا
+        # شاخص کل است. از BENCH می‌خوانیم.
+        print(f"     سقف پول را می‌برد روی {BENCH}، و {BENCH} در این "
+              f"پنجره")
         print("     افتِ بیشتری از سبدِ شش‌تایی داشت. با --risk-cap N")
         print("     می‌شود تحمیلش کرد.")
 
@@ -7131,10 +7259,27 @@ def main():
         print("  تا قطب‌نما از فردا همین سبد را دنبال کند.")
 
     # ── قطب‌نما ───────────────────────────────────────────────────
-    if comp:
+    if comp and comp.get("blocked"):
         print("\n" + "=" * 64)
         print(f"  قطب‌نما — در برابرِ {BENCH}")
         print("=" * 64)
+        print(f"\n  ⚠️  {comp['blocked']}")
+        print("      قیمتِ همهٔ اقلامِ سبد را که داشتیم، لنگر بسته "
+              "می‌شود.")
+    elif comp:
+        print("\n" + "=" * 64)
+        print(f"  قطب‌نما — در برابرِ {BENCH}")
+        print("=" * 64)
+        if comp.get("changed"):
+            # ⚠️ گاردی که نبود و او عددِ ۲۶٫۴۶٪ در ۴ روز را دید.
+            print(f"\n  ⚠️  ترکیبِ سبد از روزِ لنگر "
+                  f"({comp['changed']}) عوض شده است.")
+            print("      پس عددِ زیر **بازده نیست** — اختلافِ ترکیب هم")
+            print("      داخلش است. معیارِ درست جدولِ «تعدادِ واحدِ")
+            print(f"      {BENCH}» بالاتر است، که هر نماد را با")
+            print("      تاریخچهٔ قیمتِ خودش می‌سنجد.")
+            print("      برای بستنِ لنگرِ تازه: "
+                  f"{DATA / 'baseline.json'} را پاک کن.")
         if comp["first_day"]:
             print(f"\n  امروز روزِ **لنگر** است ({comp['date']}).")
             print(f"  کلِ پرتفو امروز = {comp['units_base']:,.0f} واحدِ "
@@ -7153,7 +7298,8 @@ def main():
             print(f"  امروز      {comp['units_now']:>14,.0f} واحد")
             print(f"  تغییر      {ud:>+14,.0f} واحد "
                   f"({comp['units_pct']:+.2f}٪)  ← "
-                  f"{'بیشتر شد ✓' if ud >= 0 else 'کمتر شد ✗'}")
+                  + ("بیشتر شد ✓" if ud > 0 else
+                     "کمتر شد ✗" if ud < 0 else "تغییری نکرد"))
             print(f"\n  از {comp['base_date']} تا {comp['date']} "
                   f"({comp['days']} روز)\n")
             print(f"  {'پرتفو':<14}{comp['port']/1e9:>10,.2f} م‌لیارد"
@@ -7163,7 +7309,9 @@ def main():
             print("  " + "-" * 46)
             print(f"  {'مازاد':<14}"
                   f"{comp['excess_rial']/1e9:>+10,.2f} م‌لیارد"
-                  f"{comp['excess_pct']:>+10.2f}٪   ← {sign}")
+                  f"{comp['excess_pct']:>+10.2f}٪   ← "
+                  + (sign if abs(comp['excess_rial']) > 1e6
+                     else "برابر"))
             print(f"\n  امروز: {comp['day_pnl']/1e6:>+,.0f} م.ر "
                   f"({comp['day_pct']:+.2f}٪) · "
                   f"{BENCH} {comp['day_bench_pct']:+.2f}٪ · "
