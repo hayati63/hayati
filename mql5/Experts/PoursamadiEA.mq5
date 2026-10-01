@@ -16,10 +16,10 @@
 //| anti-martingale (x mult after each win of the same setup, back to |
 //| base after a loss, capped).  Positions are closed after 24 h.     |
 //| Works on any chart timeframe (reads H1 / M15 itself).             |
+//| Needs a HEDGING account (several positions at once).               |
 //+------------------------------------------------------------------+
 #property copyright "research build"
-#property version   "1.00"
-#property strict
+#property version   "1.10"
 
 #include <Trade/Trade.mqh>
 
@@ -44,7 +44,8 @@ input bool   InpSP2LAddOn      = true;   // add-on limit at 50% entry-SL
 input bool   InpSP2LTrend      = true;   // only with the H1 EMA trend
 input int    InpTrendEMA       = 200;    // EMA period (H1) for the trend filter
 
-input group "Pro BTB (M15)"
+input group "Pro BTB"
+input ENUM_TIMEFRAMES InpBTBTF = PERIOD_M15; // BTB timeframe (M15 validated; M5 also positive)
 input int    InpMinLevels      = 2;      // min. previous-day levels broken by one candle
 input bool   InpBTBStrong      = true;   // breakout candle must be a strong trend candle
 input double InpBTBRR          = 3.0;    // take profit, R
@@ -577,7 +578,7 @@ void BTBOnCandle(MqlRates &rt[], int k, bool trade)
          BTBRemoveSetup(i);
          i--;
          // entry at the open of the next candle (= now)
-         datetime nextOpen = rt[k].time + PeriodSeconds(PERIOD_M15);
+         datetime nextOpen = rt[k].time + PeriodSeconds(InpBTBTF);
          if(trade && (!InpBTBWindows || InWindow(nextOpen)))
             BTBEnter(dir, st);
         }
@@ -619,7 +620,7 @@ void BTBOnCandle(MqlRates &rt[], int k, bool trade)
 void BTBOnNewBars()
   {
    MqlRates rt[];
-   int n = CopyRates(_Symbol, PERIOD_M15, 1, 400, rt);
+   int n = CopyRates(_Symbol, InpBTBTF, 1, 1000, rt);
    if(n < 100)
       return;
    int first = n - 1;
@@ -634,7 +635,7 @@ void BTBOnNewBars()
 void BTBWarmUp()
   {
    MqlRates rt[];
-   int n = CopyRates(_Symbol, PERIOD_M15, 1, InpLevelLife + 200, rt);
+   int n = CopyRates(_Symbol, InpBTBTF, 1, InpLevelLife + 400, rt);
    if(n < 100)
       return;
    for(int k = 1; k < n; k++)
@@ -646,6 +647,13 @@ void BTBWarmUp()
 //+------------------------------------------------------------------+
 int OnInit()
   {
+   if(AccountInfoInteger(ACCOUNT_MARGIN_MODE) != ACCOUNT_MARGIN_MODE_RETAIL_HEDGING)
+     {
+      Print("PoursamadiEA needs a hedging account (it can hold several positions at once).");
+      return INIT_FAILED;
+     }
+   if(InpBTBTF != PERIOD_M15 && InpBTBTF != PERIOD_M5)
+      Print("Warning: Pro BTB was only validated on M15 (and M5).");
    g_trade.SetDeviationInPoints(50);
    g_trade.SetTypeFillingBySymbol(_Symbol);
    for(int i = 0; i < 2; i++)
@@ -688,7 +696,7 @@ void OnTick()
    if(InpUseBTB)
      {
       BTBSync();
-      if(iTime(_Symbol, PERIOD_M15, 1) > g_lastM15)
+      if(iTime(_Symbol, InpBTBTF, 1) > g_lastM15)
          BTBOnNewBars();
      }
   }

@@ -1,8 +1,6 @@
-; PoursamadiEA - default settings (the configuration validated 2012-2025, see docs/REPORT_poursamadi_fa.md)
-; SP2L on H1 + Pro BTB on M15, risk 0.5% with anti-martingale x1.5 per win (cap 1.5%), max hold 24 h.
-; Server clock assumed GMT+3 in summer (NY+7, LiteFinance); set InpClockShiftMin if yours differs.
+; PoursamadiEA - test B: SP2L (H1) only, default money management
 InpUseSP2L=true
-InpUseBTB=true
+InpUseBTB=false
 InpRiskPct=0.5
 InpAntiMartingale=true
 InpAMMult=1.5

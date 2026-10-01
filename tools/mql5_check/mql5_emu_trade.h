@@ -35,6 +35,8 @@ enum ENUM_DEAL_PROPERTY_DOUBLE { DEAL_PROFIT, DEAL_SWAP, DEAL_COMMISSION, DEAL_F
 enum ENUM_DEAL_PROPERTY_STRING { DEAL_SYMBOL };
 enum ENUM_DEAL_ENTRY { DEAL_ENTRY_IN, DEAL_ENTRY_OUT, DEAL_ENTRY_INOUT, DEAL_ENTRY_OUT_BY };
 enum ENUM_ACCOUNT_INFO_DOUBLE { ACCOUNT_EQUITY, ACCOUNT_BALANCE };
+enum ENUM_ACCOUNT_INFO_INTEGER { ACCOUNT_MARGIN_MODE };
+enum ENUM_ACCOUNT_MARGIN_MODE { ACCOUNT_MARGIN_MODE_RETAIL_NETTING, ACCOUNT_MARGIN_MODE_EXCHANGE, ACCOUNT_MARGIN_MODE_RETAIL_HEDGING };
 enum ENUM_MQL_INFO_INTEGER { MQL_TESTER, MQL_OPTIMIZATION, MQL_VISUAL_MODE };
 enum ENUM_MA_METHOD { MODE_SMA, MODE_EMA };
 enum ENUM_APPLIED_PRICE { PRICE_CLOSE };
@@ -201,6 +203,7 @@ inline double OrderGetDouble(ENUM_ORDER_PROPERTY_DOUBLE p) { auto& x = EMU_ORD()
   switch (p) { case ORDER_PRICE_OPEN: return x.price; case ORDER_SL: return x.sl; case ORDER_TP: return x.tp; case ORDER_VOLUME_CURRENT: return x.vol; } return 0; }
 inline bool OrderCalcProfit(ENUM_ORDER_TYPE t, const string&, double vol, double a, double b, double& pr) { pr = (t == ORDER_TYPE_BUY ? (b - a) : (a - b)) * 100.0 * vol; return true; }
 inline double AccountInfoDouble(ENUM_ACCOUNT_INFO_DOUBLE) { return EMU_BAL(); }
+inline long AccountInfoInteger(ENUM_ACCOUNT_INFO_INTEGER) { return ACCOUNT_MARGIN_MODE_RETAIL_HEDGING; }
 inline bool HistorySelectByPosition(ulong id) { auto it = EMU_DBYPOS().find(id); if (it == EMU_DBYPOS().end()) EMU_HSEL().clear(); else EMU_HSEL() = it->second; return true; }
 inline bool HistorySelect(datetime a, datetime b) { EMU_HSEL().clear(); for (size_t i = 0; i < EMU_DEALS().size(); i++) if (EMU_DEALS()[i].time >= a && EMU_DEALS()[i].time <= b) EMU_HSEL().push_back((int)i); return true; }
 inline int HistoryDealsTotal() { return (int)EMU_HSEL().size(); }

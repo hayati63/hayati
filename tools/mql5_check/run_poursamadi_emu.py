@@ -43,6 +43,7 @@ def main():
     ap.add_argument("--end", default="2025-03-21")
     ap.add_argument("--work", default=os.path.join(HERE, "_work"))
     ap.add_argument("--set", action="append", default=[], help="override an input, e.g. InpAntiMartingale=false")
+    ap.add_argument("--btb-tf", default="M15", choices=["M5", "M15"], help="must match InpBTBTF")
     a = ap.parse_args()
     os.makedirs(a.work, exist_ok=True)
     base = load_bars(a.data)
@@ -61,7 +62,7 @@ def main():
                     os.path.join(ROOT, "mql5", "Experts", "PoursamadiEA.mq5"), cpp], check=True)
     src = open(cpp).read().replace('#include "mql5_stub.h"', '#include "%s"' % os.path.join(HERE, "mql5_emu_trade.h"))
     src = src.split("\nstring _Symbol; double _Point; int _Digits;")[0]
-    for kv in ["InpVerbose=false"] + a.set:
+    for kv in ["InpVerbose=false", "InpBTBTF=PERIOD_" + a.btb_tf] + a.set:
         k, val = kv.split("=")
         src, n = re.subn(r"(const\s+\w+\s+%s\s*=\s*)[^;]+;" % k, r"\g<1>%s;" % val, src)
         assert n == 1, k
@@ -91,11 +92,11 @@ def main():
 
     # ---- Python reference ----
     py = {"SP2L": trade_list(base, "H1", "SP2L", ns=3, m=1.0, entry="main+50%", mgmt="RR3"),
-          "BTB": trade_list(base, "M15", "BTB", lvl="prevday", strong=1, mode=3, mgmt="RR3", min_lv=2)}
+          "BTB": trade_list(base, a.btb_tf, "BTB", lvl="prevday", strong=1, mode=3, mgmt="RR3", min_lv=2)}
     py["SP2L"] = py["SP2L"][py["SP2L"].trend_ok]
     py["BTB"] = py["BTB"][py["BTB"].window]
     rows = []
-    for name, tf in (("SP2L", "h"), ("BTB", "15min")):
+    for name, tf in (("SP2L", "h"), ("BTB", "5min" if a.btb_tf == "M5" else "15min")):
         e = ea[ea.setup == name].copy()
         e["key"] = list(zip(e.time.dt.floor(tf), e.dir))
         q = py[name].copy()
@@ -123,9 +124,10 @@ def main():
         b0 = 10000 + allp[allp.out_time < x.time.min()].net.sum()
         b = b0 + x.net.cumsum()
         print(f"  {per}: {100 * (b.iloc[-1] / b0 - 1):+.1f}%  maxDD {(1 - b / np.maximum(b.cummax(), b0)).max() * 100:.1f}%")
-    out = os.path.join(ROOT, "research", "results", "poursamadi_ea_emulator_trades.csv")
+    sfx = "" if a.btb_tf == "M15" and not a.set else "_" + "_".join([a.btb_tf] + [x.replace("=", "-") for x in a.set])
+    out = os.path.join(ROOT, "research", "results", f"poursamadi_ea_emulator_trades{sfx}.csv")
     ea[["setup", "time", "out_time", "dir", "price", "sl", "vol", "net", "R"]].to_csv(out, index=False)
-    cmp_.to_csv(os.path.join(ROOT, "research", "results", "poursamadi_ea_vs_python.csv"), index=False)
+    cmp_.to_csv(os.path.join(ROOT, "research", "results", f"poursamadi_ea_vs_python{sfx}.csv"), index=False)
 
 
 if __name__ == "__main__":
