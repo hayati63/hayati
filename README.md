@@ -6,6 +6,8 @@
 
 **گزارش کامل (فارسی): [docs/REPORT_fa.md](docs/REPORT_fa.md)** — اول این را بخوانید.
 
+**اساتید ایرانی (RTM، CRT، ۱-۲-۳ تقی‌خان، CTS مقراضی) + جمع‌بندی نهایی: [docs/REPORT_iranian_fa.md](docs/REPORT_iranian_fa.md)**
+
 **استراتژی‌های خارجی (ICT، آل بروکس، شکست رنج سشن، لاکپشت‌ها) + جمع‌بندی کل پروژه: [docs/REPORT_foreign_fa.md](docs/REPORT_foreign_fa.md)**
 
 **استراتژی‌های پورصمدی (SP2L، Pro BTB، MicroMAP): [docs/REPORT_poursamadi_fa.md](docs/REPORT_poursamadi_fa.md)** — تنها مواردی که خارج از نمونه مزیت نشان دادند.
