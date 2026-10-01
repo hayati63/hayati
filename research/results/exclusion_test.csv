@@ -1,0 +1,7 @@
+exclusion,cost,signals,is_n,is_avgR,oos_n,oos_avgR
+tehran,net,13809,6592,-0.17,3973,-0.112
+tehran,gross,13809,6742,-0.029,4024,-0.021
+none,net,15059,7098,-0.177,4313,-0.108
+none,gross,15059,7265,-0.032,4368,-0.016
+server,net,12186,5883,-0.158,3467,-0.101
+server,gross,12186,6012,-0.026,3516,-0.022

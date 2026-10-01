@@ -1,0 +1,41 @@
+sizing,period,trades,return_pct,CAGR_pct,maxDD_pct,CAGR_over_DD,skipped
+fixed 0.5%,2012-2019,324,36.1,4.0,4.1,0.97,0
+fixed 0.5%,2020-2025,263,38.1,6.4,4.3,1.47,0
+fixed 0.75%,2012-2019,324,57.9,5.9,6.1,0.97,0
+fixed 0.75%,2020-2025,263,61.5,9.7,6.5,1.49,0
+fixed 1%,2012-2019,324,82.5,7.9,8.1,0.98,0
+fixed 1%,2020-2025,263,88.2,12.9,8.6,1.51,0
+anti-martingale x1.5 cap 1.0%,2012-2019,324,56.6,5.8,5.3,1.09,0
+anti-martingale x1.5 cap 1.0%,2020-2025,263,60.4,9.5,6.4,1.5,0
+anti-martingale per setup x1.5 cap 1.0%,2012-2019,324,58.2,5.9,5.4,1.11,0
+anti-martingale per setup x1.5 cap 1.0%,2020-2025,263,60.0,9.5,5.5,1.72,0
+anti-martingale x1.5 cap 1.5%,2012-2019,324,64.0,6.4,5.5,1.16,0
+anti-martingale x1.5 cap 1.5%,2020-2025,263,74.2,11.3,6.4,1.77,0
+anti-martingale per setup x1.5 cap 1.5%,2012-2019,324,69.6,6.9,5.8,1.18,0
+anti-martingale per setup x1.5 cap 1.5%,2020-2025,263,67.5,10.4,6.4,1.64,0
+anti-martingale x1.5 cap 2.0%,2012-2019,324,69.7,6.9,6.0,1.15,0
+anti-martingale x1.5 cap 2.0%,2020-2025,263,87.3,12.8,6.4,2.02,0
+anti-martingale per setup x1.5 cap 2.0%,2012-2019,324,75.3,7.3,6.3,1.16,0
+anti-martingale per setup x1.5 cap 2.0%,2020-2025,263,70.2,10.8,7.0,1.54,0
+anti-martingale x2.0 cap 1.0%,2012-2019,324,61.1,6.2,5.9,1.05,0
+anti-martingale x2.0 cap 1.0%,2020-2025,263,69.2,10.6,8.3,1.28,0
+anti-martingale per setup x2.0 cap 1.0%,2012-2019,324,66.3,6.6,6.2,1.06,0
+anti-martingale per setup x2.0 cap 1.0%,2020-2025,263,65.4,10.2,5.8,1.74,0
+anti-martingale x2.0 cap 1.5%,2012-2019,324,79.3,7.6,6.6,1.15,0
+anti-martingale x2.0 cap 1.5%,2020-2025,263,85.4,12.6,8.3,1.52,0
+anti-martingale per setup x2.0 cap 1.5%,2012-2019,324,82.9,7.9,7.3,1.08,0
+anti-martingale per setup x2.0 cap 1.5%,2020-2025,263,84.8,12.5,7.2,1.75,0
+anti-martingale x2.0 cap 2.0%,2012-2019,324,98.8,9.0,7.7,1.17,0
+anti-martingale x2.0 cap 2.0%,2020-2025,263,102.6,14.5,8.7,1.66,0
+anti-martingale per setup x2.0 cap 2.0%,2012-2019,324,100.4,9.2,8.9,1.03,0
+anti-martingale per setup x2.0 cap 2.0%,2020-2025,263,105.8,14.9,8.8,1.69,0
+fixed 0.75% + half risk in DD>3.0%,2012-2019,324,38.7,4.2,5.9,0.71,0
+fixed 0.75% + half risk in DD>3.0%,2020-2025,263,45.2,7.4,5.0,1.47,0
+anti-martingale x1.5 cap 1.5% + half risk in DD>3.0%,2012-2019,324,30.5,3.4,5.8,0.59,0
+anti-martingale x1.5 cap 1.5% + half risk in DD>3.0%,2020-2025,263,54.2,8.7,5.3,1.65,0
+fixed 0.75% + half risk in DD>5.0%,2012-2019,324,49.2,5.2,6.1,0.84,0
+fixed 0.75% + half risk in DD>5.0%,2020-2025,263,52.6,8.5,5.8,1.47,0
+anti-martingale x1.5 cap 1.5% + half risk in DD>5.0%,2012-2019,324,62.5,6.3,5.4,1.17,0
+anti-martingale x1.5 cap 1.5% + half risk in DD>5.0%,2020-2025,263,57.0,9.1,6.7,1.35,0
+fixed 0.75% + 2% daily cap,2012-2019,324,57.9,5.9,6.1,0.97,0
+fixed 0.75% + 2% daily cap,2020-2025,263,61.5,9.7,6.5,1.49,0

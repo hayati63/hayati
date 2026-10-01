@@ -1,0 +1,37 @@
+trades,sizing,daily_stop,ruin_pct,median_final,p10_final,p90_final,median_maxDD
+all hours,"YOUR PLAN: 0.01 lot, x1.5/win, no cap",-,65.4,6,-24,1502,100
+all hours,"YOUR PLAN: 0.01 lot, x1.5/win, no cap",5,64.9,7,-23,1516,100
+all hours,"YOUR PLAN: 0.01 lot, x1.5/win, no cap",3,65.2,7,-25,1497,100
+all hours,"YOUR PLAN: 0.01 lot, x2/win, no cap",-,87.9,-2,-132,936,100
+all hours,"YOUR PLAN: 0.01 lot, x2/win, no cap",5,87.6,-2,-145,1009,100
+all hours,"YOUR PLAN: 0.01 lot, x2/win, no cap",3,87.0,-2,-130,1058,100
+all hours,0.01 lot fixed,-,45.1,913,-7,913,87
+all hours,0.01 lot fixed,5,44.2,765,-8,959,86
+all hours,0.01 lot fixed,3,44.4,692,-8,964,86
+all hours,"cent acct: 1% risk, x1.5/win, cap 3%",-,0.0,259,203,346,24
+all hours,"cent acct: 1% risk, x1.5/win, cap 3%",5,0.0,259,203,346,24
+all hours,"cent acct: 1% risk, x1.5/win, cap 3%",3,0.0,257,200,343,24
+all hours,"cent acct: 2% risk, x1.5/win, cap 5%",-,0.0,518,347,812,42
+all hours,"cent acct: 2% risk, x1.5/win, cap 5%",5,0.0,509,333,807,42
+all hours,"cent acct: 2% risk, x1.5/win, cap 5%",3,0.0,466,280,784,42
+all hours,"cent acct: 3% risk, x1.5/win, cap 8%",-,0.0,832,460,1649,58
+all hours,"cent acct: 3% risk, x1.5/win, cap 8%",5,0.0,764,374,1611,58
+all hours,"cent acct: 3% risk, x1.5/win, cap 8%",3,0.0,606,259,1470,57
+skip bad hours,"YOUR PLAN: 0.01 lot, x1.5/win, no cap",-,54.9,9,-19,1595,100
+skip bad hours,"YOUR PLAN: 0.01 lot, x1.5/win, no cap",5,54.4,9,-22,1597,100
+skip bad hours,"YOUR PLAN: 0.01 lot, x1.5/win, no cap",3,54.2,9,-21,1583,100
+skip bad hours,"YOUR PLAN: 0.01 lot, x2/win, no cap",-,81.4,0,-133,2007,100
+skip bad hours,"YOUR PLAN: 0.01 lot, x2/win, no cap",5,81.2,-1,-133,1826,100
+skip bad hours,"YOUR PLAN: 0.01 lot, x2/win, no cap",3,81.3,0,-133,1734,100
+skip bad hours,0.01 lot fixed,-,37.5,903,-6,903,77
+skip bad hours,0.01 lot fixed,5,35.4,832,-6,951,76
+skip bad hours,0.01 lot fixed,3,35.9,784,-6,965,75
+skip bad hours,"cent acct: 1% risk, x1.5/win, cap 3%",-,0.0,257,203,334,22
+skip bad hours,"cent acct: 1% risk, x1.5/win, cap 3%",5,0.0,257,203,334,22
+skip bad hours,"cent acct: 1% risk, x1.5/win, cap 3%",3,0.0,253,200,333,22
+skip bad hours,"cent acct: 2% risk, x1.5/win, cap 5%",-,0.0,517,356,789,39
+skip bad hours,"cent acct: 2% risk, x1.5/win, cap 5%",5,0.0,506,340,795,39
+skip bad hours,"cent acct: 2% risk, x1.5/win, cap 5%",3,0.0,472,289,775,38
+skip bad hours,"cent acct: 3% risk, x1.5/win, cap 8%",-,0.0,878,494,1656,54
+skip bad hours,"cent acct: 3% risk, x1.5/win, cap 8%",5,0.0,802,411,1643,54
+skip bad hours,"cent acct: 3% risk, x1.5/win, cap 8%",3,0.0,642,280,1471,52

@@ -1,0 +1,31 @@
+; PoursamadiEA - default settings (the configuration validated 2012-2025, see docs/REPORT_poursamadi_fa.md)
+; SP2L on H1 + Pro BTB on M15, risk 0.5% with anti-martingale x1.5 per win (cap 1.5%), max hold 24 h.
+; Server clock assumed GMT+3 in summer (NY+7, LiteFinance); set InpClockShiftMin if yours differs.
+InpUseSP2L=true
+InpUseBTB=true
+InpRiskPct=0.5
+InpAntiMartingale=true
+InpAMMult=1.5
+InpAMCapPct=1.5
+InpMaxSpreadUSD=1.0
+InpMaxHoldHours=24
+InpRoundNearest=true
+InpMinLotMaxX=2.0
+InpMaxMarginPct=30.0
+InpSpikeBars=3
+InpSpikeATR=1.0
+InpSP2LWait=12
+InpSP2LRR=3.0
+InpSP2LAddOn=true
+InpSP2LTrend=true
+InpTrendEMA=200
+InpMinLevels=2
+InpBTBTF=15
+InpBTBStrong=true
+InpBTBRR=3.0
+InpBTBExpiry=100
+InpLevelLife=2000
+InpBTBWindows=true
+InpClockShiftMin=0
+InpMagic=26100
+InpVerbose=true

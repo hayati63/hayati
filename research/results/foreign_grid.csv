@@ -1,0 +1,775 @@
+strategy,tf,variant,params,control,cost,is_n,is_perY,is_win,is_avgR,is_t,oos_n,oos_perY,oos_win,oos_avgR,oos_t,oos_maxDD
+ICT Silver Bullet,M5,SB windows,ref=day bias=none sweep=1 entry=edge tp=2.0,False,net,553,69.1,0.3599,-0.0746,-1.3645,372,71.3,0.3629,-0.0594,-0.8697,35.3107
+ICT Silver Bullet,M5,SB windows,ref=day bias=none sweep=1 entry=edge tp=2.0,False,gross,606,75.8,0.4092,0.0865,1.6126,389,74.6,0.3933,0.0393,0.5772,26.5821
+ICT Silver Bullet,M5,SB windows,ref=day bias=none sweep=1 entry=edge tp=3.0,False,net,553,69.1,0.3056,-0.112,-1.8094,372,71.3,0.3253,-0.062,-0.7989,36.0057
+ICT Silver Bullet,M5,SB windows,ref=day bias=none sweep=1 entry=edge tp=3.0,False,gross,606,75.8,0.3564,0.0718,1.1518,389,74.6,0.3548,0.0514,0.6556,24.756
+ICT Silver Bullet,M5,SB windows,ref=day bias=none sweep=1 entry=edge tp=pool,False,net,547,68.4,0.3108,-0.0814,-1.1495,371,71.1,0.3261,-0.0741,-0.8589,52.7858
+ICT Silver Bullet,M5,SB windows,ref=day bias=none sweep=1 entry=edge tp=pool,False,gross,602,75.2,0.3588,0.102,1.4195,388,74.4,0.3505,0.0616,0.6566,43.9638
+ICT Silver Bullet,M5,SB windows,ref=day bias=none sweep=1 entry=CE tp=2.0,False,net,449,56.1,0.3719,-0.072,-1.1685,305,58.5,0.3541,-0.0753,-0.97,27.7508
+ICT Silver Bullet,M5,SB windows,ref=day bias=none sweep=1 entry=CE tp=2.0,False,gross,494,61.8,0.4109,0.0925,1.527,325,62.3,0.3969,0.0782,1.0221,20.808
+ICT Silver Bullet,M5,SB windows,ref=day bias=none sweep=1 entry=CE tp=3.0,False,net,449,56.1,0.3229,-0.0707,-0.9926,305,58.5,0.3213,-0.0324,-0.3589,27.7145
+ICT Silver Bullet,M5,SB windows,ref=day bias=none sweep=1 entry=CE tp=3.0,False,gross,494,61.8,0.3522,0.0716,1.0188,325,62.3,0.3385,0.0506,0.5665,25.7153
+ICT Silver Bullet,M5,SB windows,ref=day bias=none sweep=1 entry=CE tp=pool,False,net,446,55.8,0.3139,-0.0711,-0.8601,304,58.3,0.3092,-0.0256,-0.2411,40.908
+ICT Silver Bullet,M5,SB windows,ref=day bias=none sweep=1 entry=CE tp=pool,False,gross,491,61.4,0.3442,0.0955,1.1266,324,62.1,0.3241,0.0402,0.3893,41.826
+ICT Silver Bullet,M5,SB windows,ref=day bias=none sweep=0 entry=edge tp=2.0,False,net,3872,484.0,0.2908,-0.2374,-11.128,2580,494.7,0.305,-0.1884,-7.4007,490.7583
+ICT Silver Bullet,M5,SB windows,ref=day bias=none sweep=0 entry=edge tp=2.0,False,gross,4193,524.1,0.3616,0.0386,1.7857,2707,519.0,0.3476,-0.0278,-1.079,112.1245
+ICT Silver Bullet,M5,SB windows,ref=day bias=none sweep=0 entry=edge tp=3.0,False,net,3872,484.0,0.243,-0.2385,-9.5806,2580,494.7,0.2581,-0.2161,-7.4547,566.2192
+ICT Silver Bullet,M5,SB windows,ref=day bias=none sweep=0 entry=edge tp=3.0,False,gross,4193,524.1,0.3003,0.0376,1.4619,2707,519.0,0.2922,-0.0557,-1.8655,174.4879
+ICT Silver Bullet,M5,SB windows,ref=day bias=none sweep=0 entry=edge tp=pool,False,net,3479,434.9,0.2762,-0.2602,-9.3848,2313,443.5,0.2974,-0.2458,-7.735,574.9516
+ICT Silver Bullet,M5,SB windows,ref=day bias=none sweep=0 entry=edge tp=pool,False,gross,3791,473.9,0.3429,0.0259,0.8872,2430,465.9,0.3342,-0.0868,-2.5908,227.6993
+ICT Silver Bullet,M5,SB windows,ref=day bias=none sweep=0 entry=CE tp=2.0,False,net,3297,412.1,0.2778,-0.2731,-11.6443,2212,424.1,0.2857,-0.227,-8.145,506.8883
+ICT Silver Bullet,M5,SB windows,ref=day bias=none sweep=0 entry=CE tp=2.0,False,gross,3600,450.0,0.3606,0.0552,2.3121,2362,452.9,0.3336,-0.0382,-1.3562,104.3519
+ICT Silver Bullet,M5,SB windows,ref=day bias=none sweep=0 entry=CE tp=3.0,False,net,3297,412.1,0.2238,-0.275,-9.9757,2212,424.1,0.2324,-0.2457,-7.5917,553.2916
+ICT Silver Bullet,M5,SB windows,ref=day bias=none sweep=0 entry=CE tp=3.0,False,gross,3600,450.0,0.2892,0.052,1.8161,2362,452.9,0.2727,-0.0568,-1.7044,155.8545
+ICT Silver Bullet,M5,SB windows,ref=day bias=none sweep=0 entry=CE tp=pool,False,net,3031,378.9,0.2412,-0.3111,-9.9373,2022,387.7,0.2596,-0.2883,-8.3023,592.5079
+ICT Silver Bullet,M5,SB windows,ref=day bias=none sweep=0 entry=CE tp=pool,False,gross,3321,415.1,0.3095,0.0092,0.2735,2161,414.3,0.3003,-0.0973,-2.5375,229.6801
+ICT Silver Bullet,M5,SB windows,ref=day bias=ema sweep=1 entry=edge tp=2.0,False,net,150,18.8,0.3,-0.1986,-1.9146,73,14.0,0.411,0.0808,0.5014,16.6671
+ICT Silver Bullet,M5,SB windows,ref=day bias=ema sweep=1 entry=edge tp=2.0,False,gross,166,20.8,0.3313,-0.084,-0.8388,81,15.5,0.4444,0.1839,1.1869,16.1964
+ICT Silver Bullet,M5,SB windows,ref=day bias=ema sweep=1 entry=edge tp=3.0,False,net,150,18.8,0.2467,-0.2357,-1.9946,73,14.0,0.3288,-0.0458,-0.2543,17.6944
+ICT Silver Bullet,M5,SB windows,ref=day bias=ema sweep=1 entry=edge tp=3.0,False,gross,166,20.8,0.2831,-0.085,-0.7191,81,15.5,0.3704,0.0967,0.5475,17.1964
+ICT Silver Bullet,M5,SB windows,ref=day bias=ema sweep=1 entry=edge tp=pool,False,net,148,18.5,0.2635,-0.2345,-1.8996,73,14.0,0.3562,0.0636,0.2779,19.7423
+ICT Silver Bullet,M5,SB windows,ref=day bias=ema sweep=1 entry=edge tp=pool,False,gross,165,20.6,0.303,-0.1022,-0.8545,81,15.5,0.3951,0.2373,1.048,20.1964
+ICT Silver Bullet,M5,SB windows,ref=day bias=ema sweep=1 entry=CE tp=2.0,False,net,128,16.0,0.2891,-0.2602,-2.3591,64,12.3,0.4219,0.1325,0.7479,13.397
+ICT Silver Bullet,M5,SB windows,ref=day bias=ema sweep=1 entry=CE tp=2.0,False,gross,137,17.1,0.3358,-0.0692,-0.6078,69,13.2,0.4493,0.249,1.4394,11.0
+ICT Silver Bullet,M5,SB windows,ref=day bias=ema sweep=1 entry=CE tp=3.0,False,net,128,16.0,0.2578,-0.2082,-1.5967,64,12.3,0.3438,0.0727,0.3513,16.4465
+ICT Silver Bullet,M5,SB windows,ref=day bias=ema sweep=1 entry=CE tp=3.0,False,gross,137,17.1,0.292,-0.0496,-0.374,69,13.2,0.3623,0.1594,0.7874,15.9136
+ICT Silver Bullet,M5,SB windows,ref=day bias=ema sweep=1 entry=CE tp=pool,False,net,127,15.9,0.2677,-0.203,-1.4082,64,12.3,0.3438,0.1414,0.5186,16.4465
+ICT Silver Bullet,M5,SB windows,ref=day bias=ema sweep=1 entry=CE tp=pool,False,gross,136,17.0,0.2941,-0.0895,-0.6308,69,13.2,0.3478,0.1758,0.6812,18.9136
+ICT Silver Bullet,M5,SB windows,ref=day bias=ema sweep=0 entry=edge tp=2.0,False,net,2329,291.1,0.2726,-0.2953,-10.8113,1567,300.4,0.3095,-0.1657,-4.9729,269.9546
+ICT Silver Bullet,M5,SB windows,ref=day bias=ema sweep=0 entry=edge tp=2.0,False,gross,2530,316.2,0.3364,-0.0313,-1.1361,1677,321.5,0.3482,-0.0142,-0.4279,80.4058
+ICT Silver Bullet,M5,SB windows,ref=day bias=ema sweep=0 entry=edge tp=3.0,False,net,2329,291.1,0.2293,-0.2822,-8.8332,1567,300.4,0.2565,-0.2075,-5.4865,334.6324
+ICT Silver Bullet,M5,SB windows,ref=day bias=ema sweep=0 entry=edge tp=3.0,False,gross,2530,316.2,0.2798,-0.0198,-0.5998,1677,321.5,0.2922,-0.0424,-1.1027,120.6136
+ICT Silver Bullet,M5,SB windows,ref=day bias=ema sweep=0 entry=edge tp=pool,False,net,1980,247.5,0.2909,-0.2784,-7.9887,1296,248.5,0.314,-0.2438,-6.2629,322.6876
+ICT Silver Bullet,M5,SB windows,ref=day bias=ema sweep=0 entry=edge tp=pool,False,gross,2159,269.9,0.3502,-0.0115,-0.3141,1394,267.3,0.3522,-0.0782,-1.9174,117.101
+ICT Silver Bullet,M5,SB windows,ref=day bias=ema sweep=0 entry=CE tp=2.0,False,net,1996,249.5,0.268,-0.3102,-10.3646,1332,255.4,0.2845,-0.2255,-6.2339,307.6418
+ICT Silver Bullet,M5,SB windows,ref=day bias=ema sweep=0 entry=CE tp=2.0,False,gross,2173,271.6,0.3442,0.0025,0.0809,1431,274.4,0.3263,-0.054,-1.4936,114.77
+ICT Silver Bullet,M5,SB windows,ref=day bias=ema sweep=0 entry=CE tp=3.0,False,net,1996,249.5,0.2139,-0.3206,-9.1754,1332,255.4,0.2312,-0.2378,-5.6409,323.388
+ICT Silver Bullet,M5,SB windows,ref=day bias=ema sweep=0 entry=CE tp=3.0,False,gross,2173,271.6,0.2752,-0.002,-0.0542,1431,274.4,0.2704,-0.0615,-1.4346,124.5966
+ICT Silver Bullet,M5,SB windows,ref=day bias=ema sweep=0 entry=CE tp=pool,False,net,1755,219.4,0.2604,-0.316,-8.1783,1146,219.7,0.2818,-0.2694,-6.029,312.7823
+ICT Silver Bullet,M5,SB windows,ref=day bias=ema sweep=0 entry=CE tp=pool,False,gross,1914,239.2,0.3271,-0.0139,-0.3365,1236,237.0,0.3261,-0.0898,-1.9192,118.4241
+ICT Silver Bullet,M5,SB windows,ref=prev3h bias=none sweep=1 entry=edge tp=2.0,False,net,921,115.1,0.3648,-0.0753,-1.7538,641,122.9,0.3448,-0.0991,-1.9548,68.9864
+ICT Silver Bullet,M5,SB windows,ref=prev3h bias=none sweep=1 entry=edge tp=2.0,False,gross,1021,127.6,0.4114,0.0932,2.2301,682,130.8,0.3783,0.011,0.22,38.1962
+ICT Silver Bullet,M5,SB windows,ref=prev3h bias=none sweep=1 entry=edge tp=3.0,False,net,921,115.1,0.3138,-0.1232,-2.5831,641,122.9,0.312,-0.0963,-1.6728,68.3451
+ICT Silver Bullet,M5,SB windows,ref=prev3h bias=none sweep=1 entry=edge tp=3.0,False,gross,1021,127.6,0.3643,0.0866,1.7986,682,130.8,0.346,0.0365,0.6316,39.5485
+ICT Silver Bullet,M5,SB windows,ref=prev3h bias=none sweep=1 entry=edge tp=pool,False,net,902,112.8,0.3625,-0.1113,-2.4013,627,120.2,0.3509,-0.1172,-2.1309,76.9962
+ICT Silver Bullet,M5,SB windows,ref=prev3h bias=none sweep=1 entry=edge tp=pool,False,gross,1004,125.5,0.4163,0.0826,1.7797,668,128.1,0.3862,0.0235,0.4097,34.9593
+ICT Silver Bullet,M5,SB windows,ref=prev3h bias=none sweep=1 entry=CE tp=2.0,False,net,755,94.4,0.3709,-0.0626,-1.2536,528,101.2,0.3258,-0.1376,-2.4224,75.861
+ICT Silver Bullet,M5,SB windows,ref=prev3h bias=none sweep=1 entry=CE tp=2.0,False,gross,845,105.6,0.413,0.1103,2.3037,568,108.9,0.3644,-0.0057,-0.1011,44.7772
+ICT Silver Bullet,M5,SB windows,ref=prev3h bias=none sweep=1 entry=CE tp=3.0,False,net,755,94.4,0.3219,-0.0878,-1.572,528,101.2,0.2955,-0.1082,-1.6529,60.8985
+ICT Silver Bullet,M5,SB windows,ref=prev3h bias=none sweep=1 entry=CE tp=3.0,False,gross,845,105.6,0.3586,0.0861,1.5781,568,108.9,0.3222,0.0022,0.0335,42.3326
+ICT Silver Bullet,M5,SB windows,ref=prev3h bias=none sweep=1 entry=CE tp=pool,False,net,748,93.5,0.3503,-0.0978,-1.7488,522,100.1,0.3218,-0.1073,-1.6252,58.4693
+ICT Silver Bullet,M5,SB windows,ref=prev3h bias=none sweep=1 entry=CE tp=pool,False,gross,838,104.8,0.3938,0.0705,1.2915,562,107.8,0.3505,0.0007,0.0108,44.6552
+ICT Silver Bullet,M5,SB windows,ref=prev3h bias=none sweep=0 entry=edge tp=2.0,False,net,3872,484.0,0.2908,-0.2374,-11.128,2580,494.7,0.305,-0.1884,-7.4007,490.7583
+ICT Silver Bullet,M5,SB windows,ref=prev3h bias=none sweep=0 entry=edge tp=2.0,False,gross,4193,524.1,0.3616,0.0386,1.7857,2707,519.0,0.3476,-0.0278,-1.079,112.1245
+ICT Silver Bullet,M5,SB windows,ref=prev3h bias=none sweep=0 entry=edge tp=3.0,False,net,3872,484.0,0.243,-0.2385,-9.5806,2580,494.7,0.2581,-0.2161,-7.4547,566.2192
+ICT Silver Bullet,M5,SB windows,ref=prev3h bias=none sweep=0 entry=edge tp=3.0,False,gross,4193,524.1,0.3003,0.0376,1.4619,2707,519.0,0.2922,-0.0557,-1.8655,174.4879
+ICT Silver Bullet,M5,SB windows,ref=prev3h bias=none sweep=0 entry=edge tp=pool,False,net,3217,402.1,0.3233,-0.2721,-11.1113,2132,408.8,0.348,-0.2151,-7.4736,460.695
+ICT Silver Bullet,M5,SB windows,ref=prev3h bias=none sweep=0 entry=edge tp=pool,False,gross,3512,439.0,0.4095,0.0349,1.3284,2243,430.1,0.3972,-0.0502,-1.6567,120.7499
+ICT Silver Bullet,M5,SB windows,ref=prev3h bias=none sweep=0 entry=CE tp=2.0,False,net,3297,412.1,0.2778,-0.2731,-11.6443,2212,424.1,0.2857,-0.227,-8.145,506.8883
+ICT Silver Bullet,M5,SB windows,ref=prev3h bias=none sweep=0 entry=CE tp=2.0,False,gross,3600,450.0,0.3606,0.0552,2.3121,2362,452.9,0.3336,-0.0382,-1.3562,104.3519
+ICT Silver Bullet,M5,SB windows,ref=prev3h bias=none sweep=0 entry=CE tp=3.0,False,net,3297,412.1,0.2238,-0.275,-9.9757,2212,424.1,0.2324,-0.2457,-7.5917,553.2916
+ICT Silver Bullet,M5,SB windows,ref=prev3h bias=none sweep=0 entry=CE tp=3.0,False,gross,3600,450.0,0.2892,0.052,1.8161,2362,452.9,0.2727,-0.0568,-1.7044,155.8545
+ICT Silver Bullet,M5,SB windows,ref=prev3h bias=none sweep=0 entry=CE tp=pool,False,net,2851,356.4,0.2838,-0.3216,-11.7415,1901,364.5,0.3035,-0.2499,-7.5697,477.8809
+ICT Silver Bullet,M5,SB windows,ref=prev3h bias=none sweep=0 entry=CE tp=pool,False,gross,3126,390.8,0.3733,0.0144,0.4844,2031,389.4,0.3604,-0.0638,-1.8628,138.3905
+ICT Silver Bullet,M5,SB windows,ref=prev3h bias=ema sweep=1 entry=edge tp=2.0,False,net,370,46.2,0.3459,-0.1099,-1.5784,214,41.0,0.3224,-0.1221,-1.4308,35.3976
+ICT Silver Bullet,M5,SB windows,ref=prev3h bias=ema sweep=1 entry=edge tp=2.0,False,gross,413,51.6,0.3801,0.038,0.5675,240,46.0,0.3667,0.0186,0.2233,26.4482
+ICT Silver Bullet,M5,SB windows,ref=prev3h bias=ema sweep=1 entry=edge tp=3.0,False,net,370,46.2,0.2919,-0.1859,-2.4656,214,41.0,0.2897,-0.1062,-1.0756,35.2861
+ICT Silver Bullet,M5,SB windows,ref=prev3h bias=ema sweep=1 entry=edge tp=3.0,False,gross,413,51.6,0.3366,0.0324,0.4236,240,46.0,0.3292,0.0498,0.5091,23.8122
+ICT Silver Bullet,M5,SB windows,ref=prev3h bias=ema sweep=1 entry=edge tp=pool,False,net,361,45.1,0.349,-0.1726,-2.4671,209,40.1,0.3301,-0.123,-1.2709,30.7374
+ICT Silver Bullet,M5,SB windows,ref=prev3h bias=ema sweep=1 entry=edge tp=pool,False,gross,406,50.8,0.399,-0.0023,-0.0339,234,44.9,0.3718,0.0447,0.4613,26.1306
+ICT Silver Bullet,M5,SB windows,ref=prev3h bias=ema sweep=1 entry=CE tp=2.0,False,net,314,39.2,0.3439,-0.1037,-1.2794,180,34.5,0.3167,-0.1359,-1.434,30.7947
+ICT Silver Bullet,M5,SB windows,ref=prev3h bias=ema sweep=1 entry=CE tp=2.0,False,gross,346,43.2,0.3815,0.066,0.8425,198,38.0,0.3636,-0.0168,-0.1818,22.2905
+ICT Silver Bullet,M5,SB windows,ref=prev3h bias=ema sweep=1 entry=CE tp=3.0,False,net,314,39.2,0.2962,-0.1498,-1.704,180,34.5,0.2778,-0.1228,-1.1138,31.7185
+ICT Silver Bullet,M5,SB windows,ref=prev3h bias=ema sweep=1 entry=CE tp=3.0,False,gross,346,43.2,0.3295,0.0262,0.3023,198,38.0,0.3232,0.0038,0.035,27.8956
+ICT Silver Bullet,M5,SB windows,ref=prev3h bias=ema sweep=1 entry=CE tp=pool,False,net,310,38.8,0.3484,-0.147,-1.7571,176,33.7,0.3125,-0.0727,-0.61,23.6247
+ICT Silver Bullet,M5,SB windows,ref=prev3h bias=ema sweep=1 entry=CE tp=pool,False,gross,342,42.8,0.383,-0.0032,-0.039,194,37.2,0.3505,0.0297,0.257,23.9038
+ICT Silver Bullet,M5,SB windows,ref=prev3h bias=ema sweep=0 entry=edge tp=2.0,False,net,2329,291.1,0.2726,-0.2953,-10.8113,1567,300.4,0.3095,-0.1657,-4.9729,269.9546
+ICT Silver Bullet,M5,SB windows,ref=prev3h bias=ema sweep=0 entry=edge tp=2.0,False,gross,2530,316.2,0.3364,-0.0313,-1.1361,1677,321.5,0.3482,-0.0142,-0.4279,80.4058
+ICT Silver Bullet,M5,SB windows,ref=prev3h bias=ema sweep=0 entry=edge tp=3.0,False,net,2329,291.1,0.2293,-0.2822,-8.8332,1567,300.4,0.2565,-0.2075,-5.4865,334.6324
+ICT Silver Bullet,M5,SB windows,ref=prev3h bias=ema sweep=0 entry=edge tp=3.0,False,gross,2530,316.2,0.2798,-0.0198,-0.5998,1677,321.5,0.2922,-0.0424,-1.1027,120.6136
+ICT Silver Bullet,M5,SB windows,ref=prev3h bias=ema sweep=0 entry=edge tp=pool,False,net,1828,228.5,0.3244,-0.2965,-9.5615,1186,227.4,0.3583,-0.2133,-5.6797,258.9982
+ICT Silver Bullet,M5,SB windows,ref=prev3h bias=ema sweep=0 entry=edge tp=pool,False,gross,2004,250.5,0.4002,-0.018,-0.5477,1278,245.0,0.4116,-0.0473,-1.2188,70.9687
+ICT Silver Bullet,M5,SB windows,ref=prev3h bias=ema sweep=0 entry=CE tp=2.0,False,net,1996,249.5,0.268,-0.3102,-10.3646,1332,255.4,0.2845,-0.2255,-6.2339,307.6418
+ICT Silver Bullet,M5,SB windows,ref=prev3h bias=ema sweep=0 entry=CE tp=2.0,False,gross,2173,271.6,0.3442,0.0025,0.0809,1431,274.4,0.3263,-0.054,-1.4936,114.77
+ICT Silver Bullet,M5,SB windows,ref=prev3h bias=ema sweep=0 entry=CE tp=3.0,False,net,1996,249.5,0.2139,-0.3206,-9.1754,1332,255.4,0.2312,-0.2378,-5.6409,323.388
+ICT Silver Bullet,M5,SB windows,ref=prev3h bias=ema sweep=0 entry=CE tp=3.0,False,gross,2173,271.6,0.2752,-0.002,-0.0542,1431,274.4,0.2704,-0.0615,-1.4346,124.5966
+ICT Silver Bullet,M5,SB windows,ref=prev3h bias=ema sweep=0 entry=CE tp=pool,False,net,1652,206.5,0.2948,-0.3219,-9.3915,1071,205.3,0.3305,-0.2327,-5.4781,252.5241
+ICT Silver Bullet,M5,SB windows,ref=prev3h bias=ema sweep=0 entry=CE tp=pool,False,gross,1797,224.6,0.3767,-0.0159,-0.4293,1156,221.6,0.3832,-0.0606,-1.3976,80.4951
+ICT Silver Bullet,M5,control hour 00,ref=prev3h bias=none sweep=1 entry=edge tp=2.0,True,net,0,0.0,,,,17,3.3,0.1765,-0.5723,-2.2313,10.5432
+ICT Silver Bullet,M5,control hour 00,ref=prev3h bias=none sweep=1 entry=edge tp=2.0,True,gross,0,0.0,,,,18,3.5,0.1667,-0.5623,-2.3147,11.1214
+ICT Silver Bullet,M5,control hour 00,ref=prev3h bias=none sweep=1 entry=edge tp=3.0,True,net,0,0.0,,,,17,3.3,0.1176,-0.6899,-2.7154,11.7289
+ICT Silver Bullet,M5,control hour 00,ref=prev3h bias=none sweep=1 entry=edge tp=3.0,True,gross,0,0.0,,,,18,3.5,0.1111,-0.6734,-2.809,12.1214
+ICT Silver Bullet,M5,control hour 00,ref=prev3h bias=none sweep=1 entry=edge tp=pool,True,net,0,0.0,,,,17,3.3,0.1176,-0.813,-5.305,13.8217
+ICT Silver Bullet,M5,control hour 00,ref=prev3h bias=none sweep=1 entry=edge tp=pool,True,gross,0,0.0,,,,18,3.5,0.1111,-0.7897,-5.4828,14.2142
+ICT Silver Bullet,M5,control hour 01,ref=prev3h bias=none sweep=1 entry=edge tp=2.0,True,net,240,30.0,0.3333,-0.0825,-0.8975,191,36.6,0.2618,-0.2733,-2.9068,55.1007
+ICT Silver Bullet,M5,control hour 01,ref=prev3h bias=none sweep=1 entry=edge tp=2.0,True,gross,283,35.4,0.4134,0.2381,2.7089,209,40.1,0.3254,-0.04,-0.4162,17.7939
+ICT Silver Bullet,M5,control hour 01,ref=prev3h bias=none sweep=1 entry=edge tp=3.0,True,net,240,30.0,0.2583,-0.0909,-0.8234,191,36.6,0.2199,-0.2043,-1.7597,42.9167
+ICT Silver Bullet,M5,control hour 01,ref=prev3h bias=none sweep=1 entry=edge tp=3.0,True,gross,283,35.4,0.3145,0.2211,2.0382,209,40.1,0.2536,-0.0352,-0.3024,15.8161
+ICT Silver Bullet,M5,control hour 01,ref=prev3h bias=none sweep=1 entry=edge tp=pool,True,net,238,29.8,0.2815,-0.1555,-1.3434,189,36.2,0.254,-0.3436,-3.536,69.7728
+ICT Silver Bullet,M5,control hour 01,ref=prev3h bias=none sweep=1 entry=edge tp=pool,True,gross,281,35.1,0.3488,0.2044,1.7628,207,39.7,0.314,-0.1073,-1.0187,26.831
+ICT Silver Bullet,M5,control hour 02,ref=prev3h bias=none sweep=1 entry=edge tp=2.0,True,net,242,30.2,0.2521,-0.3241,-3.8323,165,31.6,0.2545,-0.2926,-2.856,52.6796
+ICT Silver Bullet,M5,control hour 02,ref=prev3h bias=none sweep=1 entry=edge tp=2.0,True,gross,277,34.6,0.3249,-0.0249,-0.2942,185,35.5,0.3135,-0.0591,-0.5764,27.9934
+ICT Silver Bullet,M5,control hour 02,ref=prev3h bias=none sweep=1 entry=edge tp=3.0,True,net,242,30.2,0.186,-0.3373,-3.3487,165,31.6,0.1758,-0.3529,-2.9605,61.6967
+ICT Silver Bullet,M5,control hour 02,ref=prev3h bias=none sweep=1 entry=edge tp=3.0,True,gross,277,34.6,0.2491,-0.0076,-0.0734,185,35.5,0.2324,-0.079,-0.6384,34.9404
+ICT Silver Bullet,M5,control hour 02,ref=prev3h bias=none sweep=1 entry=edge tp=pool,True,net,240,30.0,0.25,-0.2892,-2.7192,163,31.3,0.2883,-0.2457,-2.0077,46.3841
+ICT Silver Bullet,M5,control hour 02,ref=prev3h bias=none sweep=1 entry=edge tp=pool,True,gross,275,34.4,0.2982,0.0266,0.2169,182,34.9,0.3242,-0.0471,-0.3805,30.8661
+ICT Silver Bullet,M5,control hour 03,ref=prev3h bias=none sweep=1 entry=edge tp=2.0,True,net,534,66.8,0.2884,-0.2057,-3.4935,368,70.6,0.2799,-0.2091,-2.9886,82.7558
+ICT Silver Bullet,M5,control hour 03,ref=prev3h bias=none sweep=1 entry=edge tp=2.0,True,gross,604,75.5,0.3593,0.0726,1.2424,401,76.9,0.3292,-0.0137,-0.1953,25.3566
+ICT Silver Bullet,M5,control hour 03,ref=prev3h bias=none sweep=1 entry=edge tp=3.0,True,net,534,66.8,0.2247,-0.1924,-2.7117,368,70.6,0.2092,-0.2173,-2.5784,91.8264
+ICT Silver Bullet,M5,control hour 03,ref=prev3h bias=none sweep=1 entry=edge tp=3.0,True,gross,604,75.5,0.2732,0.0572,0.8044,401,76.9,0.2469,-0.0234,-0.274,40.0397
+ICT Silver Bullet,M5,control hour 03,ref=prev3h bias=none sweep=1 entry=edge tp=pool,True,net,503,62.9,0.3459,-0.21,-3.3559,345,66.1,0.371,-0.2629,-4.1028,94.264
+ICT Silver Bullet,M5,control hour 03,ref=prev3h bias=none sweep=1 entry=edge tp=pool,True,gross,570,71.2,0.4316,0.0887,1.3955,375,71.9,0.4107,-0.102,-1.5077,42.9622
+ICT Silver Bullet,M5,control hour 04,ref=prev3h bias=none sweep=1 entry=edge tp=2.0,True,net,339,42.4,0.3186,-0.1149,-1.5159,306,58.7,0.2908,-0.1602,-2.0596,61.4598
+ICT Silver Bullet,M5,control hour 04,ref=prev3h bias=none sweep=1 entry=edge tp=2.0,True,gross,398,49.8,0.3719,0.1084,1.4987,329,63.1,0.3161,-0.0499,-0.6508,34.6159
+ICT Silver Bullet,M5,control hour 04,ref=prev3h bias=none sweep=1 entry=edge tp=3.0,True,net,339,42.4,0.233,-0.154,-1.7042,306,58.7,0.2353,-0.1037,-1.0826,52.6883
+ICT Silver Bullet,M5,control hour 04,ref=prev3h bias=none sweep=1 entry=edge tp=3.0,True,gross,398,49.8,0.2764,0.0818,0.9276,329,63.1,0.2553,0.0119,0.1247,33.562
+ICT Silver Bullet,M5,control hour 04,ref=prev3h bias=none sweep=1 entry=edge tp=pool,True,net,327,40.9,0.3364,-0.208,-2.6083,293,56.2,0.3754,-0.1363,-1.681,55.854
+ICT Silver Bullet,M5,control hour 04,ref=prev3h bias=none sweep=1 entry=edge tp=pool,True,gross,384,48.0,0.375,0.0414,0.4926,315,60.4,0.4063,-0.0322,-0.4052,33.1185
+ICT Silver Bullet,M5,control hour 05,ref=prev3h bias=none sweep=1 entry=edge tp=2.0,True,net,236,29.5,0.25,-0.3407,-4.03,197,37.8,0.2843,-0.19,-1.9634,41.0407
+ICT Silver Bullet,M5,control hour 05,ref=prev3h bias=none sweep=1 entry=edge tp=2.0,True,gross,270,33.8,0.3111,-0.0746,-0.886,216,41.4,0.3241,-0.0255,-0.2665,19.641
+ICT Silver Bullet,M5,control hour 05,ref=prev3h bias=none sweep=1 entry=edge tp=3.0,True,net,236,29.5,0.1949,-0.3299,-3.2538,197,37.8,0.2335,-0.1058,-0.8756,31.3443
+ICT Silver Bullet,M5,control hour 05,ref=prev3h bias=none sweep=1 entry=edge tp=3.0,True,gross,270,33.8,0.2556,-0.0021,-0.0197,216,41.4,0.2454,-0.0136,-0.1156,20.641
+ICT Silver Bullet,M5,control hour 05,ref=prev3h bias=none sweep=1 entry=edge tp=pool,True,net,236,29.5,0.1949,-0.411,-3.9796,195,37.4,0.2667,-0.111,-0.8884,31.487
+ICT Silver Bullet,M5,control hour 05,ref=prev3h bias=none sweep=1 entry=edge tp=pool,True,gross,270,33.8,0.2667,-0.0373,-0.3341,214,41.0,0.2757,-0.0383,-0.3201,21.0377
+ICT Silver Bullet,M5,control hour 06,ref=prev3h bias=none sweep=1 entry=edge tp=2.0,True,net,158,19.8,0.2468,-0.3453,-3.3389,138,26.5,0.2609,-0.2692,-2.3856,37.1516
+ICT Silver Bullet,M5,control hour 06,ref=prev3h bias=none sweep=1 entry=edge tp=2.0,True,gross,189,23.6,0.3175,-0.0472,-0.4636,155,29.7,0.3161,-0.0516,-0.4589,20.9951
+ICT Silver Bullet,M5,control hour 06,ref=prev3h bias=none sweep=1 entry=edge tp=3.0,True,net,158,19.8,0.1835,-0.3518,-2.8442,138,26.5,0.1957,-0.2692,-1.9824,42.2985
+ICT Silver Bullet,M5,control hour 06,ref=prev3h bias=none sweep=1 entry=edge tp=3.0,True,gross,189,23.6,0.2434,-0.0263,-0.2104,155,29.7,0.2387,-0.0451,-0.3284,22.0
+ICT Silver Bullet,M5,control hour 06,ref=prev3h bias=none sweep=1 entry=edge tp=pool,True,net,158,19.8,0.1139,-0.5962,-4.8448,138,26.5,0.1957,-0.0949,-0.4953,26.3892
+ICT Silver Bullet,M5,control hour 06,ref=prev3h bias=none sweep=1 entry=edge tp=pool,True,gross,189,23.6,0.1693,-0.1919,-1.2606,155,29.7,0.2387,0.1656,0.8625,17.5059
+ICT Silver Bullet,M5,control hour 07,ref=prev3h bias=none sweep=1 entry=edge tp=2.0,True,net,181,22.6,0.2541,-0.3264,-3.3482,141,27.0,0.2695,-0.2411,-2.1402,38.7408
+ICT Silver Bullet,M5,control hour 07,ref=prev3h bias=none sweep=1 entry=edge tp=2.0,True,gross,222,27.8,0.3559,0.0683,0.7071,161,30.9,0.3106,-0.0672,-0.6129,22.8464
+ICT Silver Bullet,M5,control hour 07,ref=prev3h bias=none sweep=1 entry=edge tp=3.0,True,net,181,22.6,0.1878,-0.3577,-3.1264,141,27.0,0.1844,-0.2984,-2.2217,49.8258
+ICT Silver Bullet,M5,control hour 07,ref=prev3h bias=none sweep=1 entry=edge tp=3.0,True,gross,222,27.8,0.2613,0.0293,0.2502,161,30.9,0.2112,-0.1423,-1.083,34.8464
+ICT Silver Bullet,M5,control hour 07,ref=prev3h bias=none sweep=1 entry=edge tp=pool,True,net,180,22.5,0.1944,-0.5368,-5.779,140,26.8,0.2214,-0.3544,-2.981,55.1186
+ICT Silver Bullet,M5,control hour 07,ref=prev3h bias=none sweep=1 entry=edge tp=pool,True,gross,221,27.6,0.2851,-0.1179,-1.1207,160,30.7,0.2312,-0.1677,-1.1933,37.0028
+ICT Silver Bullet,M5,control hour 08,ref=prev3h bias=none sweep=1 entry=edge tp=2.0,True,net,322,40.2,0.2205,-0.4326,-6.283,228,43.7,0.307,-0.124,-1.3563,33.9412
+ICT Silver Bullet,M5,control hour 08,ref=prev3h bias=none sweep=1 entry=edge tp=2.0,True,gross,362,45.2,0.3039,-0.1036,-1.4385,245,47.0,0.3143,-0.071,-0.8026,25.889
+ICT Silver Bullet,M5,control hour 08,ref=prev3h bias=none sweep=1 entry=edge tp=3.0,True,net,322,40.2,0.1863,-0.3721,-4.4102,228,43.7,0.2149,-0.1896,-1.7512,52.6911
+ICT Silver Bullet,M5,control hour 08,ref=prev3h bias=none sweep=1 entry=edge tp=3.0,True,gross,362,45.2,0.2431,-0.0661,-0.75,245,47.0,0.2327,-0.0912,-0.8535,37.889
+ICT Silver Bullet,M5,control hour 08,ref=prev3h bias=none sweep=1 entry=edge tp=pool,True,net,319,39.9,0.2445,-0.4129,-5.4181,227,43.5,0.2907,-0.2391,-2.3905,65.4627
+ICT Silver Bullet,M5,control hour 08,ref=prev3h bias=none sweep=1 entry=edge tp=pool,True,gross,359,44.9,0.3231,-0.0421,-0.4812,244,46.8,0.3115,-0.1503,-1.5446,49.0095
+ICT Silver Bullet,M5,control hour 09,ref=prev3h bias=none sweep=1 entry=edge tp=2.0,True,net,432,54.0,0.2963,-0.1811,-2.7738,291,55.8,0.3196,-0.0824,-1.0108,42.3984
+ICT Silver Bullet,M5,control hour 09,ref=prev3h bias=none sweep=1 entry=edge tp=2.0,True,gross,471,58.9,0.3503,0.0396,0.6073,308,59.1,0.3409,0.0147,0.1822,26.6082
+ICT Silver Bullet,M5,control hour 09,ref=prev3h bias=none sweep=1 entry=edge tp=3.0,True,net,432,54.0,0.2338,-0.1566,-1.9723,291,55.8,0.2577,-0.0354,-0.3523,46.0596
+ICT Silver Bullet,M5,control hour 09,ref=prev3h bias=none sweep=1 entry=edge tp=3.0,True,gross,471,58.9,0.2696,0.0425,0.5332,308,59.1,0.2695,0.0464,0.4669,33.1702
+ICT Silver Bullet,M5,control hour 09,ref=prev3h bias=none sweep=1 entry=edge tp=pool,True,net,418,52.2,0.3278,-0.1743,-2.5144,277,53.1,0.3502,-0.0949,-1.0561,47.5457
+ICT Silver Bullet,M5,control hour 09,ref=prev3h bias=none sweep=1 entry=edge tp=pool,True,gross,455,56.9,0.3934,0.0704,0.9551,294,56.4,0.3912,0.0084,0.0941,27.0828
+ICT Silver Bullet,M5,control hour 11,ref=prev3h bias=none sweep=1 entry=edge tp=2.0,True,net,258,32.2,0.3023,-0.1483,-1.7249,186,35.7,0.3172,-0.1038,-1.0243,41.9287
+ICT Silver Bullet,M5,control hour 11,ref=prev3h bias=none sweep=1 entry=edge tp=2.0,True,gross,301,37.6,0.3787,0.1384,1.6502,205,39.3,0.3463,0.0204,0.206,33.0
+ICT Silver Bullet,M5,control hour 11,ref=prev3h bias=none sweep=1 entry=edge tp=3.0,True,net,258,32.2,0.2054,-0.2581,-2.6132,186,35.7,0.2527,-0.0727,-0.5872,41.6942
+ICT Silver Bullet,M5,control hour 11,ref=prev3h bias=none sweep=1 entry=edge tp=3.0,True,gross,301,37.6,0.2691,0.0422,0.4236,205,39.3,0.2732,0.0486,0.3996,27.0
+ICT Silver Bullet,M5,control hour 11,ref=prev3h bias=none sweep=1 entry=edge tp=pool,True,net,257,32.1,0.2179,-0.3267,-3.3509,184,35.3,0.2717,-0.1605,-1.3007,42.4689
+ICT Silver Bullet,M5,control hour 11,ref=prev3h bias=none sweep=1 entry=edge tp=pool,True,gross,300,37.5,0.2667,-0.0612,-0.6089,203,38.9,0.3054,-0.0296,-0.2484,36.4681
+ICT Silver Bullet,M5,control hour 12,ref=prev3h bias=none sweep=1 entry=edge tp=2.0,True,net,216,27.0,0.2685,-0.2713,-3.0303,151,29.0,0.3245,-0.0827,-0.7303,20.1992
+ICT Silver Bullet,M5,control hour 12,ref=prev3h bias=none sweep=1 entry=edge tp=2.0,True,gross,239,29.9,0.318,-0.0667,-0.7478,161,30.9,0.3354,-0.0114,-0.1026,17.0
+ICT Silver Bullet,M5,control hour 12,ref=prev3h bias=none sweep=1 entry=edge tp=3.0,True,net,216,27.0,0.1991,-0.3073,-2.9327,151,29.0,0.2781,0.0431,0.2993,16.846
+ICT Silver Bullet,M5,control hour 12,ref=prev3h bias=none sweep=1 entry=edge tp=3.0,True,gross,239,29.9,0.251,-0.0449,-0.4132,161,30.9,0.2795,0.0711,0.5143,14.3712
+ICT Silver Bullet,M5,control hour 12,ref=prev3h bias=none sweep=1 entry=edge tp=pool,True,net,216,27.0,0.2269,-0.2902,-2.5385,151,29.0,0.2715,0.0359,0.2114,29.0172
+ICT Silver Bullet,M5,control hour 12,ref=prev3h bias=none sweep=1 entry=edge tp=pool,True,gross,239,29.9,0.2678,-0.0881,-0.7633,161,30.9,0.2795,0.0675,0.4188,26.9294
+ICT Silver Bullet,M5,control hour 13,ref=prev3h bias=none sweep=1 entry=edge tp=2.0,True,net,238,29.8,0.3235,-0.0967,-1.0685,171,32.8,0.2807,-0.1866,-1.8072,37.6096
+ICT Silver Bullet,M5,control hour 13,ref=prev3h bias=none sweep=1 entry=edge tp=2.0,True,gross,268,33.5,0.3881,0.1559,1.7564,186,35.7,0.3495,0.0586,0.559,19.0
+ICT Silver Bullet,M5,control hour 13,ref=prev3h bias=none sweep=1 entry=edge tp=3.0,True,net,238,29.8,0.2353,-0.1524,-1.4273,171,32.8,0.2456,-0.0842,-0.6549,34.9379
+ICT Silver Bullet,M5,control hour 13,ref=prev3h bias=none sweep=1 entry=edge tp=3.0,True,gross,268,33.5,0.2948,0.1444,1.3284,186,35.7,0.2796,0.0963,0.7449,19.9647
+ICT Silver Bullet,M5,control hour 13,ref=prev3h bias=none sweep=1 entry=edge tp=pool,True,net,237,29.6,0.2616,-0.1555,-1.4107,170,32.6,0.2588,0.0306,0.1948,35.4086
+ICT Silver Bullet,M5,control hour 13,ref=prev3h bias=none sweep=1 entry=edge tp=pool,True,gross,267,33.4,0.3071,0.0903,0.7695,186,35.7,0.3118,0.2856,1.7975,17.0085
+ICT Silver Bullet,M5,control hour 14,ref=prev3h bias=none sweep=1 entry=edge tp=2.0,True,net,349,43.6,0.2521,-0.3087,-4.3711,213,40.8,0.2488,-0.3002,-3.3702,65.7068
+ICT Silver Bullet,M5,control hour 14,ref=prev3h bias=none sweep=1 entry=edge tp=2.0,True,gross,391,48.9,0.312,-0.0827,-1.1869,228,43.7,0.2982,-0.1178,-1.2913,40.8688
+ICT Silver Bullet,M5,control hour 14,ref=prev3h bias=none sweep=1 entry=edge tp=3.0,True,net,349,43.6,0.1948,-0.2973,-3.5072,213,40.8,0.2066,-0.2459,-2.276,69.8182
+ICT Silver Bullet,M5,control hour 14,ref=prev3h bias=none sweep=1 entry=edge tp=3.0,True,gross,391,48.9,0.2379,-0.1023,-1.2088,228,43.7,0.2325,-0.123,-1.1302,59.8338
+ICT Silver Bullet,M5,control hour 14,ref=prev3h bias=none sweep=1 entry=edge tp=pool,True,net,344,43.0,0.2616,-0.2961,-3.8632,211,40.5,0.2654,-0.2669,-2.6893,70.4152
+ICT Silver Bullet,M5,control hour 14,ref=prev3h bias=none sweep=1 entry=edge tp=pool,True,gross,387,48.4,0.3101,-0.0784,-0.9686,226,43.3,0.3053,-0.1174,-1.1664,56.2536
+ICT Silver Bullet,M5,control hour 15,ref=prev3h bias=none sweep=1 entry=edge tp=2.0,True,net,477,59.6,0.3774,0.0128,0.2059,322,61.7,0.3416,-0.1094,-1.4834,57.4177
+ICT Silver Bullet,M5,control hour 15,ref=prev3h bias=none sweep=1 entry=edge tp=2.0,True,gross,500,62.5,0.414,0.1268,2.0691,335,64.2,0.3612,-0.0204,-0.2765,45.6689
+ICT Silver Bullet,M5,control hour 15,ref=prev3h bias=none sweep=1 entry=edge tp=3.0,True,net,477,59.6,0.3249,-0.0175,-0.2482,322,61.7,0.323,-0.0066,-0.0745,46.2683
+ICT Silver Bullet,M5,control hour 15,ref=prev3h bias=none sweep=1 entry=edge tp=3.0,True,gross,500,62.5,0.358,0.1054,1.4863,335,64.2,0.3373,0.0646,0.7393,34.5292
+ICT Silver Bullet,M5,control hour 15,ref=prev3h bias=none sweep=1 entry=edge tp=pool,True,net,436,54.5,0.461,0.0153,0.235,291,55.8,0.4158,-0.1434,-2.0214,49.7735
+ICT Silver Bullet,M5,control hour 15,ref=prev3h bias=none sweep=1 entry=edge tp=pool,True,gross,455,56.9,0.4923,0.117,1.8202,303,58.1,0.4356,-0.0661,-0.9369,30.8706
+ICT Silver Bullet,M5,control hour 16,ref=prev3h bias=none sweep=1 entry=edge tp=2.0,True,net,382,47.8,0.3691,-0.0257,-0.3862,251,48.1,0.3904,-0.0451,-0.5636,31.7246
+ICT Silver Bullet,M5,control hour 16,ref=prev3h bias=none sweep=1 entry=edge tp=2.0,True,gross,406,50.8,0.3941,0.0773,1.1818,258,49.5,0.407,0.0148,0.1849,22.1028
+ICT Silver Bullet,M5,control hour 16,ref=prev3h bias=none sweep=1 entry=edge tp=3.0,True,net,382,47.8,0.3403,0.0046,0.0599,251,48.1,0.3506,-0.1306,-1.5632,53.5252
+ICT Silver Bullet,M5,control hour 16,ref=prev3h bias=none sweep=1 entry=edge tp=3.0,True,gross,406,50.8,0.367,0.119,1.5551,258,49.5,0.3643,-0.0844,-1.0121,44.0501
+ICT Silver Bullet,M5,control hour 16,ref=prev3h bias=none sweep=1 entry=edge tp=pool,True,net,378,47.2,0.3968,-0.0272,-0.3864,247,47.4,0.3887,-0.1237,-1.5102,46.6392
+ICT Silver Bullet,M5,control hour 16,ref=prev3h bias=none sweep=1 entry=edge tp=pool,True,gross,402,50.2,0.4154,0.0924,1.2583,254,48.7,0.4016,-0.0857,-1.0606,42.5983
+ICT Silver Bullet,M5,control hour 18,ref=prev3h bias=none sweep=1 entry=edge tp=2.0,True,net,193,24.1,0.399,-0.0837,-0.9856,148,28.4,0.3784,-0.1171,-1.2274,18.4478
+ICT Silver Bullet,M5,control hour 18,ref=prev3h bias=none sweep=1 entry=edge tp=2.0,True,gross,217,27.1,0.4608,0.1074,1.2973,159,30.5,0.4151,-0.0285,-0.3064,12.2007
+ICT Silver Bullet,M5,control hour 18,ref=prev3h bias=none sweep=1 entry=edge tp=3.0,True,net,193,24.1,0.3679,-0.1006,-1.0653,148,28.4,0.3514,-0.217,-2.3036,32.1206
+ICT Silver Bullet,M5,control hour 18,ref=prev3h bias=none sweep=1 entry=edge tp=3.0,True,gross,217,27.1,0.4055,0.0109,0.1205,159,30.5,0.3836,-0.123,-1.303,22.0575
+ICT Silver Bullet,M5,control hour 18,ref=prev3h bias=none sweep=1 entry=edge tp=pool,True,net,193,24.1,0.3782,-0.1004,-1.069,147,28.2,0.3537,-0.101,-0.686,21.7194
+ICT Silver Bullet,M5,control hour 18,ref=prev3h bias=none sweep=1 entry=edge tp=pool,True,gross,217,27.1,0.4147,-0.0031,-0.035,158,30.3,0.3861,-0.0305,-0.2179,18.0962
+ICT Silver Bullet,M5,control hour 19,ref=prev3h bias=none sweep=1 entry=edge tp=2.0,True,net,150,18.8,0.3533,-0.1245,-1.2327,131,25.1,0.3969,-0.0324,-0.2895,13.4757
+ICT Silver Bullet,M5,control hour 19,ref=prev3h bias=none sweep=1 entry=edge tp=2.0,True,gross,174,21.8,0.4253,0.0505,0.528,133,25.5,0.4511,0.0881,0.7834,10.4756
+ICT Silver Bullet,M5,control hour 19,ref=prev3h bias=none sweep=1 entry=edge tp=3.0,True,net,150,18.8,0.34,-0.0871,-0.7618,131,25.1,0.3817,-0.0008,-0.0064,14.2669
+ICT Silver Bullet,M5,control hour 19,ref=prev3h bias=none sweep=1 entry=edge tp=3.0,True,gross,174,21.8,0.408,0.1023,0.932,133,25.5,0.4211,0.0799,0.639,12.1151
+ICT Silver Bullet,M5,control hour 19,ref=prev3h bias=none sweep=1 entry=edge tp=pool,True,net,149,18.6,0.3557,-0.057,-0.4898,131,25.1,0.3664,-0.0197,-0.1462,12.1707
+ICT Silver Bullet,M5,control hour 19,ref=prev3h bias=none sweep=1 entry=edge tp=pool,True,gross,173,21.6,0.422,0.1089,0.9737,133,25.5,0.406,0.0679,0.499,10.828
+ICT Silver Bullet,M5,control hour 20,ref=prev3h bias=none sweep=1 entry=edge tp=2.0,True,net,211,26.4,0.3318,-0.2388,-3.2293,153,29.3,0.3595,-0.1752,-1.8393,29.0434
+ICT Silver Bullet,M5,control hour 20,ref=prev3h bias=none sweep=1 entry=edge tp=2.0,True,gross,242,30.2,0.4132,-0.063,-0.8526,166,31.8,0.4217,0.0102,0.1072,13.9342
+ICT Silver Bullet,M5,control hour 20,ref=prev3h bias=none sweep=1 entry=edge tp=3.0,True,net,211,26.4,0.3081,-0.3737,-4.9658,153,29.3,0.3399,-0.1894,-1.7875,33.3982
+ICT Silver Bullet,M5,control hour 20,ref=prev3h bias=none sweep=1 entry=edge tp=3.0,True,gross,242,30.2,0.3926,-0.1738,-2.2507,166,31.8,0.3916,-0.0238,-0.2246,18.4358
+ICT Silver Bullet,M5,control hour 20,ref=prev3h bias=none sweep=1 entry=edge tp=pool,True,net,208,26.0,0.3173,-0.3207,-4.4461,153,29.3,0.3399,-0.1957,-1.7995,33.0512
+ICT Silver Bullet,M5,control hour 20,ref=prev3h bias=none sweep=1 entry=edge tp=pool,True,gross,239,29.9,0.4059,-0.1012,-1.283,166,31.8,0.3916,-0.0365,-0.3379,19.326
+ICT Silver Bullet,M5,control hour 22,ref=prev3h bias=none sweep=1 entry=edge tp=2.0,True,net,216,27.0,0.3843,-0.1086,-0.9988,150,28.8,0.4933,0.0454,0.441,10.3036
+ICT Silver Bullet,M5,control hour 22,ref=prev3h bias=none sweep=1 entry=edge tp=2.0,True,gross,237,29.6,0.4684,0.2153,1.7882,163,31.3,0.5706,0.2684,2.7334,8.4098
+ICT Silver Bullet,M5,control hour 22,ref=prev3h bias=none sweep=1 entry=edge tp=3.0,True,net,216,27.0,0.3796,-0.1128,-1.0247,150,28.8,0.48,0.023,0.2173,14.3216
+ICT Silver Bullet,M5,control hour 22,ref=prev3h bias=none sweep=1 entry=edge tp=3.0,True,gross,237,29.6,0.4641,0.2147,1.7369,163,31.3,0.5521,0.2348,2.3084,8.4098
+ICT Silver Bullet,M5,control hour 22,ref=prev3h bias=none sweep=1 entry=edge tp=pool,True,net,216,27.0,0.3889,-0.1044,-0.9387,150,28.8,0.48,0.0166,0.1543,15.6773
+ICT Silver Bullet,M5,control hour 22,ref=prev3h bias=none sweep=1 entry=edge tp=pool,True,gross,237,29.6,0.4726,0.2097,1.6862,163,31.3,0.5521,0.2249,2.1886,8.4098
+ICT Silver Bullet,M5,control hour 23,ref=prev3h bias=none sweep=1 entry=edge tp=2.0,True,net,119,14.9,0.3782,-0.2774,-2.8149,82,15.7,0.4268,-0.1281,-0.7111,23.7154
+ICT Silver Bullet,M5,control hour 23,ref=prev3h bias=none sweep=1 entry=edge tp=2.0,True,gross,129,16.1,0.4651,-0.0224,-0.2242,96,18.4,0.5521,0.202,1.1517,21.1164
+ICT Silver Bullet,M5,control hour 23,ref=prev3h bias=none sweep=1 entry=edge tp=3.0,True,net,119,14.9,0.3697,-0.2888,-2.9336,82,15.7,0.4268,-0.1281,-0.7111,23.7154
+ICT Silver Bullet,M5,control hour 23,ref=prev3h bias=none sweep=1 entry=edge tp=3.0,True,gross,129,16.1,0.4651,-0.033,-0.3319,96,18.4,0.5521,0.1994,1.1314,21.1164
+ICT Silver Bullet,M5,control hour 23,ref=prev3h bias=none sweep=1 entry=edge tp=pool,True,net,119,14.9,0.3697,-0.2929,-3.0073,82,15.7,0.4268,-0.1281,-0.7111,23.7154
+ICT Silver Bullet,M5,control hour 23,ref=prev3h bias=none sweep=1 entry=edge tp=pool,True,gross,129,16.1,0.4651,-0.034,-0.3426,96,18.4,0.5521,0.1992,1.1308,21.1164
+Opening range breakout,M5,NY open,range=15m stop=other side tp=1.0 trend=0,False,net,2011,251.4,0.5062,-0.0547,-2.4913,1320,253.1,0.5053,-0.0206,-0.7651,48.5338
+Opening range breakout,M5,NY open,range=15m stop=other side tp=1.0 trend=0,False,gross,2011,251.4,0.5301,0.0698,3.1901,1320,253.1,0.525,0.0552,2.064,25.3337
+Opening range breakout,M5,NY open,range=15m stop=other side tp=1.0 trend=1,False,net,1102,137.8,0.49,-0.0872,-2.9687,752,144.2,0.5266,0.0159,0.4455,21.45
+Opening range breakout,M5,NY open,range=15m stop=other side tp=1.0 trend=1,False,gross,1102,137.8,0.5082,0.029,0.9902,752,144.2,0.5412,0.0814,2.2896,12.7717
+Opening range breakout,M5,NY open,range=15m stop=other side tp=2.0 trend=0,False,net,2011,251.4,0.3834,-0.0084,-0.2795,1320,253.1,0.3932,-0.0013,-0.0371,66.8373
+Opening range breakout,M5,NY open,range=15m stop=other side tp=2.0 trend=0,False,gross,2011,251.4,0.4053,0.1212,4.0095,1320,253.1,0.4038,0.0621,1.7418,44.2148
+Opening range breakout,M5,NY open,range=15m stop=other side tp=2.0 trend=1,False,net,1102,137.8,0.3711,-0.0337,-0.8364,752,144.2,0.4162,0.056,1.1683,19.8388
+Opening range breakout,M5,NY open,range=15m stop=other side tp=2.0 trend=1,False,gross,1102,137.8,0.3911,0.0981,2.4085,752,144.2,0.4255,0.1131,2.3526,13.6868
+Opening range breakout,M5,NY open,range=15m stop=other side tp=EOD trend=0,False,net,2011,251.4,0.3292,0.0592,1.2342,1320,253.1,0.3621,0.0624,1.2724,62.5866
+Opening range breakout,M5,NY open,range=15m stop=other side tp=EOD trend=0,False,gross,2011,251.4,0.3486,0.1981,4.0234,1320,253.1,0.3712,0.1197,2.4276,45.9977
+Opening range breakout,M5,NY open,range=15m stop=other side tp=EOD trend=1,False,net,1102,137.8,0.3131,-0.0219,-0.3754,752,144.2,0.379,0.1367,2.01,22.6841
+Opening range breakout,M5,NY open,range=15m stop=other side tp=EOD trend=1,False,gross,1102,137.8,0.333,0.1167,1.9632,752,144.2,0.3883,0.1888,2.7657,18.1079
+Opening range breakout,M5,NY open,range=15m stop=mid tp=1.0 trend=0,False,net,2011,251.4,0.3307,-0.4993,-23.1689,1320,253.1,0.3803,-0.3241,-12.1041,428.7203
+Opening range breakout,M5,NY open,range=15m stop=mid tp=1.0 trend=0,False,gross,2011,251.4,0.3913,-0.2236,-10.1094,1320,253.1,0.4068,-0.1881,-6.9611,249.4887
+Opening range breakout,M5,NY open,range=15m stop=mid tp=1.0 trend=1,False,net,1102,137.8,0.324,-0.5095,-17.7363,752,144.2,0.4189,-0.2491,-6.9082,188.2247
+Opening range breakout,M5,NY open,range=15m stop=mid tp=1.0 trend=1,False,gross,1102,137.8,0.3775,-0.2471,-8.4166,752,144.2,0.4415,-0.1186,-3.2732,91.9789
+Opening range breakout,M5,NY open,range=15m stop=mid tp=2.0 trend=0,False,net,2011,251.4,0.2372,-0.4594,-16.0973,1320,253.1,0.2773,-0.2648,-7.2601,349.5813
+Opening range breakout,M5,NY open,range=15m stop=mid tp=2.0 trend=0,False,gross,2011,251.4,0.2859,-0.1616,-5.362,1320,253.1,0.3008,-0.1191,-3.1886,169.8926
+Opening range breakout,M5,NY open,range=15m stop=mid tp=2.0 trend=1,False,net,1102,137.8,0.2332,-0.4636,-12.116,752,144.2,0.3138,-0.1631,-3.2581,125.4393
+Opening range breakout,M5,NY open,range=15m stop=mid tp=2.0 trend=1,False,gross,1102,137.8,0.2704,-0.1995,-5.0021,752,144.2,0.3285,-0.0438,-0.8637,49.5671
+Opening range breakout,M5,NY open,range=15m stop=mid tp=EOD trend=0,False,net,2011,251.4,0.1407,-0.3823,-6.6874,1320,253.1,0.1864,-0.1453,-2.0809,244.8454
+Opening range breakout,M5,NY open,range=15m stop=mid tp=EOD trend=0,False,gross,2011,251.4,0.1726,-0.05,-0.7962,1320,253.1,0.2,0.0073,0.1006,116.0791
+Opening range breakout,M5,NY open,range=15m stop=mid tp=EOD trend=1,False,net,1102,137.8,0.1334,-0.4443,-6.243,752,144.2,0.2168,0.0205,0.2127,48.187
+Opening range breakout,M5,NY open,range=15m stop=mid tp=EOD trend=1,False,gross,1102,137.8,0.1588,-0.1316,-1.6409,752,144.2,0.2274,0.1683,1.6738,27.3748
+Opening range breakout,M5,NY open,range=30m stop=other side tp=1.0 trend=0,False,net,1942,242.8,0.5088,-0.0132,-0.6276,1283,246.0,0.5105,0.0117,0.4648,17.5825
+Opening range breakout,M5,NY open,range=30m stop=other side tp=1.0 trend=0,False,gross,1942,242.8,0.5355,0.0888,4.2455,1283,246.0,0.5246,0.06,2.3902,12.236
+Opening range breakout,M5,NY open,range=30m stop=other side tp=1.0 trend=1,False,net,1037,129.6,0.5034,-0.0201,-0.7042,777,149.0,0.5071,0.0014,0.0415,25.5575
+Opening range breakout,M5,NY open,range=30m stop=other side tp=1.0 trend=1,False,gross,1037,129.6,0.5236,0.0743,2.6174,777,149.0,0.5199,0.0494,1.5195,13.5273
+Opening range breakout,M5,NY open,range=30m stop=other side tp=2.0 trend=0,False,net,1942,242.8,0.4161,0.0111,0.405,1283,246.0,0.4373,-0.0007,-0.0224,31.397
+Opening range breakout,M5,NY open,range=30m stop=other side tp=2.0 trend=0,False,gross,1942,242.8,0.4408,0.109,3.9386,1283,246.0,0.4489,0.0481,1.5634,18.7697
+Opening range breakout,M5,NY open,range=30m stop=other side tp=2.0 trend=1,False,net,1037,129.6,0.4147,0.0105,0.2806,777,149.0,0.4337,0.0038,0.0931,38.4241
+Opening range breakout,M5,NY open,range=30m stop=other side tp=2.0 trend=1,False,gross,1037,129.6,0.433,0.1004,2.6703,777,149.0,0.4466,0.052,1.2851,28.0032
+Opening range breakout,M5,NY open,range=30m stop=other side tp=EOD trend=0,False,net,1942,242.8,0.3913,0.0289,0.8178,1283,246.0,0.431,0.0201,0.5695,40.7484
+Opening range breakout,M5,NY open,range=30m stop=other side tp=EOD trend=0,False,gross,1942,242.8,0.4161,0.1318,3.6471,1283,246.0,0.4412,0.0666,1.882,24.7874
+Opening range breakout,M5,NY open,range=30m stop=other side tp=EOD trend=1,False,net,1037,129.6,0.3915,0.0323,0.6914,777,149.0,0.4299,0.0469,0.9737,40.9229
+Opening range breakout,M5,NY open,range=30m stop=other side tp=EOD trend=1,False,gross,1037,129.6,0.4108,0.1217,2.581,777,149.0,0.4402,0.0909,1.8836,29.8689
+Opening range breakout,M5,NY open,range=30m stop=mid tp=1.0 trend=0,False,net,1942,242.8,0.3893,-0.337,-15.0853,1283,246.0,0.4224,-0.2082,-7.6264,267.9676
+Opening range breakout,M5,NY open,range=30m stop=mid tp=1.0 trend=0,False,gross,1942,242.8,0.4367,-0.1359,-6.0112,1283,246.0,0.4466,-0.104,-3.795,137.9864
+Opening range breakout,M5,NY open,range=30m stop=mid tp=1.0 trend=1,False,net,1037,129.6,0.4021,-0.305,-10.0671,777,149.0,0.4286,-0.1995,-5.6819,165.8635
+Opening range breakout,M5,NY open,range=30m stop=mid tp=1.0 trend=1,False,gross,1037,129.6,0.4513,-0.1018,-3.325,777,149.0,0.4505,-0.0945,-2.683,94.4749
+Opening range breakout,M5,NY open,range=30m stop=mid tp=2.0 trend=0,False,net,1942,242.8,0.2863,-0.3016,-10.1661,1283,246.0,0.3219,-0.1499,-4.0678,201.6025
+Opening range breakout,M5,NY open,range=30m stop=mid tp=2.0 trend=0,False,gross,1942,242.8,0.3244,-0.0809,-2.6356,1283,246.0,0.3445,-0.0391,-1.0447,71.9467
+Opening range breakout,M5,NY open,range=30m stop=mid tp=2.0 trend=1,False,net,1037,129.6,0.296,-0.271,-6.684,777,149.0,0.3218,-0.1581,-3.3497,138.4552
+Opening range breakout,M5,NY open,range=30m stop=mid tp=2.0 trend=1,False,gross,1037,129.6,0.3337,-0.0497,-1.1829,777,149.0,0.3436,-0.0488,-1.0216,68.0816
+Opening range breakout,M5,NY open,range=30m stop=mid tp=EOD trend=0,False,net,1942,242.8,0.2106,-0.2682,-5.58,1283,246.0,0.2689,-0.1033,-1.9042,162.906
+Opening range breakout,M5,NY open,range=30m stop=mid tp=EOD trend=0,False,gross,1942,242.8,0.2405,-0.0311,-0.6053,1283,246.0,0.2853,-0.002,-0.0373,66.7135
+Opening range breakout,M5,NY open,range=30m stop=mid tp=EOD trend=1,False,net,1037,129.6,0.216,-0.2355,-3.4225,777,149.0,0.2664,-0.0677,-0.9085,90.9243
+Opening range breakout,M5,NY open,range=30m stop=mid tp=EOD trend=1,False,gross,1037,129.6,0.2449,-0.0049,-0.0683,777,149.0,0.2844,0.0357,0.4746,43.1616
+Opening range breakout,M5,NY open,range=60m stop=other side tp=1.0 trend=0,False,net,1616,202.0,0.4759,-0.0111,-0.5475,1075,206.1,0.4837,-0.0103,-0.4735,24.2217
+Opening range breakout,M5,NY open,range=60m stop=other side tp=1.0 trend=0,False,gross,1616,202.0,0.5093,0.0575,2.8486,1075,206.1,0.5005,0.0221,1.0188,13.3771
+Opening range breakout,M5,NY open,range=60m stop=other side tp=1.0 trend=1,False,net,948,118.5,0.442,-0.0574,-2.2219,670,128.5,0.4597,-0.0344,-1.2614,29.8951
+Opening range breakout,M5,NY open,range=60m stop=other side tp=1.0 trend=1,False,gross,948,118.5,0.4726,0.0039,0.152,670,128.5,0.4821,-0.004,-0.1485,20.3984
+Opening range breakout,M5,NY open,range=60m stop=other side tp=2.0 trend=0,False,net,1616,202.0,0.4245,-0.0189,-0.7861,1075,206.1,0.4642,-0.0133,-0.5465,24.0317
+Opening range breakout,M5,NY open,range=60m stop=other side tp=2.0 trend=0,False,gross,1616,202.0,0.4567,0.0537,2.2135,1075,206.1,0.4809,0.022,0.9025,17.5021
+Opening range breakout,M5,NY open,range=60m stop=other side tp=2.0 trend=1,False,net,948,118.5,0.4019,-0.0446,-1.4401,670,128.5,0.4463,-0.0327,-1.0868,33.4272
+Opening range breakout,M5,NY open,range=60m stop=other side tp=2.0 trend=1,False,gross,948,118.5,0.4335,0.0227,0.7293,670,128.5,0.4687,-0.0021,-0.0687,23.3635
+Opening range breakout,M5,NY open,range=60m stop=other side tp=EOD trend=0,False,net,1616,202.0,0.4183,-0.0114,-0.4125,1075,206.1,0.4623,-0.0147,-0.5803,30.5166
+Opening range breakout,M5,NY open,range=60m stop=other side tp=EOD trend=0,False,gross,1616,202.0,0.4505,0.0604,2.1398,1075,206.1,0.4791,0.0191,0.7529,18.605
+Opening range breakout,M5,NY open,range=60m stop=other side tp=EOD trend=1,False,net,948,118.5,0.3977,-0.0392,-1.1122,670,128.5,0.4463,-0.0235,-0.7292,29.4155
+Opening range breakout,M5,NY open,range=60m stop=other side tp=EOD trend=1,False,gross,948,118.5,0.4293,0.0281,0.7936,670,128.5,0.4687,0.0077,0.2393,21.143
+Opening range breakout,M5,NY open,range=60m stop=mid tp=1.0 trend=0,False,net,1616,202.0,0.4592,-0.1436,-5.9456,1075,206.1,0.4809,-0.0819,-2.876,96.249
+Opening range breakout,M5,NY open,range=60m stop=mid tp=1.0 trend=0,False,gross,1616,202.0,0.4876,-0.0149,-0.6206,1075,206.1,0.4986,-0.0048,-0.1673,33.3909
+Opening range breakout,M5,NY open,range=60m stop=mid tp=1.0 trend=1,False,net,948,118.5,0.4483,-0.1484,-4.7199,670,128.5,0.4776,-0.0855,-2.3848,64.0787
+Opening range breakout,M5,NY open,range=60m stop=mid tp=1.0 trend=1,False,gross,948,118.5,0.4768,-0.023,-0.7343,670,128.5,0.4925,-0.0151,-0.4192,25.186
+Opening range breakout,M5,NY open,range=60m stop=mid tp=2.0 trend=0,False,net,1616,202.0,0.3478,-0.1483,-4.6693,1075,206.1,0.3879,-0.0764,-2.1241,90.9451
+Opening range breakout,M5,NY open,range=60m stop=mid tp=2.0 trend=0,False,gross,1616,202.0,0.3762,-0.0072,-0.2237,1075,206.1,0.4028,-0.0115,-0.3182,44.1742
+Opening range breakout,M5,NY open,range=60m stop=mid tp=2.0 trend=1,False,net,948,118.5,0.3302,-0.1792,-4.4332,670,128.5,0.3806,-0.091,-2.0244,64.4131
+Opening range breakout,M5,NY open,range=60m stop=mid tp=2.0 trend=1,False,gross,948,118.5,0.3576,-0.0394,-0.9617,670,128.5,0.3955,-0.0359,-0.7963,43.0795
+Opening range breakout,M5,NY open,range=60m stop=mid tp=EOD trend=0,False,net,1616,202.0,0.3032,-0.1352,-3.0705,1075,206.1,0.3656,-0.0957,-2.3016,110.6984
+Opening range breakout,M5,NY open,range=60m stop=mid tp=EOD trend=0,False,gross,1616,202.0,0.3243,0.0053,0.1139,1075,206.1,0.3795,-0.0315,-0.7528,47.0204
+Opening range breakout,M5,NY open,range=60m stop=mid tp=EOD trend=1,False,net,948,118.5,0.2943,-0.14,-2.4435,670,128.5,0.3642,-0.0782,-1.4384,56.8722
+Opening range breakout,M5,NY open,range=60m stop=mid tp=EOD trend=1,False,gross,948,118.5,0.3154,0.0097,0.1602,670,128.5,0.3791,-0.0225,-0.4125,38.2732
+Opening range breakout,M5,NY open (random start),range=15m stop=other side tp=1.0 trend=0,True,net,1879,234.9,0.4433,-0.2845,-12.353,1267,242.9,0.487,-0.1197,-4.307,160.2975
+Opening range breakout,M5,NY open (random start),range=15m stop=other side tp=1.0 trend=0,True,gross,1879,234.9,0.5072,0.0127,0.5545,1267,242.9,0.5217,0.0445,1.6048,18.4337
+Opening range breakout,M5,NY open (random start),range=15m stop=other side tp=1.0 trend=1,True,net,943,117.9,0.4507,-0.264,-8.1616,678,130.0,0.5059,-0.086,-2.2702,66.6333
+Opening range breakout,M5,NY open (random start),range=15m stop=other side tp=1.0 trend=1,True,gross,943,117.9,0.5154,0.0336,1.0417,678,130.0,0.5383,0.0769,2.0346,14.3153
+Opening range breakout,M5,NY open (random start),range=15m stop=other side tp=2.0 trend=0,True,net,1879,234.9,0.3034,-0.2837,-9.0486,1267,242.9,0.3457,-0.1019,-2.638,152.2767
+Opening range breakout,M5,NY open (random start),range=15m stop=other side tp=2.0 trend=0,True,gross,1879,234.9,0.3438,0.0077,0.2398,1267,242.9,0.3694,0.0584,1.4925,32.4172
+Opening range breakout,M5,NY open (random start),range=15m stop=other side tp=2.0 trend=1,True,net,943,117.9,0.3128,-0.2539,-5.7027,678,130.0,0.3392,-0.1203,-2.2774,98.4501
+Opening range breakout,M5,NY open (random start),range=15m stop=other side tp=2.0 trend=1,True,gross,943,117.9,0.3552,0.0487,1.0605,678,130.0,0.3643,0.0503,0.9365,24.7304
+Opening range breakout,M5,NY open (random start),range=15m stop=other side tp=EOD trend=0,True,net,1879,234.9,0.1357,-0.339,-4.5108,1267,242.9,0.1807,0.0672,0.5822,194.1467
+Opening range breakout,M5,NY open (random start),range=15m stop=other side tp=EOD trend=0,True,gross,1879,234.9,0.1495,-0.0608,-0.7675,1267,242.9,0.1878,0.2006,1.7165,92.7409
+Opening range breakout,M5,NY open (random start),range=15m stop=other side tp=EOD trend=1,True,net,943,117.9,0.1347,-0.3286,-2.9306,678,130.0,0.1799,0.2586,1.3944,76.7055
+Opening range breakout,M5,NY open (random start),range=15m stop=other side tp=EOD trend=1,True,gross,943,117.9,0.1516,-0.0056,-0.0467,678,130.0,0.1844,0.3704,1.9896,62.1079
+Opening range breakout,M5,NY open (random start),range=15m stop=mid tp=1.0 trend=0,True,net,1879,234.9,0.265,-0.788,-35.8245,1267,242.9,0.3204,-0.554,-20.8032,701.8773
+Opening range breakout,M5,NY open (random start),range=15m stop=mid tp=1.0 trend=0,True,gross,1879,234.9,0.3709,-0.262,-11.7145,1267,242.9,0.3875,-0.227,-8.3015,287.6495
+Opening range breakout,M5,NY open (random start),range=15m stop=mid tp=1.0 trend=1,True,net,943,117.9,0.2577,-0.8011,-25.9591,678,130.0,0.3348,-0.5358,-14.5109,363.2494
+Opening range breakout,M5,NY open (random start),range=15m stop=mid tp=1.0 trend=1,True,gross,943,117.9,0.3499,-0.3021,-9.6981,678,130.0,0.3923,-0.2167,-5.7765,146.9236
+Opening range breakout,M5,NY open (random start),range=15m stop=mid tp=2.0 trend=0,True,net,1879,234.9,0.2001,-0.7529,-26.4391,1267,242.9,0.2155,-0.5546,-15.9051,702.6505
+Opening range breakout,M5,NY open (random start),range=15m stop=mid tp=2.0 trend=0,True,gross,1879,234.9,0.2661,-0.2112,-6.9217,1267,242.9,0.262,-0.2221,-6.0279,282.4068
+Opening range breakout,M5,NY open (random start),range=15m stop=mid tp=2.0 trend=1,True,net,943,117.9,0.2057,-0.7336,-18.1905,678,130.0,0.2301,-0.5189,-10.5844,354.6403
+Opening range breakout,M5,NY open (random start),range=15m stop=mid tp=2.0 trend=1,True,gross,943,117.9,0.2694,-0.1999,-4.6379,678,130.0,0.2743,-0.1836,-3.5919,130.9539
+Opening range breakout,M5,NY open (random start),range=15m stop=mid tp=EOD trend=0,True,net,1879,234.9,0.0607,-0.6681,-7.0736,1267,242.9,0.0608,-0.6028,-5.8357,778.7128
+Opening range breakout,M5,NY open (random start),range=15m stop=mid tp=EOD trend=0,True,gross,1879,234.9,0.0724,-0.125,-1.1155,1267,242.9,0.0695,-0.2311,-1.8823,366.6937
+Opening range breakout,M5,NY open (random start),range=15m stop=mid tp=EOD trend=1,True,net,943,117.9,0.0636,-0.6614,-4.8632,678,130.0,0.0531,-0.503,-2.8835,359.8785
+Opening range breakout,M5,NY open (random start),range=15m stop=mid tp=EOD trend=1,True,gross,943,117.9,0.0732,-0.1908,-1.2777,678,130.0,0.0605,-0.1554,-0.8049,163.5006
+Opening range breakout,M5,NY open (random start),range=30m stop=other side tp=1.0 trend=0,True,net,1910,238.8,0.4634,-0.1908,-8.408,1281,245.6,0.4934,-0.0721,-2.639,106.9578
+Opening range breakout,M5,NY open (random start),range=30m stop=other side tp=1.0 trend=0,True,gross,1910,238.8,0.5105,0.0197,0.8742,1281,245.6,0.5121,0.0284,1.041,29.0581
+Opening range breakout,M5,NY open (random start),range=30m stop=other side tp=1.0 trend=1,True,net,948,118.5,0.4684,-0.168,-5.2701,705,135.2,0.505,-0.0496,-1.3435,53.7038
+Opening range breakout,M5,NY open (random start),range=30m stop=other side tp=1.0 trend=1,True,gross,948,118.5,0.519,0.0458,1.4335,705,135.2,0.5248,0.0528,1.4337,15.3747
+Opening range breakout,M5,NY open (random start),range=30m stop=other side tp=2.0 trend=0,True,net,1910,238.8,0.3288,-0.1887,-6.1491,1281,245.6,0.3669,-0.0361,-0.9585,103.5478
+Opening range breakout,M5,NY open (random start),range=30m stop=other side tp=2.0 trend=0,True,gross,1910,238.8,0.3613,0.0192,0.6116,1281,245.6,0.381,0.0642,1.6892,36.6415
+Opening range breakout,M5,NY open (random start),range=30m stop=other side tp=2.0 trend=1,True,net,948,118.5,0.3397,-0.146,-3.3528,705,135.2,0.3617,-0.0464,-0.9125,67.4027
+Opening range breakout,M5,NY open (random start),range=30m stop=other side tp=2.0 trend=1,True,gross,948,118.5,0.3755,0.0752,1.6832,705,135.2,0.3745,0.053,1.0339,29.4752
+Opening range breakout,M5,NY open (random start),range=30m stop=other side tp=EOD trend=0,True,net,1910,238.8,0.1901,-0.1864,-2.6471,1281,245.6,0.2326,0.014,0.1556,123.3975
+Opening range breakout,M5,NY open (random start),range=30m stop=other side tp=EOD trend=0,True,gross,1910,238.8,0.2047,0.0033,0.0463,1281,245.6,0.2412,0.0994,1.1015,68.088
+Opening range breakout,M5,NY open (random start),range=30m stop=other side tp=EOD trend=1,True,net,948,118.5,0.1973,-0.1104,-0.9973,705,135.2,0.2255,0.0873,0.6422,65.1526
+Opening range breakout,M5,NY open (random start),range=30m stop=other side tp=EOD trend=1,True,gross,948,118.5,0.2141,0.0969,0.8527,705,135.2,0.234,0.1703,1.2486,48.4634
+Opening range breakout,M5,NY open (random start),range=30m stop=mid tp=1.0 trend=0,True,net,1910,238.8,0.3366,-0.5565,-24.9358,1281,245.6,0.3685,-0.3995,-14.7418,515.0758
+Opening range breakout,M5,NY open (random start),range=30m stop=mid tp=1.0 trend=0,True,gross,1910,238.8,0.4267,-0.1488,-6.5711,1281,245.6,0.4223,-0.1581,-5.745,211.4833
+Opening range breakout,M5,NY open (random start),range=30m stop=mid tp=1.0 trend=1,True,net,948,118.5,0.3323,-0.5508,-17.479,705,135.2,0.3872,-0.3678,-9.9533,261.2153
+Opening range breakout,M5,NY open (random start),range=30m stop=mid tp=1.0 trend=1,True,gross,948,118.5,0.4219,-0.1555,-4.8445,705,135.2,0.4369,-0.1279,-3.4286,95.1728
+Opening range breakout,M5,NY open (random start),range=30m stop=mid tp=2.0 trend=0,True,net,1910,238.8,0.2408,-0.5259,-17.8812,1281,245.6,0.2639,-0.3652,-9.9006,476.2537
+Opening range breakout,M5,NY open (random start),range=30m stop=mid tp=2.0 trend=0,True,gross,1910,238.8,0.3026,-0.1051,-3.354,1281,245.6,0.3052,-0.105,-2.7284,156.335
+Opening range breakout,M5,NY open (random start),range=30m stop=mid tp=2.0 trend=1,True,net,948,118.5,0.2342,-0.531,-12.8129,705,135.2,0.2794,-0.3273,-6.3944,243.7974
+Opening range breakout,M5,NY open (random start),range=30m stop=mid tp=2.0 trend=1,True,gross,948,118.5,0.3006,-0.105,-2.3559,705,135.2,0.3177,-0.0702,-1.3275,89.7932
+Opening range breakout,M5,NY open (random start),range=30m stop=mid tp=EOD trend=0,True,net,1910,238.8,0.0859,-0.4975,-5.6845,1281,245.6,0.1148,-0.2337,-2.1101,429.7062
+Opening range breakout,M5,NY open (random start),range=30m stop=mid tp=EOD trend=0,True,gross,1910,238.8,0.1047,-0.089,-0.8958,1281,245.6,0.1304,0.0781,0.6298,167.6535
+Opening range breakout,M5,NY open (random start),range=30m stop=mid tp=EOD trend=1,True,net,948,118.5,0.0876,-0.4198,-2.9988,705,135.2,0.1163,-0.1806,-1.1308,234.4544
+Opening range breakout,M5,NY open (random start),range=30m stop=mid tp=EOD trend=1,True,gross,948,118.5,0.1076,-0.0132,-0.0846,705,135.2,0.1277,0.1565,0.8503,94.3145
+Opening range breakout,M5,NY open (random start),range=60m stop=other side tp=1.0 trend=0,True,net,1808,226.0,0.4712,-0.1233,-5.4532,1217,233.3,0.4897,-0.0485,-1.7884,90.4017
+Opening range breakout,M5,NY open (random start),range=60m stop=other side tp=1.0 trend=0,True,gross,1808,226.0,0.5039,0.0155,0.6859,1217,233.3,0.5136,0.0385,1.4209,27.0542
+Opening range breakout,M5,NY open (random start),range=60m stop=other side tp=1.0 trend=1,True,net,943,117.9,0.4751,-0.1067,-3.428,670,128.5,0.4731,-0.0725,-1.9935,71.1135
+Opening range breakout,M5,NY open (random start),range=60m stop=other side tp=1.0 trend=1,True,gross,943,117.9,0.5037,0.0235,0.7563,670,128.5,0.4955,0.0136,0.3751,35.813
+Opening range breakout,M5,NY open (random start),range=60m stop=other side tp=2.0 trend=0,True,net,1808,226.0,0.3446,-0.1257,-4.1153,1217,233.3,0.3722,-0.0113,-0.3031,79.5276
+Opening range breakout,M5,NY open (random start),range=60m stop=other side tp=2.0 trend=0,True,gross,1808,226.0,0.3728,0.0192,0.6226,1217,233.3,0.387,0.0587,1.5659,41.708
+Opening range breakout,M5,NY open (random start),range=60m stop=other side tp=2.0 trend=1,True,net,943,117.9,0.3627,-0.0686,-1.615,670,128.5,0.3612,-0.0348,-0.6978,65.5212
+Opening range breakout,M5,NY open (random start),range=60m stop=other side tp=2.0 trend=1,True,gross,943,117.9,0.3934,0.0803,1.8676,670,128.5,0.3701,0.0234,0.4693,48.7127
+Opening range breakout,M5,NY open (random start),range=60m stop=other side tp=EOD trend=0,True,net,1808,226.0,0.2434,-0.1164,-2.1231,1217,233.3,0.2687,-0.029,-0.4412,168.9596
+Opening range breakout,M5,NY open (random start),range=60m stop=other side tp=EOD trend=0,True,gross,1808,226.0,0.2627,0.0135,0.2431,1217,233.3,0.2827,0.0615,0.8799,81.8037
+Opening range breakout,M5,NY open (random start),range=60m stop=other side tp=EOD trend=1,True,net,943,117.9,0.2513,-0.0559,-0.6955,670,128.5,0.2642,0.0032,0.034,116.7443
+Opening range breakout,M5,NY open (random start),range=60m stop=other side tp=EOD trend=1,True,gross,943,117.9,0.2715,0.0803,0.9833,670,128.5,0.2746,0.0765,0.7977,77.8837
+Opening range breakout,M5,NY open (random start),range=60m stop=mid tp=1.0 trend=0,True,net,1808,226.0,0.3949,-0.3809,-16.0377,1217,233.3,0.4347,-0.2241,-7.9197,277.0241
+Opening range breakout,M5,NY open (random start),range=60m stop=mid tp=1.0 trend=0,True,gross,1808,226.0,0.4685,-0.0636,-2.7286,1217,233.3,0.4799,-0.0419,-1.4784,83.0398
+Opening range breakout,M5,NY open (random start),range=60m stop=mid tp=1.0 trend=1,True,net,943,117.9,0.3987,-0.3617,-11.1463,670,128.5,0.4522,-0.1947,-5.0942,139.2861
+Opening range breakout,M5,NY open (random start),range=60m stop=mid tp=1.0 trend=1,True,gross,943,117.9,0.473,-0.054,-1.6708,670,128.5,0.4851,-0.0315,-0.8257,50.4755
+Opening range breakout,M5,NY open (random start),range=60m stop=mid tp=2.0 trend=0,True,net,1808,226.0,0.2765,-0.3663,-11.7013,1217,233.3,0.2999,-0.2285,-6.0224,289.2315
+Opening range breakout,M5,NY open (random start),range=60m stop=mid tp=2.0 trend=0,True,gross,1808,226.0,0.3285,-0.0502,-1.5513,1217,233.3,0.341,-0.02,-0.5115,79.7072
+Opening range breakout,M5,NY open (random start),range=60m stop=mid tp=2.0 trend=1,True,net,943,117.9,0.28,-0.3499,-8.1323,670,128.5,0.2955,-0.244,-4.7798,177.2288
+Opening range breakout,M5,NY open (random start),range=60m stop=mid tp=2.0 trend=1,True,gross,943,117.9,0.3277,-0.0494,-1.1117,670,128.5,0.3269,-0.0594,-1.138,69.1593
+Opening range breakout,M5,NY open (random start),range=60m stop=mid tp=EOD trend=0,True,net,1808,226.0,0.1338,-0.385,-5.2857,1217,233.3,0.1537,-0.1388,-1.3542,283.1247
+Opening range breakout,M5,NY open (random start),range=60m stop=mid tp=EOD trend=0,True,gross,1808,226.0,0.1521,-0.0934,-1.1801,1217,233.3,0.1726,0.0381,0.3629,99.7487
+Opening range breakout,M5,NY open (random start),range=60m stop=mid tp=EOD trend=1,True,net,943,117.9,0.1421,-0.3145,-2.91,670,128.5,0.1552,-0.1059,-0.7144,196.261
+Opening range breakout,M5,NY open (random start),range=60m stop=mid tp=EOD trend=1,True,gross,943,117.9,0.1601,-0.0252,-0.2172,670,128.5,0.1731,0.054,0.3608,103.2849
+Opening range breakout,M5,London open,range=30m stop=other side tp=1.0 trend=0,False,net,1990,248.8,0.5181,-0.0511,-2.2795,1319,252.9,0.5087,-0.0361,-1.312,58.5844
+Opening range breakout,M5,London open,range=30m stop=other side tp=1.0 trend=0,False,gross,1990,248.8,0.5432,0.0854,3.8365,1319,252.9,0.5208,0.0407,1.479,20.0
+Opening range breakout,M5,London open,range=30m stop=other side tp=1.0 trend=1,False,net,999,124.9,0.5175,-0.0513,-1.6247,702,134.6,0.5142,-0.0261,-0.6918,39.5006
+Opening range breakout,M5,London open,range=30m stop=other side tp=1.0 trend=1,False,gross,999,124.9,0.5455,0.0886,2.8219,702,134.6,0.5271,0.0543,1.4371,20.8343
+Opening range breakout,M5,London open,range=30m stop=other side tp=2.0 trend=0,False,net,1990,248.8,0.3663,-0.0086,-0.2679,1319,252.9,0.3556,-0.0193,-0.5011,70.3737
+Opening range breakout,M5,London open,range=30m stop=other side tp=2.0 trend=0,False,gross,1990,248.8,0.3854,0.1327,4.1254,1319,252.9,0.3639,0.0602,1.5488,43.469
+Opening range breakout,M5,London open,range=30m stop=other side tp=2.0 trend=1,False,net,999,124.9,0.3624,-0.0154,-0.3414,702,134.6,0.3689,0.0185,0.3461,42.9698
+Opening range breakout,M5,London open,range=30m stop=other side tp=2.0 trend=1,False,gross,999,124.9,0.3864,0.1361,2.9917,702,134.6,0.3803,0.1106,2.0525,32.4734
+Opening range breakout,M5,London open,range=30m stop=other side tp=EOD trend=0,False,net,1990,248.8,0.2281,0.0916,1.41,1319,252.9,0.2229,-0.0527,-0.8232,156.6576
+Opening range breakout,M5,London open,range=30m stop=other side tp=EOD trend=0,False,gross,1990,248.8,0.2442,0.2531,3.7974,1319,252.9,0.2259,0.0131,0.203,94.9645
+Opening range breakout,M5,London open,range=30m stop=other side tp=EOD trend=1,False,net,999,124.9,0.2212,0.0517,0.5942,702,134.6,0.2365,0.0185,0.2071,63.6358
+Opening range breakout,M5,London open,range=30m stop=other side tp=EOD trend=1,False,gross,999,124.9,0.2442,0.2505,2.7466,702,134.6,0.2393,0.0839,0.9389,40.0944
+Opening range breakout,M5,London open,range=30m stop=mid tp=1.0 trend=0,False,net,1990,248.8,0.3975,-0.3791,-17.1606,1319,252.9,0.4086,-0.2878,-10.5688,384.5522
+Opening range breakout,M5,London open,range=30m stop=mid tp=1.0 trend=0,False,gross,1990,248.8,0.4688,-0.0634,-2.835,1319,252.9,0.445,-0.1101,-4.0221,153.273
+Opening range breakout,M5,London open,range=30m stop=mid tp=1.0 trend=1,False,net,999,124.9,0.4134,-0.346,-11.0137,702,134.6,0.4217,-0.2665,-7.1143,198.0688
+Opening range breakout,M5,London open,range=30m stop=mid tp=1.0 trend=1,False,gross,999,124.9,0.4775,-0.0466,-1.4738,702,134.6,0.4601,-0.0801,-2.1265,72.2177
+Opening range breakout,M5,London open,range=30m stop=mid tp=2.0 trend=0,False,net,1990,248.8,0.2764,-0.3458,-11.4879,1319,252.9,0.2752,-0.2795,-7.555,381.7913
+Opening range breakout,M5,London open,range=30m stop=mid tp=2.0 trend=0,False,gross,1990,248.8,0.3307,-0.0115,-0.3634,1319,252.9,0.301,-0.0973,-2.5661,149.3015
+Opening range breakout,M5,London open,range=30m stop=mid tp=2.0 trend=1,False,net,999,124.9,0.2753,-0.3477,-8.1691,702,134.6,0.2863,-0.2508,-4.8846,194.2187
+Opening range breakout,M5,London open,range=30m stop=mid tp=2.0 trend=1,False,gross,999,124.9,0.3233,-0.0352,-0.7941,702,134.6,0.312,-0.0644,-1.2269,71.2177
+Opening range breakout,M5,London open,range=30m stop=mid tp=EOD trend=0,False,net,1990,248.8,0.103,-0.2345,-2.9151,1319,252.9,0.0986,-0.2461,-2.7952,370.7695
+Opening range breakout,M5,London open,range=30m stop=mid tp=EOD trend=0,False,gross,1990,248.8,0.1251,0.2306,2.3286,1319,252.9,0.113,-0.0299,-0.3213,110.5441
+Opening range breakout,M5,London open,range=30m stop=mid tp=EOD trend=1,False,net,999,124.9,0.1061,-0.1581,-1.3937,702,134.6,0.1154,-0.1488,-1.262,146.4916
+Opening range breakout,M5,London open,range=30m stop=mid tp=EOD trend=1,False,gross,999,124.9,0.1241,0.2318,1.7436,702,134.6,0.1296,0.0894,0.7044,55.9877
+Opening range breakout,M5,London open,range=60m stop=other side tp=1.0 trend=0,False,net,1834,229.2,0.5005,-0.0546,-2.3582,1222,234.3,0.5057,-0.0227,-0.801,57.6806
+Opening range breakout,M5,London open,range=60m stop=other side tp=1.0 trend=0,False,gross,1834,229.2,0.5267,0.0558,2.4214,1222,234.3,0.5147,0.0311,1.0966,27.6016
+Opening range breakout,M5,London open,range=60m stop=other side tp=1.0 trend=1,False,net,952,119.0,0.5,-0.0496,-1.5466,704,135.0,0.4957,-0.0365,-0.9741,47.7605
+Opening range breakout,M5,London open,range=60m stop=other side tp=1.0 trend=1,False,gross,952,119.0,0.5357,0.0757,2.3794,704,135.0,0.5057,0.0176,0.4691,23.1248
+Opening range breakout,M5,London open,range=60m stop=other side tp=2.0 trend=0,False,net,1834,229.2,0.3566,-0.0447,-1.4012,1222,234.3,0.3584,-0.0288,-0.7408,75.0506
+Opening range breakout,M5,London open,range=60m stop=other side tp=2.0 trend=0,False,gross,1834,229.2,0.3773,0.0728,2.2592,1222,234.3,0.3666,0.028,0.7159,55.2786
+Opening range breakout,M5,London open,range=60m stop=other side tp=2.0 trend=1,False,net,952,119.0,0.3613,-0.0258,-0.5807,704,135.0,0.3551,-0.0336,-0.6534,59.4792
+Opening range breakout,M5,London open,range=60m stop=other side tp=2.0 trend=1,False,gross,952,119.0,0.3897,0.1091,2.4249,704,135.0,0.3636,0.0232,0.4498,34.2919
+Opening range breakout,M5,London open,range=60m stop=other side tp=EOD trend=0,False,net,1834,229.2,0.2715,0.0408,0.7523,1222,234.3,0.284,0.0037,0.0637,113.9692
+Opening range breakout,M5,London open,range=60m stop=other side tp=EOD trend=0,False,gross,1834,229.2,0.2884,0.1683,3.0152,1222,234.3,0.2897,0.0556,0.9457,68.8896
+Opening range breakout,M5,London open,range=60m stop=other side tp=EOD trend=1,False,net,952,119.0,0.2668,0.0385,0.5145,704,135.0,0.2798,0.0103,0.1347,53.2455
+Opening range breakout,M5,London open,range=60m stop=other side tp=EOD trend=1,False,gross,952,119.0,0.2878,0.1924,2.455,704,135.0,0.2855,0.0608,0.7899,35.4751
+Opening range breakout,M5,London open,range=60m stop=mid tp=1.0 trend=0,False,net,1834,229.2,0.4313,-0.2626,-11.2979,1222,234.3,0.4444,-0.1907,-6.7191,235.7996
+Opening range breakout,M5,London open,range=60m stop=mid tp=1.0 trend=0,False,gross,1834,229.2,0.4744,-0.0522,-2.237,1222,234.3,0.4632,-0.0739,-2.5875,95.2489
+Opening range breakout,M5,London open,range=60m stop=mid tp=1.0 trend=1,False,net,952,119.0,0.4338,-0.2534,-7.8402,704,135.0,0.4616,-0.1592,-4.2302,118.697
+Opening range breakout,M5,London open,range=60m stop=mid tp=1.0 trend=1,False,gross,952,119.0,0.4769,-0.0473,-1.4605,704,135.0,0.4815,-0.0372,-0.9876,43.2082
+Opening range breakout,M5,London open,range=60m stop=mid tp=2.0 trend=0,False,net,1834,229.2,0.2977,-0.2326,-7.26,1222,234.3,0.3093,-0.154,-3.8918,192.3243
+Opening range breakout,M5,London open,range=60m stop=mid tp=2.0 trend=0,False,gross,1834,229.2,0.3315,-0.0108,-0.3279,1222,234.3,0.3249,-0.0298,-0.7429,77.7098
+Opening range breakout,M5,London open,range=60m stop=mid tp=2.0 trend=1,False,net,952,119.0,0.2994,-0.2224,-4.9822,704,135.0,0.3196,-0.1237,-2.343,104.5503
+Opening range breakout,M5,London open,range=60m stop=mid tp=2.0 trend=1,False,gross,952,119.0,0.334,-0.0038,-0.0839,704,135.0,0.3324,-0.0043,-0.0811,43.1564
+Opening range breakout,M5,London open,range=60m stop=mid tp=EOD trend=0,False,net,1834,229.2,0.1292,-0.2191,-3.1611,1222,234.3,0.1391,-0.1585,-1.9102,241.5365
+Opening range breakout,M5,London open,range=60m stop=mid tp=EOD trend=0,False,gross,1834,229.2,0.1472,0.0782,0.9618,1222,234.3,0.1498,0.0042,0.0481,105.5896
+Opening range breakout,M5,London open,range=60m stop=mid tp=EOD trend=1,False,net,952,119.0,0.1355,-0.1523,-1.4906,704,135.0,0.1491,-0.0986,-0.9034,134.3562
+Opening range breakout,M5,London open,range=60m stop=mid tp=EOD trend=1,False,gross,952,119.0,0.1534,0.1414,1.2204,704,135.0,0.1577,0.0902,0.7702,67.102
+Opening range breakout,M5,London open (random start),range=30m stop=other side tp=1.0 trend=0,True,net,1922,240.2,0.4636,-0.1902,-8.4071,1288,247.0,0.4946,-0.0703,-2.586,105.2384
+Opening range breakout,M5,London open (random start),range=30m stop=other side tp=1.0 trend=0,True,gross,1922,240.2,0.5109,0.0204,0.9071,1288,247.0,0.5132,0.0298,1.0951,27.6435
+Opening range breakout,M5,London open (random start),range=30m stop=other side tp=1.0 trend=1,True,net,951,118.9,0.469,-0.1665,-5.2307,707,135.6,0.505,-0.0503,-1.3659,54.3161
+Opening range breakout,M5,London open (random start),range=30m stop=other side tp=1.0 trend=1,True,gross,951,118.9,0.5205,0.0488,1.5304,707,135.6,0.5248,0.0518,1.4106,16.3747
+Opening range breakout,M5,London open (random start),range=30m stop=other side tp=2.0 trend=0,True,net,1922,240.2,0.3293,-0.1871,-6.118,1288,247.0,0.3688,-0.0341,-0.909,101.2115
+Opening range breakout,M5,London open (random start),range=30m stop=other side tp=2.0 trend=0,True,gross,1922,240.2,0.3621,0.0213,0.6833,1288,247.0,0.3828,0.0659,1.7404,35.5605
+Opening range breakout,M5,London open (random start),range=30m stop=other side tp=2.0 trend=1,True,net,951,118.9,0.3407,-0.1435,-3.3009,707,135.6,0.3621,-0.0472,-0.9291,68.015
+Opening range breakout,M5,London open (random start),range=30m stop=other side tp=2.0 trend=1,True,gross,951,118.9,0.3775,0.0802,1.7967,707,135.6,0.3748,0.052,1.0178,29.4752
+Opening range breakout,M5,London open (random start),range=30m stop=other side tp=EOD trend=0,True,net,1922,240.2,0.1904,-0.1821,-2.5913,1288,247.0,0.2352,0.0171,0.1916,121.8064
+Opening range breakout,M5,London open (random start),range=30m stop=other side tp=EOD trend=0,True,gross,1922,240.2,0.2055,0.0096,0.1329,1288,247.0,0.2438,0.1023,1.1392,67.007
+Opening range breakout,M5,London open (random start),range=30m stop=other side tp=EOD trend=1,True,net,951,118.9,0.1987,-0.0972,-0.8751,707,135.6,0.2263,0.0862,0.6357,65.7649
+Opening range breakout,M5,London open (random start),range=30m stop=other side tp=EOD trend=1,True,gross,951,118.9,0.2166,0.1152,1.0096,707,135.6,0.2348,0.169,1.2427,48.4634
+Opening range breakout,M5,London open (random start),range=30m stop=mid tp=1.0 trend=0,True,net,1922,240.2,0.3382,-0.5525,-24.7989,1288,247.0,0.3696,-0.3969,-14.6728,514.4139
+Opening range breakout,M5,London open (random start),range=30m stop=mid tp=1.0 trend=0,True,gross,1922,240.2,0.4277,-0.1469,-6.5026,1288,247.0,0.4239,-0.1549,-5.6415,208.4833
+Opening range breakout,M5,London open (random start),range=30m stop=mid tp=1.0 trend=1,True,net,951,118.9,0.3333,-0.5482,-17.4068,707,135.6,0.389,-0.3641,-9.8551,259.3119
+Opening range breakout,M5,London open (random start),range=30m stop=mid tp=1.0 trend=1,True,gross,951,118.9,0.4227,-0.154,-4.8028,707,135.6,0.4385,-0.1247,-3.3464,93.1728
+Opening range breakout,M5,London open (random start),range=30m stop=mid tp=2.0 trend=0,True,net,1922,240.2,0.2419,-0.5216,-17.7541,1288,247.0,0.2648,-0.3649,-9.9342,478.3614
+Opening range breakout,M5,London open (random start),range=30m stop=mid tp=2.0 trend=0,True,gross,1922,240.2,0.3033,-0.1028,-3.2911,1288,247.0,0.3059,-0.1057,-2.76,155.9175
+Opening range breakout,M5,London open (random start),range=30m stop=mid tp=2.0 trend=1,True,net,951,118.9,0.2355,-0.5264,-12.6907,707,135.6,0.2801,-0.3267,-6.3963,244.022
+Opening range breakout,M5,London open (random start),range=30m stop=mid tp=2.0 trend=1,True,gross,951,118.9,0.3018,-0.1015,-2.2787,707,135.6,0.3182,-0.0702,-1.3301,89.7932
+Opening range breakout,M5,London open (random start),range=30m stop=mid tp=EOD trend=0,True,net,1922,240.2,0.0864,-0.4856,-5.521,1288,247.0,0.1165,-0.2341,-2.1247,431.8139
+Opening range breakout,M5,London open (random start),range=30m stop=mid tp=EOD trend=0,True,gross,1922,240.2,0.1051,-0.0789,-0.7922,1288,247.0,0.132,0.0763,0.6189,166.3639
+Opening range breakout,M5,London open (random start),range=30m stop=mid tp=EOD trend=1,True,net,951,118.9,0.0894,-0.3918,-2.7589,707,135.6,0.1174,-0.1804,-1.1327,234.6789
+Opening range breakout,M5,London open (random start),range=30m stop=mid tp=EOD trend=1,True,gross,951,118.9,0.1094,0.0139,0.0885,707,135.6,0.1287,0.1559,0.8493,94.3145
+Opening range breakout,M5,London open (random start),range=60m stop=other side tp=1.0 trend=0,True,net,1879,234.9,0.4737,-0.1162,-5.2507,1265,242.5,0.4877,-0.0514,-1.9375,94.7618
+Opening range breakout,M5,London open (random start),range=60m stop=other side tp=1.0 trend=0,True,gross,1879,234.9,0.5067,0.0208,0.9414,1265,242.5,0.5107,0.0335,1.2649,27.0233
+Opening range breakout,M5,London open (random start),range=60m stop=other side tp=1.0 trend=1,True,net,978,122.2,0.4765,-0.101,-3.3146,691,132.5,0.4732,-0.0734,-2.0479,72.1522
+Opening range breakout,M5,London open (random start),range=60m stop=other side tp=1.0 trend=1,True,gross,978,122.2,0.5061,0.0286,0.9433,691,132.5,0.4949,0.0112,0.3133,38.813
+Opening range breakout,M5,London open (random start),range=60m stop=other side tp=2.0 trend=0,True,net,1879,234.9,0.3475,-0.1176,-3.9319,1265,242.5,0.3715,-0.0182,-0.5007,87.2008
+Opening range breakout,M5,London open (random start),range=60m stop=other side tp=2.0 trend=0,True,gross,1879,234.9,0.3768,0.0276,0.9132,1265,242.5,0.3858,0.0504,1.3791,46.1438
+Opening range breakout,M5,London open (random start),range=60m stop=other side tp=2.0 trend=1,True,net,978,122.2,0.3661,-0.0619,-1.4903,691,132.5,0.3603,-0.0412,-0.8404,70.9558
+Opening range breakout,M5,London open (random start),range=60m stop=other side tp=2.0 trend=1,True,gross,978,122.2,0.3978,0.087,2.0673,691,132.5,0.369,0.0163,0.3334,53.8688
+Opening range breakout,M5,London open (random start),range=60m stop=other side tp=EOD trend=0,True,net,1879,234.9,0.2469,-0.1081,-2.0165,1265,242.5,0.2711,-0.0319,-0.4995,170.3627
+Opening range breakout,M5,London open (random start),range=60m stop=other side tp=EOD trend=0,True,gross,1879,234.9,0.2677,0.0255,0.4681,1265,242.5,0.2846,0.0565,0.8348,81.6299
+Opening range breakout,M5,London open (random start),range=60m stop=other side tp=EOD trend=1,True,net,978,122.2,0.2577,-0.035,-0.4418,691,132.5,0.2663,0.001,0.0108,119.3289
+Opening range breakout,M5,London open (random start),range=60m stop=other side tp=EOD trend=1,True,gross,978,122.2,0.2791,0.1043,1.2962,691,132.5,0.2764,0.0731,0.7814,79.8815
+Opening range breakout,M5,London open (random start),range=60m stop=mid tp=1.0 trend=0,True,net,1879,234.9,0.3981,-0.3718,-15.961,1265,242.5,0.43,-0.2318,-8.3713,297.3788
+Opening range breakout,M5,London open (random start),range=60m stop=mid tp=1.0 trend=0,True,gross,1879,234.9,0.4715,-0.0583,-2.5485,1265,242.5,0.4759,-0.0493,-1.7762,90.3495
+Opening range breakout,M5,London open (random start),range=60m stop=mid tp=1.0 trend=1,True,net,978,122.2,0.4008,-0.3538,-11.1021,691,132.5,0.4486,-0.2014,-5.3544,146.4705
+Opening range breakout,M5,London open (random start),range=60m stop=mid tp=1.0 trend=1,True,gross,978,122.2,0.4765,-0.0471,-1.4844,691,132.5,0.4834,-0.0353,-0.9392,51.4755
+Opening range breakout,M5,London open (random start),range=60m stop=mid tp=2.0 trend=0,True,net,1879,234.9,0.2783,-0.3582,-11.6588,1265,242.5,0.2964,-0.2392,-6.4717,313.803
+Opening range breakout,M5,London open (random start),range=60m stop=mid tp=2.0 trend=0,True,gross,1879,234.9,0.331,-0.0458,-1.4408,1265,242.5,0.3375,-0.0315,-0.8232,91.6928
+Opening range breakout,M5,London open (random start),range=60m stop=mid tp=2.0 trend=1,True,net,978,122.2,0.2812,-0.3433,-8.125,691,132.5,0.2938,-0.2484,-4.9549,184.2644
+Opening range breakout,M5,London open (random start),range=60m stop=mid tp=2.0 trend=1,True,gross,978,122.2,0.3303,-0.0445,-1.0212,691,132.5,0.3256,-0.063,-1.2271,73.8857
+Opening range breakout,M5,London open (random start),range=60m stop=mid tp=EOD trend=0,True,net,1879,234.9,0.1362,-0.3678,-5.1102,1265,242.5,0.1526,-0.1639,-1.6601,317.3678
+Opening range breakout,M5,London open (random start),range=60m stop=mid tp=EOD trend=0,True,gross,1879,234.9,0.1559,-0.0804,-1.033,1265,242.5,0.1708,0.0088,0.0865,121.5579
+Opening range breakout,M5,London open (random start),range=60m stop=mid tp=EOD trend=1,True,net,978,122.2,0.1472,-0.2719,-2.5027,691,132.5,0.1534,-0.1276,-0.8861,214.3066
+Opening range breakout,M5,London open (random start),range=60m stop=mid tp=EOD trend=1,True,gross,978,122.2,0.1677,0.0159,0.1368,691,132.5,0.1708,0.0296,0.2036,119.6546
+Opening range breakout,M5,Asian range,range=600m stop=other side tp=1.0 trend=0,False,net,1851,231.4,0.5078,0.0014,0.0663,1228,235.4,0.4967,0.0045,0.1797,45.3973
+Opening range breakout,M5,Asian range,range=600m stop=other side tp=1.0 trend=0,False,gross,1851,231.4,0.5219,0.0427,2.0487,1228,235.4,0.5065,0.0365,1.4494,29.6977
+Opening range breakout,M5,Asian range,range=600m stop=other side tp=1.0 trend=1,False,net,1084,135.5,0.5166,0.0272,1.0106,746,143.0,0.5067,0.0239,0.7364,27.7308
+Opening range breakout,M5,Asian range,range=600m stop=other side tp=1.0 trend=1,False,gross,1084,135.5,0.5332,0.0663,2.4669,746,143.0,0.5161,0.0552,1.7056,18.2584
+Opening range breakout,M5,Asian range,range=600m stop=other side tp=2.0 trend=0,False,net,1851,231.4,0.4392,0.0139,0.5418,1228,235.4,0.43,0.0127,0.4129,45.519
+Opening range breakout,M5,Asian range,range=600m stop=other side tp=2.0 trend=0,False,gross,1851,231.4,0.4533,0.0578,2.2295,1228,235.4,0.4397,0.0438,1.4128,38.0784
+Opening range breakout,M5,Asian range,range=600m stop=other side tp=2.0 trend=1,False,net,1084,135.5,0.4419,0.0254,0.7612,746,143.0,0.4517,0.0572,1.4388,16.638
+Opening range breakout,M5,Asian range,range=600m stop=other side tp=2.0 trend=1,False,gross,1084,135.5,0.4585,0.0708,2.1135,746,143.0,0.4611,0.0868,2.178,15.0636
+Opening range breakout,M5,Asian range,range=600m stop=other side tp=EOD trend=0,False,net,1851,231.4,0.4263,0.0455,1.4391,1228,235.4,0.4161,0.0315,0.8676,47.4588
+Opening range breakout,M5,Asian range,range=600m stop=other side tp=EOD trend=0,False,gross,1851,231.4,0.4387,0.0868,2.7243,1228,235.4,0.4251,0.0595,1.638,40.2762
+Opening range breakout,M5,Asian range,range=600m stop=other side tp=EOD trend=1,False,net,1084,135.5,0.4308,0.0689,1.6438,746,143.0,0.4383,0.0589,1.3041,24.9591
+Opening range breakout,M5,Asian range,range=600m stop=other side tp=EOD trend=1,False,gross,1084,135.5,0.4446,0.108,2.5633,746,143.0,0.4477,0.0873,1.9321,19.233
+Opening range breakout,M5,Asian range,range=600m stop=mid tp=1.0 trend=0,False,net,1851,231.4,0.5062,-0.0413,-1.7947,1228,235.4,0.4967,-0.0406,-1.4363,94.364
+Opening range breakout,M5,Asian range,range=600m stop=mid tp=1.0 trend=0,False,gross,1851,231.4,0.5257,0.0539,2.3499,1228,235.4,0.5106,0.0208,0.7361,36.9747
+Opening range breakout,M5,Asian range,range=600m stop=mid tp=1.0 trend=1,False,net,1084,135.5,0.512,-0.0229,-0.7619,746,143.0,0.508,-0.0128,-0.3521,54.8386
+Opening range breakout,M5,Asian range,range=600m stop=mid tp=1.0 trend=1,False,gross,1084,135.5,0.5351,0.0761,2.5468,746,143.0,0.5241,0.0513,1.4154,26.4449
+Opening range breakout,M5,Asian range,range=600m stop=mid tp=2.0 trend=0,False,net,1851,231.4,0.363,-0.0431,-1.3695,1228,235.4,0.3575,-0.0429,-1.1148,114.833
+Opening range breakout,M5,Asian range,range=600m stop=mid tp=2.0 trend=0,False,gross,1851,231.4,0.382,0.0606,1.9062,1228,235.4,0.3681,0.0195,0.504,57.1694
+Opening range breakout,M5,Asian range,range=600m stop=mid tp=2.0 trend=1,False,net,1084,135.5,0.3773,0.0033,0.0806,746,143.0,0.3673,-0.006,-0.1194,75.2027
+Opening range breakout,M5,Asian range,range=600m stop=mid tp=2.0 trend=1,False,gross,1084,135.5,0.3994,0.1088,2.5971,746,143.0,0.3794,0.0566,1.1282,51.2124
+Opening range breakout,M5,Asian range,range=600m stop=mid tp=EOD trend=0,False,net,1851,231.4,0.289,0.0277,0.5421,1228,235.4,0.2834,0.0092,0.1555,84.2196
+Opening range breakout,M5,Asian range,range=600m stop=mid tp=EOD trend=0,False,gross,1851,231.4,0.3052,0.1532,2.877,1228,235.4,0.2964,0.0759,1.2802,43.1222
+Opening range breakout,M5,Asian range,range=600m stop=mid tp=EOD trend=1,False,net,1084,135.5,0.2998,0.0701,1.029,746,143.0,0.2976,0.0113,0.161,73.6268
+Opening range breakout,M5,Asian range,range=600m stop=mid tp=EOD trend=1,False,gross,1084,135.5,0.3183,0.2114,2.9228,746,143.0,0.3137,0.0845,1.1904,43.3096
+Opening range breakout,M5,Asian range (random start),range=600m stop=other side tp=1.0 trend=0,True,net,903,112.9,0.4496,-0.0385,-1.6589,553,106.0,0.4557,-0.0442,-1.5003,36.4931
+Opening range breakout,M5,Asian range (random start),range=600m stop=other side tp=1.0 trend=0,True,gross,903,112.9,0.4729,-0.0046,-0.1967,553,106.0,0.472,-0.0224,-0.7573,26.6286
+Opening range breakout,M5,Asian range (random start),range=600m stop=other side tp=1.0 trend=1,True,net,586,73.2,0.4556,-0.0086,-0.3161,379,72.7,0.4565,-0.0215,-0.6342,25.3306
+Opening range breakout,M5,Asian range (random start),range=600m stop=other side tp=1.0 trend=1,True,gross,586,73.2,0.4795,0.0215,0.791,379,72.7,0.4749,0.0,0.0012,19.3507
+Opening range breakout,M5,Asian range (random start),range=600m stop=other side tp=2.0 trend=0,True,net,903,112.9,0.4297,-0.0326,-1.1967,553,106.0,0.4322,-0.048,-1.4432,34.6602
+Opening range breakout,M5,Asian range (random start),range=600m stop=other side tp=2.0 trend=0,True,gross,903,112.9,0.4551,0.0049,0.1774,553,106.0,0.4485,-0.0292,-0.8758,26.5405
+Opening range breakout,M5,Asian range (random start),range=600m stop=other side tp=2.0 trend=1,True,net,586,73.2,0.4334,-0.0014,-0.0426,379,72.7,0.4406,-0.0283,-0.7545,27.1019
+Opening range breakout,M5,Asian range (random start),range=600m stop=other side tp=2.0 trend=1,True,gross,586,73.2,0.4608,0.0303,0.9469,379,72.7,0.4591,-0.0101,-0.2679,21.6483
+Opening range breakout,M5,Asian range (random start),range=600m stop=other side tp=EOD trend=0,True,net,903,112.9,0.4264,-0.0147,-0.4732,553,106.0,0.4268,-0.0463,-1.2882,35.2603
+Opening range breakout,M5,Asian range (random start),range=600m stop=other side tp=EOD trend=0,True,gross,903,112.9,0.4518,0.0235,0.7506,553,106.0,0.443,-0.027,-0.7492,26.9205
+Opening range breakout,M5,Asian range (random start),range=600m stop=other side tp=EOD trend=1,True,net,586,73.2,0.43,0.0143,0.392,379,72.7,0.438,-0.0267,-0.6617,27.5423
+Opening range breakout,M5,Asian range (random start),range=600m stop=other side tp=EOD trend=1,True,gross,586,73.2,0.4573,0.0468,1.2781,379,72.7,0.4565,-0.0081,-0.2001,21.9982
+Opening range breakout,M5,Asian range (random start),range=600m stop=mid tp=1.0 trend=0,True,net,903,112.9,0.4529,-0.0755,-2.5614,553,106.0,0.4557,-0.0651,-1.7322,49.5909
+Opening range breakout,M5,Asian range (random start),range=600m stop=mid tp=1.0 trend=0,True,gross,903,112.9,0.4773,-0.0022,-0.0746,553,106.0,0.472,-0.0197,-0.5241,30.8695
+Opening range breakout,M5,Asian range (random start),range=600m stop=mid tp=1.0 trend=1,True,net,586,73.2,0.4556,-0.0414,-1.1726,379,72.7,0.4644,-0.0241,-0.5407,30.7915
+Opening range breakout,M5,Asian range (random start),range=600m stop=mid tp=1.0 trend=1,True,gross,586,73.2,0.4761,0.0153,0.4336,379,72.7,0.4855,0.0203,0.4578,20.741
+Opening range breakout,M5,Asian range (random start),range=600m stop=mid tp=2.0 trend=0,True,net,903,112.9,0.3798,-0.0595,-1.5899,553,106.0,0.3797,-0.0805,-1.7405,65.0877
+Opening range breakout,M5,Asian range (random start),range=600m stop=mid tp=2.0 trend=0,True,gross,903,112.9,0.4053,0.0164,0.4364,553,106.0,0.396,-0.0308,-0.6609,41.28
+Opening range breakout,M5,Asian range (random start),range=600m stop=mid tp=2.0 trend=1,True,net,586,73.2,0.3942,-0.0058,-0.1283,379,72.7,0.3931,-0.0389,-0.7178,44.4265
+Opening range breakout,M5,Asian range (random start),range=600m stop=mid tp=2.0 trend=1,True,gross,586,73.2,0.4198,0.0604,1.3369,379,72.7,0.4169,0.0128,0.234,29.1785
+Opening range breakout,M5,Asian range (random start),range=600m stop=mid tp=EOD trend=0,True,net,903,112.9,0.3566,-0.0157,-0.3007,553,106.0,0.3544,-0.0881,-1.5602,72.0682
+Opening range breakout,M5,Asian range (random start),range=600m stop=mid tp=EOD trend=0,True,gross,903,112.9,0.3821,0.0694,1.3002,553,106.0,0.3689,-0.0493,-0.8711,55.9345
+Opening range breakout,M5,Asian range (random start),range=600m stop=mid tp=EOD trend=1,True,net,586,73.2,0.3669,0.0358,0.5583,379,72.7,0.3773,-0.0597,-0.99,54.7447
+Opening range breakout,M5,Asian range (random start),range=600m stop=mid tp=EOD trend=1,True,gross,586,73.2,0.3908,0.0952,1.4746,379,72.7,0.3984,-0.022,-0.3646,43.5682
+Turtle (Donchian),D1,System 1,20/10 side=long swap=0.0%,False,net,44,5.5,0.3864,0.1538,0.6526,34,6.5,0.3529,0.3114,0.9795,5.862
+Turtle (Donchian),D1,System 1,20/10 side=short swap=0.0%,False,net,50,6.2,0.38,-0.002,-0.0131,29,5.6,0.3448,-0.2913,-1.964,8.4474
+Turtle (Donchian),D1,System 1,20/10 side=both swap=0.0%,False,net,94,11.8,0.383,0.0709,0.5192,63,12.1,0.3492,0.034,0.1815,8.4474
+Turtle (Donchian),D1,System 1,20/10 side=long swap=4.0%,False,net,44,5.5,0.3636,0.0383,0.1739,34,6.5,0.3529,0.2168,0.7123,6.5548
+Turtle (Donchian),D1,System 1,20/10 side=short swap=4.0%,False,net,50,6.2,0.34,-0.106,-0.7339,29,5.6,0.2759,-0.3639,-2.5931,10.5522
+Turtle (Donchian),D1,System 1,20/10 side=both swap=4.0%,False,net,94,11.8,0.3511,-0.0384,-0.2999,63,12.1,0.3175,-0.0505,-0.2822,10.5522
+Turtle (Donchian),D1,System 1,20/10 side=long swap=0.0%,False,gross,44,5.5,0.3864,0.1614,0.6843,34,6.5,0.3529,0.3162,0.9939,5.8021
+Turtle (Donchian),D1,System 1,20/10 side=short swap=0.0%,False,gross,50,6.2,0.38,0.0004,0.0029,29,5.6,0.3448,-0.2899,-1.9542,8.4068
+Turtle (Donchian),D1,System 1,20/10 side=both swap=0.0%,False,gross,94,11.8,0.383,0.0758,0.5544,63,12.1,0.3492,0.0372,0.1984,8.4068
+Turtle (Donchian),D1,System 1,20/10 side=long swap=4.0%,False,gross,44,5.5,0.3636,0.046,0.2083,34,6.5,0.3529,0.2215,0.7275,6.4949
+Turtle (Donchian),D1,System 1,20/10 side=short swap=4.0%,False,gross,50,6.2,0.34,-0.1035,-0.7168,29,5.6,0.2759,-0.3625,-2.5827,10.5116
+Turtle (Donchian),D1,System 1,20/10 side=both swap=4.0%,False,gross,94,11.8,0.3511,-0.0336,-0.2616,63,12.1,0.3175,-0.0473,-0.2642,10.5116
+Turtle (Donchian),D1,System 1 (random entry),20/10 side=long swap=0.0%,True,net,31,3.9,0.1935,0.0039,0.0209,27,5.2,0.3704,0.496,1.4226,5.2692
+Turtle (Donchian),D1,System 1 (random entry),20/10 side=short swap=0.0%,True,net,37,4.6,0.2432,-0.1357,-1.1324,23,4.4,0.1739,-0.2218,-1.7107,5.1011
+Turtle (Donchian),D1,System 1 (random entry),20/10 side=both swap=0.0%,True,net,73,9.1,0.3288,0.1769,1.0845,60,11.5,0.25,0.0355,0.218,6.1988
+Turtle (Donchian),D1,System 1 (random entry),20/10 side=long swap=4.0%,True,net,41,5.1,0.1951,0.0476,0.2378,29,5.6,0.3793,0.4767,1.6038,4.6717
+Turtle (Donchian),D1,System 1 (random entry),20/10 side=short swap=4.0%,True,net,36,4.5,0.2778,-0.0202,-0.1258,23,4.4,0.1739,-0.1599,-0.9422,4.9608
+Turtle (Donchian),D1,System 1 (random entry),20/10 side=both swap=4.0%,True,net,85,10.6,0.2588,0.0613,0.4992,46,8.8,0.2609,-0.0769,-0.5239,6.3725
+Turtle (Donchian),D1,System 1 (random entry),20/10 side=long swap=0.0%,True,gross,38,4.8,0.2632,0.0598,0.2802,28,5.4,0.2143,0.1561,0.5086,4.4034
+Turtle (Donchian),D1,System 1 (random entry),20/10 side=short swap=0.0%,True,gross,38,4.8,0.2895,0.0142,0.0911,34,6.5,0.1471,-0.3831,-4.4111,13.0769
+Turtle (Donchian),D1,System 1 (random entry),20/10 side=both swap=0.0%,True,gross,83,10.4,0.3494,0.181,1.43,49,9.4,0.1633,-0.0161,-0.0884,8.2481
+Turtle (Donchian),D1,System 1 (random entry),20/10 side=long swap=4.0%,True,gross,37,4.6,0.2973,0.0088,0.0421,28,5.4,0.5,0.4564,1.9251,3.006
+Turtle (Donchian),D1,System 1 (random entry),20/10 side=short swap=4.0%,True,gross,43,5.4,0.3488,0.0315,0.2164,25,4.8,0.04,-0.3811,-4.3108,9.5264
+Turtle (Donchian),D1,System 1 (random entry),20/10 side=both swap=4.0%,True,gross,85,10.6,0.2471,-0.0187,-0.1488,41,7.9,0.3171,0.1055,0.5794,4.4742
+Turtle (Donchian),D1,System 2,55/20 side=long swap=0.0%,False,net,22,2.8,0.3182,0.3337,0.7033,12,2.3,0.75,1.5447,2.4757,1.0016
+Turtle (Donchian),D1,System 2,55/20 side=short swap=0.0%,False,net,22,2.8,0.3182,0.3237,0.6025,10,1.9,0.1,-0.6344,-4.3334,6.3436
+Turtle (Donchian),D1,System 2,55/20 side=both swap=0.0%,False,net,44,5.5,0.3182,0.3287,0.928,22,4.2,0.4545,0.5542,1.3384,6.3436
+Turtle (Donchian),D1,System 2,55/20 side=long swap=4.0%,False,net,22,2.8,0.2727,0.1473,0.3375,12,2.3,0.6667,1.2795,2.1748,1.0667
+Turtle (Donchian),D1,System 2,55/20 side=short swap=4.0%,False,net,22,2.8,0.3182,0.1158,0.2334,10,1.9,0.1,-0.7399,-5.4669,7.3986
+Turtle (Donchian),D1,System 2,55/20 side=both swap=4.0%,False,net,44,5.5,0.2955,0.1316,0.4028,22,4.2,0.4091,0.3616,0.9318,7.3986
+Turtle (Donchian),D1,System 2,55/20 side=long swap=0.0%,False,gross,22,2.8,0.3182,0.3403,0.7162,12,2.3,0.75,1.5495,2.4818,1.0
+Turtle (Donchian),D1,System 2,55/20 side=short swap=0.0%,False,gross,21,2.6,0.3333,0.4228,0.7007,10,1.9,0.1,-0.6328,-4.3245,6.3281
+Turtle (Donchian),D1,System 2,55/20 side=both swap=0.0%,False,gross,43,5.4,0.3256,0.3806,1.0084,22,4.2,0.4545,0.5575,1.3452,6.3281
+Turtle (Donchian),D1,System 2,55/20 side=long swap=4.0%,False,gross,22,2.8,0.2727,0.1539,0.3521,12,2.3,0.6667,1.2843,2.1816,1.0651
+Turtle (Donchian),D1,System 2,55/20 side=short swap=4.0%,False,gross,21,2.6,0.3333,0.199,0.364,10,1.9,0.1,-0.7383,-5.4582,7.3831
+Turtle (Donchian),D1,System 2,55/20 side=both swap=4.0%,False,gross,43,5.4,0.3023,0.1759,0.5112,22,4.2,0.4091,0.3649,0.9395,7.3831
+Turtle (Donchian),D1,System 2 (random entry),55/20 side=long swap=0.0%,True,net,35,4.4,0.2857,0.0433,0.1702,13,2.5,0.5385,1.5075,2.0534,1.3564
+Turtle (Donchian),D1,System 2 (random entry),55/20 side=short swap=0.0%,True,net,26,3.2,0.3462,-0.0361,-0.1921,27,5.2,0.1852,-0.2492,-1.6032,8.0464
+Turtle (Donchian),D1,System 2 (random entry),55/20 side=both swap=0.0%,True,net,70,8.8,0.2857,0.1031,0.6125,40,7.7,0.25,0.1055,0.473,7.6842
+Turtle (Donchian),D1,System 2 (random entry),55/20 side=long swap=4.0%,True,net,29,3.6,0.3103,0.473,1.2571,19,3.6,0.4211,0.9066,1.687,6.2002
+Turtle (Donchian),D1,System 2 (random entry),55/20 side=short swap=4.0%,True,net,44,5.5,0.2045,-0.269,-2.6605,28,5.4,0.0714,-0.525,-6.0148,14.7436
+Turtle (Donchian),D1,System 2 (random entry),55/20 side=both swap=4.0%,True,net,65,8.1,0.2154,0.0799,0.3317,46,8.8,0.3043,0.1261,0.6599,5.4992
+Turtle (Donchian),D1,System 2 (random entry),55/20 side=long swap=0.0%,True,gross,37,4.6,0.2162,-0.063,-0.3467,20,3.8,0.3,0.2582,0.6679,5.5619
+Turtle (Donchian),D1,System 2 (random entry),55/20 side=short swap=0.0%,True,gross,39,4.9,0.2051,0.1226,0.3803,19,3.6,0.2105,-0.3404,-2.5392,6.4676
+Turtle (Donchian),D1,System 2 (random entry),55/20 side=both swap=0.0%,True,gross,79,9.9,0.2152,-0.024,-0.1466,48,9.2,0.1667,-0.108,-0.5245,10.1723
+Turtle (Donchian),D1,System 2 (random entry),55/20 side=long swap=4.0%,True,gross,44,5.5,0.1136,-0.4015,-3.1607,24,4.6,0.25,0.1361,0.4182,6.314
+Turtle (Donchian),D1,System 2 (random entry),55/20 side=short swap=4.0%,True,gross,31,3.9,0.2258,-0.0864,-0.2713,19,3.6,0.1579,-0.4308,-3.1977,8.1857
+Turtle (Donchian),D1,System 2 (random entry),55/20 side=both swap=4.0%,True,gross,62,7.8,0.1613,-0.0113,-0.0438,51,9.8,0.2157,-0.1206,-0.6193,9.8524
+Al Brooks,M5,H2/L2,ema_touch=0 good_bar=0 stop=signal bar rr=1.0,False,net,20070,2508.8,0.2587,-0.8614,-112.0636,12038,2308.1,0.332,-0.5805,-61.6072,6989.038
+Al Brooks,M5,H2/L2,ema_touch=0 good_bar=0 stop=signal bar rr=1.0,False,gross,19946,2493.2,0.4059,-0.1976,-26.298,12007,2302.1,0.4132,-0.1829,-19.1285,2201.5961
+Al Brooks,M5,H2/L2,ema_touch=0 good_bar=0 stop=signal bar rr=2.0,False,net,19728,2466.0,0.2037,-0.8149,-81.5983,11749,2252.7,0.2336,-0.5553,-44.78,6524.2742
+Al Brooks,M5,H2/L2,ema_touch=0 good_bar=0 stop=signal bar rr=2.0,False,gross,19500,2437.5,0.296,-0.1291,-9.9884,11684,2240.2,0.2908,-0.1425,-10.834,1670.9451
+Al Brooks,M5,H2/L2,ema_touch=0 good_bar=0 stop=pullback rr=1.0,False,net,19348,2418.5,0.355,-0.5653,-72.1525,11560,2216.4,0.4074,-0.3613,-37.1701,4177.9977
+Al Brooks,M5,H2/L2,ema_touch=0 good_bar=0 stop=pullback rr=1.0,False,gross,19217,2402.1,0.4615,-0.0798,-9.6784,11555,2215.5,0.4683,-0.0705,-7.2254,824.2208
+Al Brooks,M5,H2/L2,ema_touch=0 good_bar=0 stop=pullback rr=2.0,False,net,18138,2267.2,0.2559,-0.5335,-50.7445,10709,2053.3,0.281,-0.3395,-25.2378,3636.0762
+Al Brooks,M5,H2/L2,ema_touch=0 good_bar=0 stop=pullback rr=2.0,False,gross,17902,2237.8,0.3235,-0.0455,-3.3828,10638,2039.6,0.3236,-0.0444,-3.166,497.6351
+Al Brooks,M5,H2/L2,ema_touch=0 good_bar=1 stop=signal bar rr=1.0,False,net,9882,1235.2,0.3137,-0.7181,-68.1663,6183,1185.5,0.3861,-0.4586,-33.6093,2836.3077
+Al Brooks,M5,H2/L2,ema_touch=0 good_bar=1 stop=signal bar rr=1.0,False,gross,9858,1232.2,0.454,-0.1009,-9.7045,6179,1184.7,0.4514,-0.1089,-7.9689,681.507
+Al Brooks,M5,H2/L2,ema_touch=0 good_bar=1 stop=signal bar rr=2.0,False,net,9782,1222.8,0.2438,-0.6627,-45.0343,6092,1168.0,0.2708,-0.4306,-23.6491,2623.336
+Al Brooks,M5,H2/L2,ema_touch=0 good_bar=1 stop=signal bar rr=2.0,False,gross,9736,1217.0,0.3326,-0.0105,-0.6728,6084,1166.5,0.3179,-0.0652,-3.4398,407.9715
+Al Brooks,M5,H2/L2,ema_touch=0 good_bar=1 stop=pullback rr=1.0,False,net,9730,1216.2,0.3849,-0.4959,-45.5288,6077,1165.2,0.4329,-0.3099,-22.2278,1884.0254
+Al Brooks,M5,H2/L2,ema_touch=0 good_bar=1 stop=pullback rr=1.0,False,gross,9716,1214.5,0.4828,-0.0362,-2.9341,6079,1165.5,0.4822,-0.0473,-3.4025,291.0092
+Al Brooks,M5,H2/L2,ema_touch=0 good_bar=1 stop=pullback rr=2.0,False,net,9426,1178.2,0.2782,-0.4571,-31.2106,5820,1115.9,0.299,-0.2869,-15.1199,1669.809
+Al Brooks,M5,H2/L2,ema_touch=0 good_bar=1 stop=pullback rr=2.0,False,gross,9379,1172.4,0.3393,0.0116,0.7033,5804,1112.8,0.3348,-0.0167,-0.8552,158.6219
+Al Brooks,M5,H2/L2,ema_touch=1 good_bar=0 stop=signal bar rr=1.0,False,net,9266,1158.2,0.2731,-0.8286,-68.3391,6054,1160.7,0.3479,-0.5369,-41.1934,3251.3706
+Al Brooks,M5,H2/L2,ema_touch=1 good_bar=0 stop=signal bar rr=1.0,False,gross,9204,1150.5,0.4175,-0.1792,-15.3143,6039,1157.9,0.4292,-0.149,-11.3221,908.2975
+Al Brooks,M5,H2/L2,ema_touch=1 good_bar=0 stop=signal bar rr=2.0,False,net,9154,1144.2,0.2128,-0.7791,-48.9899,5967,1144.1,0.239,-0.5231,-30.6393,3122.8417
+Al Brooks,M5,H2/L2,ema_touch=1 good_bar=0 stop=signal bar rr=2.0,False,gross,9057,1132.1,0.302,-0.1062,-6.413,5946,1140.0,0.2936,-0.1286,-7.1359,780.1956
+Al Brooks,M5,H2/L2,ema_touch=1 good_bar=0 stop=pullback rr=1.0,False,net,8971,1121.4,0.3765,-0.505,-42.201,5878,1127.0,0.4243,-0.3122,-23.3508,1836.4379
+Al Brooks,M5,H2/L2,ema_touch=1 good_bar=0 stop=pullback rr=1.0,False,gross,8915,1114.4,0.4757,-0.0474,-3.5491,5873,1126.0,0.4837,-0.0389,-2.8948,246.0059
+Al Brooks,M5,H2/L2,ema_touch=1 good_bar=0 stop=pullback rr=2.0,False,net,8638,1079.8,0.2705,-0.4708,-29.9695,5625,1078.5,0.29,-0.2954,-16.1029,1671.9992
+Al Brooks,M5,H2/L2,ema_touch=1 good_bar=0 stop=pullback rr=2.0,False,gross,8542,1067.8,0.3332,-0.0065,-0.3724,5592,1072.2,0.3301,-0.0233,-1.2187,153.5784
+Al Brooks,M5,H2/L2,ema_touch=1 good_bar=1 stop=signal bar rr=1.0,False,net,5212,651.5,0.3195,-0.7022,-47.6532,3522,675.3,0.3907,-0.4409,-25.1455,1553.7759
+Al Brooks,M5,H2/L2,ema_touch=1 good_bar=1 stop=signal bar rr=1.0,False,gross,5196,649.5,0.4577,-0.0983,-6.7828,3518,674.5,0.4568,-0.0969,-5.5205,345.1175
+Al Brooks,M5,H2/L2,ema_touch=1 good_bar=1 stop=signal bar rr=2.0,False,net,5176,647.0,0.2465,-0.6422,-30.0801,3486,668.4,0.2688,-0.4254,-18.3256,1483.8892
+Al Brooks,M5,H2/L2,ema_touch=1 good_bar=1 stop=signal bar rr=2.0,False,gross,5152,644.0,0.3339,-0.0037,-0.1655,3479,667.0,0.3153,-0.0667,-2.7584,238.4826
+Al Brooks,M5,H2/L2,ema_touch=1 good_bar=1 stop=pullback rr=1.0,False,net,5128,641.0,0.3939,-0.4685,-30.0677,3477,666.7,0.4386,-0.2908,-16.3355,1012.0301
+Al Brooks,M5,H2/L2,ema_touch=1 good_bar=1 stop=pullback rr=1.0,False,gross,5121,640.1,0.486,-0.0247,-1.2829,3476,666.5,0.4856,-0.0399,-2.2458,144.9984
+Al Brooks,M5,H2/L2,ema_touch=1 good_bar=1 stop=pullback rr=2.0,False,net,5026,628.2,0.2845,-0.4279,-20.7708,3382,648.4,0.3001,-0.2714,-11.2732,920.046
+Al Brooks,M5,H2/L2,ema_touch=1 good_bar=1 stop=pullback rr=2.0,False,gross,4998,624.8,0.3439,0.03,1.2288,3374,646.9,0.3334,-0.0157,-0.6351,107.3244
+Al Brooks,M5,H1/L1,ema_touch=0 good_bar=0 stop=signal bar rr=1.0,False,net,59270,7408.8,0.2584,-0.8465,-193.5954,38776,7434.6,0.3284,-0.571,-108.9212,22140.5437
+Al Brooks,M5,H1/L1,ema_touch=0 good_bar=0 stop=signal bar rr=1.0,False,gross,58257,7282.1,0.3988,-0.2114,-46.6156,38485,7378.8,0.407,-0.1931,-35.8655,7436.6257
+Al Brooks,M5,H1/L1,ema_touch=0 good_bar=0 stop=signal bar rr=2.0,False,net,53801,6725.1,0.1974,-0.8084,-141.8655,33950,6509.3,0.2324,-0.5359,-74.0337,18196.6083
+Al Brooks,M5,H1/L1,ema_touch=0 good_bar=0 stop=signal bar rr=2.0,False,gross,51643,6455.4,0.2866,-0.1514,-23.747,33063,6339.2,0.2877,-0.1464,-18.7776,4855.3738
+Al Brooks,M5,H1/L1,ema_touch=0 good_bar=0 stop=pullback rr=1.0,False,net,58689,7336.1,0.2758,-0.7923,-180.6464,38392,7361.0,0.3407,-0.5355,-104.6216,20560.8403
+Al Brooks,M5,H1/L1,ema_touch=0 good_bar=0 stop=pullback rr=1.0,False,gross,57691,7211.4,0.4114,-0.1863,-40.6339,38104,7305.8,0.4162,-0.1736,-32.9638,6619.2483
+Al Brooks,M5,H1/L1,ema_touch=0 good_bar=0 stop=pullback rr=2.0,False,net,52533,6566.6,0.2071,-0.755,-129.8374,33166,6359.0,0.2404,-0.4998,-69.1334,16580.4341
+Al Brooks,M5,H1/L1,ema_touch=0 good_bar=0 stop=pullback rr=2.0,False,gross,50405,6300.6,0.2927,-0.132,-20.2937,32296,6192.2,0.2929,-0.1297,-16.6821,4207.2816
+Al Brooks,M5,H1/L1,ema_touch=0 good_bar=1 stop=signal bar rr=1.0,False,net,29145,3643.1,0.3077,-0.732,-116.5502,19930,3821.2,0.385,-0.451,-57.8876,8990.1307
+Al Brooks,M5,H1/L1,ema_touch=0 good_bar=1 stop=signal bar rr=1.0,False,gross,28962,3620.2,0.4401,-0.1316,-21.2896,19880,3811.6,0.4511,-0.1074,-13.6813,2143.1683
+Al Brooks,M5,H1/L1,ema_touch=0 good_bar=1 stop=signal bar rr=2.0,False,net,27608,3451.0,0.2357,-0.6849,-83.2251,18392,3526.3,0.271,-0.417,-39.5558,7677.5164
+Al Brooks,M5,H1/L1,ema_touch=0 good_bar=1 stop=signal bar rr=2.0,False,gross,27168,3396.0,0.3164,-0.0651,-7.4427,18207,3490.9,0.3166,-0.0626,-5.7003,1167.5017
+Al Brooks,M5,H1/L1,ema_touch=0 good_bar=1 stop=pullback rr=1.0,False,net,28998,3624.8,0.3244,-0.6777,-108.6482,19811,3798.4,0.3941,-0.4213,-56.5823,8349.0457
+Al Brooks,M5,H1/L1,ema_touch=0 good_bar=1 stop=pullback rr=1.0,False,gross,28805,3600.6,0.449,-0.1135,-18.2471,19763,3789.2,0.4577,-0.0924,-12.2998,1839.5955
+Al Brooks,M5,H1/L1,ema_touch=0 good_bar=1 stop=pullback rr=2.0,False,net,27206,3400.8,0.2434,-0.6345,-75.8076,18130,3476.1,0.2769,-0.3873,-37.4251,7030.0249
+Al Brooks,M5,H1/L1,ema_touch=0 good_bar=1 stop=pullback rr=2.0,False,gross,26750,3343.8,0.3189,-0.0561,-6.2974,17948,3441.2,0.3202,-0.0508,-4.7038,933.1361
+Al Brooks,M5,H1/L1,ema_touch=1 good_bar=0 stop=signal bar rr=1.0,False,net,15919,1989.9,0.3052,-0.7282,-85.7383,11200,2147.4,0.3697,-0.4691,-49.1184,5255.8025
+Al Brooks,M5,H1/L1,ema_touch=1 good_bar=0 stop=signal bar rr=1.0,False,gross,15729,1966.1,0.4386,-0.126,-13.4862,11124,2132.8,0.4452,-0.1152,-11.7293,1286.5921
+Al Brooks,M5,H1/L1,ema_touch=1 good_bar=0 stop=signal bar rr=2.0,False,net,15360,1920.0,0.2253,-0.7011,-63.6275,10701,2051.7,0.258,-0.4443,-34.3512,4757.4481
+Al Brooks,M5,H1/L1,ema_touch=1 good_bar=0 stop=signal bar rr=2.0,False,gross,15028,1878.5,0.3085,-0.0806,-6.448,10540,2020.9,0.3077,-0.0868,-6.3015,926.6244
+Al Brooks,M5,H1/L1,ema_touch=1 good_bar=0 stop=pullback rr=1.0,False,net,15801,1975.1,0.3282,-0.6539,-77.9344,11117,2131.5,0.3855,-0.4231,-44.6014,4704.6878
+Al Brooks,M5,H1/L1,ema_touch=1 good_bar=0 stop=pullback rr=1.0,False,gross,15604,1950.5,0.454,-0.0965,-10.2232,11037,2116.1,0.457,-0.0898,-9.2112,997.534
+Al Brooks,M5,H1/L1,ema_touch=1 good_bar=0 stop=pullback rr=2.0,False,net,15159,1894.9,0.2385,-0.6278,-56.4094,10555,2023.7,0.2696,-0.3943,-30.1583,4165.2931
+Al Brooks,M5,H1/L1,ema_touch=1 good_bar=0 stop=pullback rr=2.0,False,gross,14821,1852.6,0.3169,-0.0563,-4.4322,10385,1991.1,0.3162,-0.0607,-4.3742,643.1573
+Al Brooks,M5,H1/L1,ema_touch=1 good_bar=1 stop=signal bar rr=1.0,False,net,9793,1224.1,0.331,-0.6751,-60.8747,7013,1344.6,0.3977,-0.4051,-33.8073,2841.6041
+Al Brooks,M5,H1/L1,ema_touch=1 good_bar=1 stop=signal bar rr=1.0,False,gross,9744,1218.0,0.4552,-0.1028,-9.4989,6985,1339.2,0.4633,-0.0762,-6.3115,534.9717
+Al Brooks,M5,H1/L1,ema_touch=1 good_bar=1 stop=signal bar rr=2.0,False,net,9555,1194.4,0.2455,-0.6411,-44.5197,6814,1306.5,0.2744,-0.3872,-23.7036,2641.9121
+Al Brooks,M5,H1/L1,ema_touch=1 good_bar=1 stop=signal bar rr=2.0,False,gross,9443,1180.4,0.3221,-0.0504,-3.3398,6755,1295.2,0.3177,-0.0546,-3.2006,377.6856
+Al Brooks,M5,H1/L1,ema_touch=1 good_bar=1 stop=pullback rr=1.0,False,net,9754,1219.2,0.3524,-0.6048,-55.5198,6978,1337.9,0.4076,-0.3725,-30.9596,2600.2805
+Al Brooks,M5,H1/L1,ema_touch=1 good_bar=1 stop=pullback rr=1.0,False,gross,9700,1212.5,0.4669,-0.0803,-7.3768,6951,1332.7,0.4709,-0.0604,-4.9814,425.4531
+Al Brooks,M5,H1/L1,ema_touch=1 good_bar=1 stop=pullback rr=2.0,False,net,9475,1184.4,0.2568,-0.5722,-39.6429,6754,1295.0,0.2831,-0.3492,-21.1111,2362.6491
+Al Brooks,M5,H1/L1,ema_touch=1 good_bar=1 stop=pullback rr=2.0,False,gross,9354,1169.2,0.3271,-0.035,-2.3051,6692,1283.1,0.3246,-0.0355,-2.061,253.3406
+Al Brooks,M5,random candle,ema_touch=0 good_bar=0 stop=signal bar rr=1.0,True,net,6954,869.2,0.2945,-0.7388,-58.6571,4919,943.1,0.3623,-0.4847,-34.1517,2384.2867
+Al Brooks,M5,random candle,ema_touch=0 good_bar=0 stop=signal bar rr=1.0,True,gross,7053,881.6,0.4221,-0.1662,-13.6268,4815,923.2,0.4206,-0.1625,-11.2716,794.42
+Al Brooks,M5,random candle,ema_touch=0 good_bar=0 stop=signal bar rr=2.0,True,net,6782,847.8,0.2213,-0.7124,-42.1682,4678,896.9,0.2486,-0.46,-23.602,2153.9283
+Al Brooks,M5,random candle,ema_touch=0 good_bar=0 stop=signal bar rr=2.0,True,gross,6970,871.2,0.2934,-0.1349,-7.9222,4513,865.3,0.3049,-0.0971,-4.5813,447.1502
+Al Brooks,M5,random candle,ema_touch=0 good_bar=1 stop=signal bar rr=1.0,True,net,4709,588.6,0.3444,-0.6128,-39.8224,3252,623.5,0.4022,-0.3871,-21.9078,1262.9159
+Al Brooks,M5,random candle,ema_touch=0 good_bar=1 stop=signal bar rr=1.0,True,gross,4648,581.0,0.4533,-0.1037,-6.8089,3265,626.0,0.4567,-0.0988,-5.3036,329.4854
+Al Brooks,M5,random candle,ema_touch=0 good_bar=1 stop=signal bar rr=2.0,True,net,4540,567.5,0.2588,-0.5646,-27.5011,3221,617.6,0.2729,-0.3735,-15.5751,1205.0518
+Al Brooks,M5,random candle,ema_touch=0 good_bar=1 stop=signal bar rr=2.0,True,gross,4490,561.2,0.3203,-0.0595,-2.7317,3202,613.9,0.3032,-0.1147,-3.7859,377.2859
+Al Brooks,M15,H2/L2,ema_touch=0 good_bar=0 stop=signal bar rr=1.0,False,net,6996,874.5,0.3289,-0.5675,-45.8307,4240,812.9,0.3616,-0.4185,-27.3823,1775.2205
+Al Brooks,M15,H2/L2,ema_touch=0 good_bar=0 stop=signal bar rr=1.0,False,gross,6985,873.1,0.4135,-0.1802,-14.5162,4235,812.0,0.4156,-0.177,-11.3564,752.616
+Al Brooks,M15,H2/L2,ema_touch=0 good_bar=0 stop=signal bar rr=2.0,False,net,6811,851.4,0.2387,-0.5216,-31.0312,4095,785.1,0.2603,-0.3667,-17.6336,1505.2331
+Al Brooks,M15,H2/L2,ema_touch=0 good_bar=0 stop=signal bar rr=2.0,False,gross,6775,846.9,0.3001,-0.1138,-6.4324,4083,782.8,0.302,-0.112,-5.1626,475.7853
+Al Brooks,M15,H2/L2,ema_touch=0 good_bar=0 stop=pullback rr=1.0,False,net,6723,840.4,0.4104,-0.3396,-27.0739,4065,779.4,0.4374,-0.2216,-14.0343,903.7414
+Al Brooks,M15,H2/L2,ema_touch=0 good_bar=0 stop=pullback rr=1.0,False,gross,6723,840.4,0.4671,-0.0717,-5.7063,4065,779.4,0.4723,-0.0587,-3.7045,251.026
+Al Brooks,M15,H2/L2,ema_touch=0 good_bar=0 stop=pullback rr=2.0,False,net,6263,782.9,0.2912,-0.3025,-17.2577,3750,719.0,0.3072,-0.1964,-8.7902,744.8812
+Al Brooks,M15,H2/L2,ema_touch=0 good_bar=0 stop=pullback rr=2.0,False,gross,6229,778.6,0.3339,-0.0229,-1.2622,3742,717.5,0.3322,-0.0337,-1.4752,174.2795
+Al Brooks,M15,H2/L2,ema_touch=0 good_bar=1 stop=signal bar rr=1.0,False,net,3495,436.9,0.3866,-0.4334,-23.732,2216,424.9,0.4134,-0.3159,-14.3423,701.7641
+Al Brooks,M15,H2/L2,ema_touch=0 good_bar=1 stop=signal bar rr=1.0,False,gross,3494,436.8,0.4594,-0.0841,-4.8237,2215,424.7,0.4501,-0.114,-5.1385,267.9041
+Al Brooks,M15,H2/L2,ema_touch=0 good_bar=1 stop=signal bar rr=2.0,False,net,3441,430.1,0.2758,-0.4016,-15.9887,2174,416.8,0.2958,-0.2649,-8.8669,581.674
+Al Brooks,M15,H2/L2,ema_touch=0 good_bar=1 stop=signal bar rr=2.0,False,gross,3439,429.9,0.3309,-0.0204,-0.7942,2169,415.9,0.3241,-0.0533,-1.7391,172.7854
+Al Brooks,M15,H2/L2,ema_touch=0 good_bar=1 stop=pullback rr=1.0,False,net,3437,429.6,0.4402,-0.2777,-15.4617,2178,417.6,0.4504,-0.1965,-9.0681,429.6992
+Al Brooks,M15,H2/L2,ema_touch=0 good_bar=1 stop=pullback rr=1.0,False,gross,3436,429.5,0.4863,-0.0344,-1.923,2178,417.6,0.4775,-0.0512,-2.3547,134.5474
+Al Brooks,M15,H2/L2,ema_touch=0 good_bar=1 stop=pullback rr=2.0,False,net,3311,413.9,0.3141,-0.2349,-9.4823,2094,401.5,0.3152,-0.1746,-5.7951,372.4346
+Al Brooks,M15,H2/L2,ema_touch=0 good_bar=1 stop=pullback rr=2.0,False,gross,3302,412.8,0.3462,0.0134,0.5288,2090,400.7,0.3344,-0.0273,-0.8892,112.5066
+Al Brooks,M15,H2/L2,ema_touch=1 good_bar=0 stop=signal bar rr=1.0,False,net,3007,375.9,0.3439,-0.5256,-26.6726,1987,381.0,0.3815,-0.3682,-16.2381,733.4008
+Al Brooks,M15,H2/L2,ema_touch=1 good_bar=0 stop=signal bar rr=1.0,False,gross,3002,375.2,0.4267,-0.1519,-7.9594,1986,380.8,0.435,-0.1381,-6.0087,292.5995
+Al Brooks,M15,H2/L2,ema_touch=1 good_bar=0 stop=signal bar rr=2.0,False,net,2966,370.8,0.2495,-0.474,-17.3936,1946,373.1,0.2631,-0.3497,-11.5528,686.159
+Al Brooks,M15,H2/L2,ema_touch=1 good_bar=0 stop=signal bar rr=2.0,False,gross,2952,369.0,0.3096,-0.0821,-2.9064,1941,372.2,0.3035,-0.1102,-3.5019,241.1373
+Al Brooks,M15,H2/L2,ema_touch=1 good_bar=0 stop=pullback rr=1.0,False,net,2930,366.2,0.4382,-0.2707,-14.0668,1939,371.8,0.4446,-0.2009,-8.7548,393.0346
+Al Brooks,M15,H2/L2,ema_touch=1 good_bar=0 stop=pullback rr=1.0,False,gross,2930,366.2,0.484,-0.0344,-1.7916,1939,371.8,0.475,-0.0552,-2.4099,130.3253
+Al Brooks,M15,H2/L2,ema_touch=1 good_bar=0 stop=pullback rr=2.0,False,net,2809,351.1,0.3072,-0.2431,-9.0612,1860,356.6,0.3027,-0.2068,-6.5634,390.4946
+Al Brooks,M15,H2/L2,ema_touch=1 good_bar=0 stop=pullback rr=2.0,False,gross,2795,349.4,0.3431,0.005,0.1806,1857,356.0,0.3226,-0.067,-2.0956,139.1535
+Al Brooks,M15,H2/L2,ema_touch=1 good_bar=1 stop=signal bar rr=1.0,False,net,1692,211.5,0.3924,-0.4078,-14.6717,1185,227.2,0.4135,-0.3035,-10.0593,365.6649
+Al Brooks,M15,H2/L2,ema_touch=1 good_bar=1 stop=signal bar rr=1.0,False,gross,1691,211.4,0.4577,-0.088,-3.5044,1185,227.2,0.4506,-0.1115,-3.6745,148.3693
+Al Brooks,M15,H2/L2,ema_touch=1 good_bar=1 stop=signal bar rr=2.0,False,net,1675,209.4,0.28,-0.3682,-9.5751,1168,223.9,0.286,-0.285,-7.0725,342.0506
+Al Brooks,M15,H2/L2,ema_touch=1 good_bar=1 stop=signal bar rr=2.0,False,gross,1674,209.2,0.3303,-0.0229,-0.5943,1166,223.6,0.3165,-0.0767,-1.8535,110.6668
+Al Brooks,M15,H2/L2,ema_touch=1 good_bar=1 stop=pullback rr=1.0,False,net,1677,209.6,0.4526,-0.2433,-9.2711,1169,224.1,0.444,-0.2036,-6.8614,240.6622
+Al Brooks,M15,H2/L2,ema_touch=1 good_bar=1 stop=pullback rr=1.0,False,gross,1676,209.5,0.4887,-0.0261,-1.0015,1170,224.3,0.4701,-0.0677,-2.2763,90.0385
+Al Brooks,M15,H2/L2,ema_touch=1 good_bar=1 stop=pullback rr=2.0,False,net,1635,204.4,0.3205,-0.2073,-5.7741,1141,218.8,0.305,-0.2005,-4.9599,236.4301
+Al Brooks,M15,H2/L2,ema_touch=1 good_bar=1 stop=pullback rr=2.0,False,gross,1630,203.8,0.3466,0.015,0.4108,1141,218.8,0.3225,-0.066,-1.6062,89.6984
+Al Brooks,M15,H1/L1,ema_touch=0 good_bar=0 stop=signal bar rr=1.0,False,net,19199,2399.9,0.3267,-0.5468,-74.7604,12321,2362.3,0.3694,-0.3868,-42.9932,4765.8588
+Al Brooks,M15,H1/L1,ema_touch=0 good_bar=0 stop=signal bar rr=1.0,False,gross,19070,2383.8,0.3988,-0.2048,-27.2911,12293,2357.0,0.4121,-0.1802,-19.6528,2215.8273
+Al Brooks,M15,H1/L1,ema_touch=0 good_bar=0 stop=signal bar rr=2.0,False,net,17062,2132.8,0.2337,-0.505,-48.4323,10614,2035.0,0.2583,-0.3487,-27.0345,3706.0279
+Al Brooks,M15,H1/L1,ema_touch=0 good_bar=0 stop=signal bar rr=2.0,False,gross,16699,2087.4,0.284,-0.1576,-14.2565,10464,2006.3,0.2906,-0.1378,-10.261,1452.5806
+Al Brooks,M15,H1/L1,ema_touch=0 good_bar=0 stop=pullback rr=1.0,False,net,19001,2375.1,0.3446,-0.5011,-67.3445,12173,2334.0,0.379,-0.3608,-39.713,4392.3456
+Al Brooks,M15,H1/L1,ema_touch=0 good_bar=0 stop=pullback rr=1.0,False,gross,18881,2360.1,0.411,-0.1837,-21.7081,12136,2326.9,0.4206,-0.1629,-17.5919,1977.4132
+Al Brooks,M15,H1/L1,ema_touch=0 good_bar=0 stop=pullback rr=2.0,False,net,16583,2072.9,0.2439,-0.4632,-43.6854,10324,1979.4,0.2638,-0.3275,-24.9335,3384.3332
+Al Brooks,M15,H1/L1,ema_touch=0 good_bar=0 stop=pullback rr=2.0,False,gross,16253,2031.6,0.2908,-0.1425,-11.8807,10160,1948.0,0.2958,-0.1235,-9.0264,1261.1654
+Al Brooks,M15,H1/L1,ema_touch=0 good_bar=1 stop=signal bar rr=1.0,False,net,9513,1189.1,0.3795,-0.433,-40.8941,6413,1229.6,0.4179,-0.2827,-22.6788,1813.2125
+Al Brooks,M15,H1/L1,ema_touch=0 good_bar=1 stop=signal bar rr=1.0,False,gross,9498,1187.2,0.4445,-0.1112,-10.4231,6405,1228.0,0.4512,-0.1018,-8.1245,652.9041
+Al Brooks,M15,H1/L1,ema_touch=0 good_bar=1 stop=signal bar rr=2.0,False,net,8896,1112.0,0.2672,-0.3997,-27.2836,5903,1131.8,0.2877,-0.257,-14.4242,1521.1754
+Al Brooks,M15,H1/L1,ema_touch=0 good_bar=1 stop=signal bar rr=2.0,False,gross,8831,1103.9,0.3106,-0.0784,-5.1829,5878,1127.0,0.3135,-0.0708,-3.8928,422.8701
+Al Brooks,M15,H1/L1,ema_touch=0 good_bar=1 stop=pullback rr=1.0,False,net,9444,1180.5,0.3963,-0.3888,-36.4453,6374,1222.1,0.4241,-0.2639,-21.1031,1682.1535
+Al Brooks,M15,H1/L1,ema_touch=0 good_bar=1 stop=pullback rr=1.0,False,gross,9432,1179.0,0.4524,-0.1023,-7.8099,6362,1219.8,0.4543,-0.0958,-7.6181,610.1621
+Al Brooks,M15,H1/L1,ema_touch=0 good_bar=1 stop=pullback rr=2.0,False,net,8720,1090.0,0.278,-0.3562,-23.8425,5804,1112.8,0.2914,-0.241,-13.3826,1402.6344
+Al Brooks,M15,H1/L1,ema_touch=0 good_bar=1 stop=pullback rr=2.0,False,gross,8676,1084.5,0.3169,-0.0688,-3.9572,5779,1108.0,0.3148,-0.0688,-3.7535,403.6238
+Al Brooks,M15,H1/L1,ema_touch=1 good_bar=0 stop=signal bar rr=1.0,False,net,5245,655.6,0.3762,-0.4281,-29.4883,3617,693.5,0.3989,-0.3134,-18.961,1137.4603
+Al Brooks,M15,H1/L1,ema_touch=1 good_bar=0 stop=signal bar rr=1.0,False,gross,5228,653.5,0.4441,-0.1095,-7.4535,3614,692.9,0.4361,-0.1291,-7.7604,479.6768
+Al Brooks,M15,H1/L1,ema_touch=1 good_bar=0 stop=signal bar rr=2.0,False,net,5025,628.1,0.2601,-0.4095,-20.9003,3428,657.3,0.2803,-0.277,-11.9201,959.5471
+Al Brooks,M15,H1/L1,ema_touch=1 good_bar=0 stop=signal bar rr=2.0,False,gross,4970,621.2,0.3095,-0.0811,-4.0016,3417,655.1,0.309,-0.0844,-3.5415,307.252
+Al Brooks,M15,H1/L1,ema_touch=1 good_bar=0 stop=pullback rr=1.0,False,net,5202,650.2,0.4004,-0.3667,-25.0489,3590,688.3,0.4111,-0.2809,-16.8503,1012.3538
+Al Brooks,M15,H1/L1,ema_touch=1 good_bar=0 stop=pullback rr=1.0,False,gross,5184,648.0,0.4608,-0.0764,-5.1801,3586,687.6,0.447,-0.1076,-6.4076,398.8792
+Al Brooks,M15,H1/L1,ema_touch=1 good_bar=0 stop=pullback rr=2.0,False,net,4944,618.0,0.2767,-0.3451,-17.2716,3379,647.9,0.2894,-0.2435,-10.3478,834.9506
+Al Brooks,M15,H1/L1,ema_touch=1 good_bar=0 stop=pullback rr=2.0,False,gross,4888,611.0,0.3206,-0.0503,-2.4443,3359,644.0,0.3174,-0.0623,-2.5813,231.1123
+Al Brooks,M15,H1/L1,ema_touch=1 good_bar=1 stop=signal bar rr=1.0,False,net,3137,392.1,0.3988,-0.3753,-19.2849,2216,424.9,0.431,-0.2451,-11.5271,547.087
+Al Brooks,M15,H1/L1,ema_touch=1 good_bar=1 stop=signal bar rr=1.0,False,gross,3138,392.2,0.463,-0.0674,-3.4336,2214,424.5,0.4616,-0.0797,-3.7385,184.4398
+Al Brooks,M15,H1/L1,ema_touch=1 good_bar=1 stop=signal bar rr=2.0,False,net,3066,383.2,0.2723,-0.3654,-14.1068,2145,411.3,0.2965,-0.2257,-7.6227,492.9398
+Al Brooks,M15,H1/L1,ema_touch=1 good_bar=1 stop=signal bar rr=2.0,False,gross,3054,381.8,0.3189,-0.0492,-1.8584,2137,409.7,0.3234,-0.0432,-1.4239,105.2315
+Al Brooks,M15,H1/L1,ema_touch=1 good_bar=1 stop=pullback rr=1.0,False,net,3123,390.4,0.4188,-0.3238,-16.5884,2204,422.6,0.4392,-0.2211,-10.3728,489.8996
+Al Brooks,M15,H1/L1,ema_touch=1 good_bar=1 stop=pullback rr=1.0,False,gross,3121,390.1,0.4729,-0.0479,-2.4425,2201,422.0,0.468,-0.0673,-3.1483,154.1798
+Al Brooks,M15,H1/L1,ema_touch=1 good_bar=1 stop=pullback rr=2.0,False,net,3030,378.8,0.2901,-0.3008,-11.4158,2123,407.0,0.3019,-0.2046,-6.8593,440.3438
+Al Brooks,M15,H1/L1,ema_touch=1 good_bar=1 stop=pullback rr=2.0,False,gross,3016,377.0,0.3309,-0.0167,-0.6237,2113,405.1,0.3261,-0.0377,-1.2384,90.0535
+Al Brooks,M15,random candle,ema_touch=0 good_bar=0 stop=signal bar rr=1.0,True,net,2276,284.5,0.3594,-0.456,-20.9945,1588,304.5,0.3822,-0.3557,-14.4212,565.8146
+Al Brooks,M15,random candle,ema_touch=0 good_bar=0 stop=signal bar rr=1.0,True,gross,2276,284.5,0.4271,-0.1472,-7.0173,1578,302.6,0.4265,-0.1493,-5.9334,236.5883
+Al Brooks,M15,random candle,ema_touch=0 good_bar=0 stop=signal bar rr=2.0,True,net,2230,278.8,0.2596,-0.4271,-13.4817,1543,295.8,0.2683,-0.3226,-9.4914,497.8344
+Al Brooks,M15,random candle,ema_touch=0 good_bar=0 stop=signal bar rr=2.0,True,gross,2263,282.9,0.2934,-0.131,-4.3222,1561,299.3,0.2992,-0.1153,-3.2513,207.9947
+Al Brooks,M15,random candle,ema_touch=0 good_bar=1 stop=signal bar rr=1.0,True,net,1501,187.6,0.4204,-0.3365,-12.1145,1122,215.1,0.4376,-0.2407,-7.7574,274.663
+Al Brooks,M15,random candle,ema_touch=0 good_bar=1 stop=signal bar rr=1.0,True,gross,1530,191.2,0.4418,-0.1466,-4.2809,1099,210.7,0.4704,-0.0559,-1.803,64.4099
+Al Brooks,M15,random candle,ema_touch=0 good_bar=1 stop=signal bar rr=2.0,True,net,1452,181.5,0.2948,-0.293,-7.5213,1090,209.0,0.2844,-0.2651,-6.4952,298.6768
+Al Brooks,M15,random candle,ema_touch=0 good_bar=1 stop=signal bar rr=2.0,True,gross,1500,187.5,0.3307,-0.0452,-1.0038,1012,194.0,0.3014,-0.1034,-2.4041,129.744
+Al Brooks,H1,H2/L2,ema_touch=0 good_bar=0 stop=signal bar rr=1.0,False,net,1864,233.0,0.3578,-0.4058,-17.266,1131,216.8,0.359,-0.3777,-12.4025,427.6353
+Al Brooks,H1,H2/L2,ema_touch=0 good_bar=0 stop=signal bar rr=1.0,False,gross,1864,233.0,0.4099,-0.2018,-8.4547,1131,216.8,0.3811,-0.259,-8.4846,293.62
+Al Brooks,H1,H2/L2,ema_touch=0 good_bar=0 stop=signal bar rr=2.0,False,net,1841,230.1,0.2705,-0.3395,-10.9003,1109,212.6,0.2606,-0.3377,-8.4579,376.0191
+Al Brooks,H1,H2/L2,ema_touch=0 good_bar=0 stop=signal bar rr=2.0,False,gross,1839,229.9,0.3045,-0.1365,-4.2612,1109,212.6,0.2777,-0.2157,-5.3414,240.9103
+Al Brooks,H1,H2/L2,ema_touch=0 good_bar=0 stop=pullback rr=1.0,False,net,1828,228.5,0.4464,-0.1798,-7.7162,1107,212.2,0.4399,-0.1707,-5.7165,194.0092
+Al Brooks,H1,H2/L2,ema_touch=0 good_bar=0 stop=pullback rr=1.0,False,gross,1828,228.5,0.4803,-0.0501,-2.1501,1106,212.1,0.4539,-0.0982,-3.288,113.9695
+Al Brooks,H1,H2/L2,ema_touch=0 good_bar=0 stop=pullback rr=2.0,False,net,1748,218.5,0.3307,-0.1435,-4.4957,1063,203.8,0.3293,-0.1283,-3.1379,145.3552
+Al Brooks,H1,H2/L2,ema_touch=0 good_bar=0 stop=pullback rr=2.0,False,gross,1746,218.2,0.3591,-0.0036,-0.1116,1063,203.8,0.3434,-0.0444,-1.0771,63.9149
+Al Brooks,H1,H2/L2,ema_touch=0 good_bar=1 stop=signal bar rr=1.0,False,net,895,111.9,0.4089,-0.3149,-8.72,535,102.6,0.4075,-0.2874,-6.0804,156.6963
+Al Brooks,H1,H2/L2,ema_touch=0 good_bar=1 stop=signal bar rr=1.0,False,gross,895,111.9,0.4514,-0.1354,-3.7456,535,102.6,0.4318,-0.1706,-3.6227,95.011
+Al Brooks,H1,H2/L2,ema_touch=0 good_bar=1 stop=signal bar rr=2.0,False,net,887,110.9,0.3202,-0.2051,-4.2993,527,101.0,0.2979,-0.2403,-3.9113,134.9251
+Al Brooks,H1,H2/L2,ema_touch=0 good_bar=1 stop=signal bar rr=2.0,False,gross,887,110.9,0.3506,-0.0228,-0.471,527,101.0,0.315,-0.1276,-2.0704,76.6378
+Al Brooks,H1,H2/L2,ema_touch=0 good_bar=1 stop=pullback rr=1.0,False,net,890,111.2,0.4742,-0.1331,-3.9766,531,101.8,0.4501,-0.1394,-3.2613,81.7462
+Al Brooks,H1,H2/L2,ema_touch=0 good_bar=1 stop=pullback rr=1.0,False,gross,891,111.4,0.4972,-0.0292,-0.8771,531,101.8,0.4576,-0.0868,-2.0361,56.3925
+Al Brooks,H1,H2/L2,ema_touch=0 good_bar=1 stop=pullback rr=2.0,False,net,873,109.1,0.3677,-0.045,-0.9777,519,99.5,0.3391,-0.0925,-1.5837,71.0995
+Al Brooks,H1,H2/L2,ema_touch=0 good_bar=1 stop=pullback rr=2.0,False,gross,873,109.1,0.3918,0.072,1.5522,519,99.5,0.3468,-0.0386,-0.6621,45.8252
+Al Brooks,H1,H2/L2,ema_touch=1 good_bar=0 stop=signal bar rr=1.0,False,net,762,95.2,0.3924,-0.3314,-8.5183,456,87.4,0.3947,-0.2874,-6.2516,132.4551
+Al Brooks,H1,H2/L2,ema_touch=1 good_bar=0 stop=signal bar rr=1.0,False,gross,762,95.2,0.4318,-0.1582,-4.0385,456,87.4,0.4123,-0.1912,-4.1564,88.934
+Al Brooks,H1,H2/L2,ema_touch=1 good_bar=0 stop=signal bar rr=2.0,False,net,758,94.8,0.3061,-0.2458,-4.8355,448,85.9,0.2812,-0.2746,-4.4847,127.2573
+Al Brooks,H1,H2/L2,ema_touch=1 good_bar=0 stop=signal bar rr=2.0,False,gross,758,94.8,0.3311,-0.0745,-1.443,448,85.9,0.2924,-0.1845,-2.9991,87.3706
+Al Brooks,H1,H2/L2,ema_touch=1 good_bar=0 stop=pullback rr=1.0,False,net,754,94.2,0.4708,-0.1284,-3.5496,447,85.7,0.4676,-0.1039,-2.2612,50.0781
+Al Brooks,H1,H2/L2,ema_touch=1 good_bar=0 stop=pullback rr=1.0,False,gross,753,94.1,0.49,-0.0368,-1.0233,447,85.7,0.4832,-0.04,-0.8705,24.4318
+Al Brooks,H1,H2/L2,ema_touch=1 good_bar=0 stop=pullback rr=2.0,False,net,735,91.9,0.3741,-0.0399,-0.8049,435,83.4,0.3586,-0.0636,-1.009,36.8099
+Al Brooks,H1,H2/L2,ema_touch=1 good_bar=0 stop=pullback rr=2.0,False,gross,734,91.8,0.3883,0.0496,0.9984,436,83.6,0.3693,-0.005,-0.0785,27.4941
+Al Brooks,H1,H2/L2,ema_touch=1 good_bar=1 stop=signal bar rr=1.0,False,net,420,52.5,0.4238,-0.289,-5.1419,254,48.7,0.4213,-0.2332,-3.8008,64.0921
+Al Brooks,H1,H2/L2,ema_touch=1 good_bar=1 stop=signal bar rr=1.0,False,gross,420,52.5,0.4571,-0.1318,-2.3548,254,48.7,0.4488,-0.1267,-2.0606,37.8973
+Al Brooks,H1,H2/L2,ema_touch=1 good_bar=1 stop=signal bar rr=2.0,False,net,419,52.4,0.3413,-0.1654,-2.2945,250,47.9,0.296,-0.2417,-2.9653,72.1519
+Al Brooks,H1,H2/L2,ema_touch=1 good_bar=1 stop=signal bar rr=2.0,False,gross,419,52.4,0.3628,-0.007,-0.0961,250,47.9,0.308,-0.1627,-1.9957,53.5273
+Al Brooks,H1,H2/L2,ema_touch=1 good_bar=1 stop=pullback rr=1.0,False,net,418,52.2,0.4809,-0.1258,-2.5928,250,47.9,0.468,-0.0963,-1.5806,29.3737
+Al Brooks,H1,H2/L2,ema_touch=1 good_bar=1 stop=pullback rr=1.0,False,gross,418,52.2,0.4952,-0.043,-0.895,250,47.9,0.48,-0.0462,-0.7588,20.4548
+Al Brooks,H1,H2/L2,ema_touch=1 good_bar=1 stop=pullback rr=2.0,False,net,413,51.6,0.3971,0.0148,0.221,245,47.0,0.3469,-0.0965,-1.1701,38.6135
+Al Brooks,H1,H2/L2,ema_touch=1 good_bar=1 stop=pullback rr=2.0,False,gross,413,51.6,0.4068,0.0915,1.3714,245,47.0,0.3551,-0.0571,-0.6941,29.6614
+Al Brooks,H1,H1/L1,ema_touch=0 good_bar=0 stop=signal bar rr=1.0,False,net,4784,598.0,0.3637,-0.3803,-26.5723,3072,589.0,0.3857,-0.2903,-16.3384,900.6795
+Al Brooks,H1,H1/L1,ema_touch=0 good_bar=0 stop=signal bar rr=1.0,False,gross,4765,595.6,0.409,-0.1946,-13.3524,3068,588.2,0.4038,-0.1935,-10.8343,606.1617
+Al Brooks,H1,H1/L1,ema_touch=0 good_bar=0 stop=signal bar rr=2.0,False,net,4364,545.5,0.2745,-0.3231,-16.3376,2756,528.4,0.2863,-0.2431,-9.7737,689.252
+Al Brooks,H1,H1/L1,ema_touch=0 good_bar=0 stop=signal bar rr=2.0,False,gross,4318,539.8,0.3069,-0.138,-6.7241,2744,526.1,0.3032,-0.1345,-5.3073,389.6047
+Al Brooks,H1,H1/L1,ema_touch=0 good_bar=0 stop=pullback rr=1.0,False,net,4730,591.2,0.3869,-0.3256,-22.518,3024,579.8,0.4008,-0.2542,-14.1623,777.5616
+Al Brooks,H1,H1/L1,ema_touch=0 good_bar=0 stop=pullback rr=1.0,False,gross,4715,589.4,0.4274,-0.1571,-10.6747,3022,579.4,0.4166,-0.1661,-9.2278,514.4454
+Al Brooks,H1,H1/L1,ema_touch=0 good_bar=0 stop=pullback rr=2.0,False,net,4271,533.9,0.2889,-0.2766,-13.7044,2691,516.0,0.3003,-0.2034,-8.0283,564.6687
+Al Brooks,H1,H1/L1,ema_touch=0 good_bar=0 stop=pullback rr=2.0,False,gross,4229,528.6,0.3195,-0.1037,-4.956,2681,514.0,0.3144,-0.1065,-4.1376,303.8218
+Al Brooks,H1,H1/L1,ema_touch=0 good_bar=1 stop=signal bar rr=1.0,False,net,2366,295.8,0.4087,-0.2879,-13.8981,1640,314.4,0.4299,-0.1989,-8.0936,335.5741
+Al Brooks,H1,H1/L1,ema_touch=0 good_bar=1 stop=signal bar rr=1.0,False,gross,2368,296.0,0.4447,-0.1232,-5.899,1638,314.1,0.4432,-0.1162,-4.7126,200.2639
+Al Brooks,H1,H1/L1,ema_touch=0 good_bar=1 stop=signal bar rr=2.0,False,net,2245,280.6,0.3122,-0.2156,-7.5618,1540,295.3,0.3091,-0.1623,-4.6572,274.6216
+Al Brooks,H1,H1/L1,ema_touch=0 good_bar=1 stop=signal bar rr=2.0,False,gross,2243,280.4,0.3433,-0.0344,-1.1732,1539,295.1,0.3229,-0.0684,-1.9374,139.3552
+Al Brooks,H1,H1/L1,ema_touch=0 good_bar=1 stop=pullback rr=1.0,False,net,2358,294.8,0.433,-0.2283,-11.0141,1623,311.2,0.4418,-0.1622,-6.398,281.241
+Al Brooks,H1,H1/L1,ema_touch=0 good_bar=1 stop=pullback rr=1.0,False,gross,2356,294.5,0.4639,-0.0807,-3.8457,1623,311.2,0.4522,-0.0896,-3.5289,163.9369
+Al Brooks,H1,H1/L1,ema_touch=0 good_bar=1 stop=pullback rr=2.0,False,net,2222,277.8,0.3272,-0.1669,-5.7967,1517,290.9,0.3197,-0.1332,-3.8368,223.7894
+Al Brooks,H1,H1/L1,ema_touch=0 good_bar=1 stop=pullback rr=2.0,False,gross,2218,277.2,0.3562,0.0008,0.0268,1517,290.9,0.3309,-0.0511,-1.4569,122.8423
+Al Brooks,H1,H1/L1,ema_touch=1 good_bar=0 stop=signal bar rr=1.0,False,net,1189,148.6,0.3835,-0.3271,-11.5117,822,157.6,0.4148,-0.2263,-6.6136,193.1823
+Al Brooks,H1,H1/L1,ema_touch=1 good_bar=0 stop=signal bar rr=1.0,False,gross,1188,148.5,0.4158,-0.1844,-6.4188,822,157.6,0.427,-0.1519,-4.4189,135.7693
+Al Brooks,H1,H1/L1,ema_touch=1 good_bar=0 stop=signal bar rr=2.0,False,net,1155,144.4,0.3022,-0.2518,-6.5406,799,153.2,0.3029,-0.1938,-4.182,170.5904
+Al Brooks,H1,H1/L1,ema_touch=1 good_bar=0 stop=signal bar rr=2.0,False,gross,1152,144.0,0.3273,-0.1082,-2.7486,796,152.6,0.3141,-0.1093,-2.3252,105.737
+Al Brooks,H1,H1/L1,ema_touch=1 good_bar=0 stop=pullback rr=1.0,False,net,1181,147.6,0.4115,-0.2624,-9.1754,814,156.1,0.4337,-0.1763,-5.1244,149.8164
+Al Brooks,H1,H1/L1,ema_touch=1 good_bar=0 stop=pullback rr=1.0,False,gross,1182,147.8,0.4391,-0.1342,-4.5747,814,156.1,0.4509,-0.0973,-2.8163,88.4416
+Al Brooks,H1,H1/L1,ema_touch=1 good_bar=0 stop=pullback rr=2.0,False,net,1142,142.8,0.3214,-0.1964,-5.0348,788,151.1,0.3147,-0.1596,-3.4253,138.2254
+Al Brooks,H1,H1/L1,ema_touch=1 good_bar=0 stop=pullback rr=2.0,False,gross,1141,142.6,0.3444,-0.0622,-1.5502,785,150.5,0.3287,-0.0717,-1.5143,71.2325
+Al Brooks,H1,H1/L1,ema_touch=1 good_bar=1 stop=signal bar rr=1.0,False,net,691,86.4,0.3994,-0.2935,-7.7621,504,96.6,0.4425,-0.1725,-3.9153,101.2014
+Al Brooks,H1,H1/L1,ema_touch=1 good_bar=1 stop=signal bar rr=1.0,False,gross,693,86.6,0.4286,-0.159,-4.1604,504,96.6,0.4524,-0.102,-2.3022,68.4676
+Al Brooks,H1,H1/L1,ema_touch=1 good_bar=1 stop=signal bar rr=2.0,False,net,683,85.4,0.3089,-0.2368,-4.7069,498,95.5,0.3173,-0.1521,-2.5643,91.5409
+Al Brooks,H1,H1/L1,ema_touch=1 good_bar=1 stop=signal bar rr=2.0,False,gross,684,85.5,0.3333,-0.0935,-1.8168,498,95.5,0.3253,-0.0767,-1.28,55.9823
+Al Brooks,H1,H1/L1,ema_touch=1 good_bar=1 stop=pullback rr=1.0,False,net,689,86.1,0.4253,-0.2376,-6.2553,500,95.9,0.442,-0.1559,-3.5526,90.6661
+Al Brooks,H1,H1/L1,ema_touch=1 good_bar=1 stop=pullback rr=1.0,False,gross,690,86.2,0.4478,-0.1159,-2.943,500,95.9,0.454,-0.0869,-1.9685,58.5151
+Al Brooks,H1,H1/L1,ema_touch=1 good_bar=1 stop=pullback rr=2.0,False,net,679,84.9,0.3299,-0.1796,-3.5325,493,94.5,0.3164,-0.1502,-2.5589,88.4202
+Al Brooks,H1,H1/L1,ema_touch=1 good_bar=1 stop=pullback rr=2.0,False,gross,679,84.9,0.3505,-0.049,-0.9332,493,94.5,0.3245,-0.0791,-1.3331,55.2747
+Al Brooks,H1,random candle,ema_touch=0 good_bar=0 stop=signal bar rr=1.0,True,net,607,75.9,0.3493,-0.3979,-9.8854,412,79.0,0.3495,-0.3451,-7.4036,143.0252
+Al Brooks,H1,random candle,ema_touch=0 good_bar=0 stop=signal bar rr=1.0,True,gross,574,71.8,0.4303,-0.1486,-3.6166,378,72.5,0.3968,-0.2188,-4.4401,84.7145
+Al Brooks,H1,random candle,ema_touch=0 good_bar=0 stop=signal bar rr=2.0,True,net,568,71.0,0.3028,-0.2573,-4.6378,373,71.5,0.2895,-0.2234,-3.3423,100.6484
+Al Brooks,H1,random candle,ema_touch=0 good_bar=0 stop=signal bar rr=2.0,True,gross,525,65.6,0.3143,-0.1193,-2.0476,386,74.0,0.3031,-0.1537,-2.2934,73.9905
+Al Brooks,H1,random candle,ema_touch=0 good_bar=1 stop=signal bar rr=1.0,True,net,340,42.5,0.4765,-0.1199,-2.1418,276,52.9,0.4312,-0.1954,-3.3036,55.8055
+Al Brooks,H1,random candle,ema_touch=0 good_bar=1 stop=signal bar rr=1.0,True,gross,369,46.1,0.5149,0.0364,0.6798,242,46.4,0.4421,-0.0924,-1.4357,24.352
+Al Brooks,H1,random candle,ema_touch=0 good_bar=1 stop=signal bar rr=2.0,True,net,355,44.4,0.338,-0.1416,-1.9177,286,54.8,0.3566,-0.033,-0.4089,27.5813
+Al Brooks,H1,random candle,ema_touch=0 good_bar=1 stop=signal bar rr=2.0,True,gross,369,46.1,0.3171,-0.1198,-1.7646,271,52.0,0.3469,-0.0526,-0.6519,21.9964

@@ -1,1 +1,32 @@
-# hayati
+<div dir="rtl">
+
+# hayati — استراتژی «خلأ حجم عمودی» روی طلا (XAUUSD)
+
+اکسپرت متاتریدر ۵، تحقیق بک‌تست و گزارش بهینه‌سازی برای استراتژی آبشاری خلأ حجم (Pine v3).
+
+**گزارش کامل (فارسی): [docs/REPORT_fa.md](docs/REPORT_fa.md)** — اول این را بخوانید.
+
+**اساتید ایرانی (RTM، CRT، ۱-۲-۳ تقی‌خان، CTS مقراضی) + جمع‌بندی نهایی: [docs/REPORT_iranian_fa.md](docs/REPORT_iranian_fa.md)**
+
+**استراتژی‌های خارجی (ICT، آل بروکس، شکست رنج سشن، لاکپشت‌ها) + جمع‌بندی کل پروژه: [docs/REPORT_foreign_fa.md](docs/REPORT_foreign_fa.md)**
+
+**استراتژی‌های پورصمدی (SP2L، Pro BTB، MicroMAP): [docs/REPORT_poursamadi_fa.md](docs/REPORT_poursamadi_fa.md)** — تنها مواردی که خارج از نمونه مزیت نشان دادند.
+
+خلاصه: روی داده‌ی ۲۰۱۲ تا ۲۰۲۵، نسخه‌ی H1 با هیچ حد ضرر/ریواردی بعد از هزینه‌ها سودده نشد؛
+تنها نسخه‌ی نزدیک به سربه‌سر، باکس H4 + پین‌بار نزدیک باکس + حد ضرر پشت باکس + ریوارد ۲٫۵ است
+که از نظر آماری قطعی نیست. جزئیات، جدول‌ها و راهنمای تست در متاتریدر در گزارش آمده است.
+
+## فایل‌ها
+
+| مسیر | توضیح |
+|---|---|
+| `mql5/Experts/PoursamadiEA.mq5` | **اکسپرت SP2L (H1) + Pro BTB (M15) پورصمدی با ضدمارتینگل** — تنظیمات: `mql5/Presets/Poursamadi_*.set` — راهنمای نصب و تست: [docs/GUIDE_PoursamadiEA_fa.md](docs/GUIDE_PoursamadiEA_fa.md) و نسخه‌ی تصویری [docs/GUIDE_PoursamadiEA_fa.html](docs/GUIDE_PoursamadiEA_fa.html) |
+| `mql5/Experts/VolumeGapCascadeEA.mq5` | اکسپرت MT5 (کل منطق Pine + ورود لیمیت/پین‌بار، SL/TP، مدیریت ریسک، آمار R، معیار بهینه‌سازی) |
+| `mql5/Presets/*.set` | تنظیمات آماده: پیش‌فرض H4 پین‌بار، نسخه‌ی وفادار به Pine (H1، ۴ باکس)، بازه‌های بهینه‌سازی |
+| `mql5/Scripts/ExportBarsCSV.mq5` | خروجی گرفتن دیتای M1 با تیک‌ولوم از لایت‌فایننس برای تکرار تحقیق |
+| `pine/VertVolGap_v3.pine` | کد اصلی Pine شما (مرجع) |
+| `research/` | موتور بک‌تست پایتون (کپی دقیق منطق Pine) + اسکریپت‌های بهینه‌سازی، Walk-forward و نمودارها |
+| `research/results/` | جدول‌ها و نمودارهای خلاصه‌ی نتایج |
+| `tools/mql5_check/` | بررسی نحوی و اجرای رفتاری اکسپرت بدون متاتریدر (مقایسه با موتور پایتون) |
+
+</div>

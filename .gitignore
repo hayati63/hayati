@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+tools/mql5_check/_work/
+research/results/grid_pess*.csv
+research/results/grid_heur*.csv
+research/results/yearly_grid.parquet
+research/results/trades_*.csv
+*.ex5
