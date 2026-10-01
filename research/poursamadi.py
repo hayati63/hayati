@@ -82,8 +82,9 @@ def try_fill(d, et, E, o, h, l, s):
 
 
 @njit(cache=True)
-def manage(t, o, h, l, c, spr, d, f, fp, S, T1, T2, frac, hold):
-    """Returns (pnl per unit, exit bar, outcome) - outcome 1 = full stop, 2 = targets, 3 = time."""
+def manage(t, o, h, l, c, spr, d, f, fp, S, T1, T2, frac, hold, be_px):
+    """Returns (pnl per unit, exit bar, outcome) - outcome 1 = full stop, 2 = targets, 3 = time.
+    be_px: once a later candle trades there, the stop moves to the entry price (nan = off)."""
     n = len(t)
     deadline = t[f] + hold
     rem1, rem2 = frac, 1.0 - frac
@@ -144,6 +145,8 @@ def manage(t, o, h, l, c, spr, d, f, fp, S, T1, T2, frac, hold):
         if rem2 > 0 and d * (hi - T2) >= 0:
             pnl += rem2 * d * (T2 - fp)
             rem2 = 0.0
+        if not np.isnan(be_px) and d * (hi - be_px) >= 0 and d * (S - fp) < 0:
+            S = fp
     return pnl, j, 2
 
 
@@ -186,7 +189,7 @@ def count_spikes(O, H, L, C, atr, ns, m, gap):
 # ------------------------------------------------------------------------------------------
 @njit(cache=True)
 def sp2l(t, o, h, l, c, spr, d, O, H, L, C, atr, ns, m, wait, rr1, rr2, frac, hold, rand_mask, comm,
-         out_sig, out_fill, out_r1, out_rc):
+         out_sig, out_fill, out_r1, out_rc, be_r=0.0, out_x=np.zeros(1, dtype=np.int64)):
     """out_r1 = R of the main entry; out_rc = R of main + 50% add-on (risk = both legs)."""
     n = len(t)
     cnt = 0
@@ -212,20 +215,23 @@ def sp2l(t, o, h, l, c, spr, d, O, H, L, C, atr, ns, m, wait, rr1, rr2, frac, ho
                 continue
             risk = Ed - Sd
             T1, T2 = d * (Ed + rr1 * risk), d * (Ed + rr2 * risk)
-            p1, x, _ = manage(t, o, h, l, c, spr, d, j, fp, S, T1, T2, frac, hold)
+            bep = d * (Ed + be_r * risk) if be_r > 0 else np.nan
+            p1, x, _ = manage(t, o, h, l, c, spr, d, j, fp, S, T1, T2, frac, hold, bep)
             # add-on at the midpoint, valid while the trade is open
             Md = 0.5 * (Ed + Sd)
             p2, r2 = 0.0, 0.5 * risk
             for jj in range(j, x + 1):
                 fp2 = try_fill(d, 0, d * Md, o[jj], h[jj], l[jj], spr[jj])
                 if not np.isnan(fp2):
-                    q, _, _ = manage(t, o, h, l, c, spr, d, jj, fp2, S, T1, T2, frac, hold)
+                    q, _, _ = manage(t, o, h, l, c, spr, d, jj, fp2, S, T1, T2, frac, hold, bep)
                     p2 = q - comm
                     break
             out_sig[cnt] = k
             out_fill[cnt] = j
             out_r1[cnt] = (p1 - comm) / risk
             out_rc[cnt] = (p1 - comm + p2) / (risk + r2)
+            if len(out_x) > 1:
+                out_x[cnt] = x
             cnt += 1
             busy = x
             break
@@ -237,11 +243,14 @@ def sp2l(t, o, h, l, c, spr, d, O, H, L, C, atr, ns, m, wait, rr1, rr2, frac, ho
 # ------------------------------------------------------------------------------------------
 @njit(cache=True)
 def btb(t, o, h, l, c, spr, d, O, H, L, C, lev_at, lev_val, mode, strong, exp, rr1, rr2, frac, hold, comm,
-        out_sig, out_fill, out_r):
-    """lev_at[k] / lev_val[k]: a new level (det space) becomes known at bar k (nan = none)."""
+        out_sig, out_fill, out_r, be_r=0.0, out_x=np.zeros(1, dtype=np.int64), min_lv=0):
+    """lev_val[k]: a new level (det space) becomes known at bar k (nan = none).
+    min_lv = 0: one trade per broken level (a candle breaking 3 levels opens 3 identical trades);
+    min_lv >= 1: one trade per breakout candle, only if it broke at least min_lv levels at once."""
     n = len(t)
     act = np.empty(4096)
     age = np.empty(4096, dtype=np.int64)
+    crossed = np.empty(4096)
     na = 0
     cnt = 0
     for k in range(1, n - 1):
@@ -252,77 +261,92 @@ def btb(t, o, h, l, c, spr, d, O, H, L, C, lev_at, lev_val, mode, strong, exp, r
                 na += 1
         if na == 0:
             continue
-        # breakouts on this candle
+        # levels broken (closed through) by this candle; expired levels are dropped
+        nc = 0
         i = 0
         while i < na:
             lv = act[i]
-            if k - age[i] > 2000:
+            if k - age[i] > 2000 or (C[k] > lv and C[k - 1] <= lv):
+                if k - age[i] <= 2000:
+                    crossed[nc] = lv
+                    nc += 1
                 act[i] = act[na - 1]
                 age[i] = age[na - 1]
                 na -= 1
+            else:
+                i += 1
+        if nc == 0:
+            continue
+        if min_lv > 0:
+            if nc < min_lv:
                 continue
-            if C[k] > lv and C[k - 1] <= lv:
-                act[i] = act[na - 1]
-                age[i] = age[na - 1]
-                na -= 1
-                rng = H[k] - L[k]
-                if strong and not (rng > 0 and C[k] > O[k] and (C[k] - L[k]) >= 0.667 * rng and (C[k] - O[k]) >= 0.5 * rng):
+            top = crossed[0]
+            for q in range(1, nc):
+                if crossed[q] > top:
+                    top = crossed[q]
+            crossed[0] = top
+            nc = 1
+        for q in range(nc):
+            lv = crossed[q]
+            rng = H[k] - L[k]
+            if strong and not (rng > 0 and C[k] > O[k] and (C[k] - L[k]) >= 0.667 * rng and (C[k] - O[k]) >= 0.5 * rng):
+                continue
+            BE, Sd, Hk = C[k], L[k], H[k]
+            if BE <= Sd:
+                continue
+            f, fp, Ed = -1, np.nan, 0.0
+            if mode == 1 or mode == 4:
+                Ed = BE if mode == 1 else lv
+                if Ed <= Sd:
                     continue
-                BE, Sd, Hk = C[k], L[k], H[k]
-                if BE <= Sd:
+                for j in range(k + 1, min(n, k + 1 + exp)):
+                    fp = try_fill(d, 0, d * Ed, o[j], h[j], l[j], spr[j])
+                    if not np.isnan(fp):
+                        f = j
+                        break
+            else:
+                r = -1
+                for j in range(k + 1, min(n, k + 1 + exp)):
+                    if C[j] <= Sd:
+                        break
+                    if L[j] <= BE:
+                        if mode == 5 or C[j] > BE:
+                            r = j
+                            break
+                if r < 0 or r + 1 >= n:
                     continue
-                f, fp, Ed, et = -1, np.nan, 0.0, 0
-                if mode == 1 or mode == 4:
-                    Ed = BE if mode == 1 else lv
+                if mode == 3:
+                    f = r + 1
+                    fp = try_fill(d, 2, 0.0, o[f], h[f], l[f], spr[f])
+                    Ed = d * fp  # chart entry = the fill
+                else:
+                    Ed = H[r] if mode == 2 else Hk
                     if Ed <= Sd:
                         continue
-                    for j in range(k + 1, min(n, k + 1 + exp)):
-                        fp = try_fill(d, 0, d * Ed, o[j], h[j], l[j], spr[j])
+                    for j in range(r + 1, min(n, r + 1 + exp)):
+                        fp = try_fill(d, 1, d * Ed, o[j], h[j], l[j], spr[j])
                         if not np.isnan(fp):
                             f = j
                             break
-                else:
-                    r = -1
-                    for j in range(k + 1, min(n, k + 1 + exp)):
-                        if C[j] <= Sd:
+                        if L[j] <= Sd:
                             break
-                        if L[j] <= BE:
-                            if mode == 5 or C[j] > BE:
-                                r = j
-                                break
-                    if r < 0 or r + 1 >= n:
-                        continue
-                    if mode == 3:
-                        f, et = r + 1, 2
-                        fp = try_fill(d, 2, 0.0, o[f], h[f], l[f], spr[f])
-                        Ed = d * fp  # chart entry = the fill
-                    else:
-                        Ed = H[r] if mode == 2 else Hk
-                        if Ed <= Sd:
-                            continue
-                        for j in range(r + 1, min(n, r + 1 + exp)):
-                            fp = try_fill(d, 1, d * Ed, o[j], h[j], l[j], spr[j])
-                            if not np.isnan(fp):
-                                f = j
-                                break
-                            if L[j] <= Sd:
-                                break
-                if f < 0 or np.isnan(fp):
-                    continue
-                risk = Ed - Sd
-                if risk <= 0:
-                    continue
-                S = d * Sd
-                if d * (fp - S) <= 0:
-                    continue
-                p, x, _ = manage(t, o, h, l, c, spr, d, f, fp, S, d * (Ed + rr1 * risk), d * (Ed + rr2 * risk),
-                                 frac, hold)
-                out_sig[cnt] = k
-                out_fill[cnt] = f
-                out_r[cnt] = (p - comm) / risk
-                cnt += 1
-            else:
-                i += 1
+            if f < 0 or np.isnan(fp):
+                continue
+            risk = Ed - Sd
+            if risk <= 0:
+                continue
+            S = d * Sd
+            if d * (fp - S) <= 0:
+                continue
+            bep = d * (Ed + be_r * risk) if be_r > 0 else np.nan
+            p, x, _ = manage(t, o, h, l, c, spr, d, f, fp, S, d * (Ed + rr1 * risk), d * (Ed + rr2 * risk),
+                             frac, hold, bep)
+            out_sig[cnt] = k
+            out_fill[cnt] = f
+            out_r[cnt] = (p - comm) / risk
+            if len(out_x) > 1:
+                out_x[cnt] = x
+            cnt += 1
     return cnt
 
 
@@ -389,7 +413,7 @@ def micromap(t, o, h, l, c, spr, d, O, H, L, C, atr, ns, m, mc_min, rr1, rr2, fr
             if np.isnan(fp) or risk <= 0 or d * (fp - d * Sd) <= 0:
                 break
             p, x, oc = manage(t, o, h, l, c, spr, d, f, fp, d * Sd, d * (Ed + rr1 * risk), d * (Ed + rr2 * risk),
-                              frac, hold)
+                              frac, hold, np.nan)
             out_sig[cnt] = k
             out_fill[cnt] = f
             out_att[cnt] = att
@@ -584,7 +608,7 @@ def run_tf(base, tf, out_rows, rng):
 
 
 def trade_list(base, tf, strategy, ns=3, m=1.0, mc=2, lvl="prevday", strong=1, mode=3, entry="main",
-               mgmt="RR2", cost_mult=1.0, gross=False):
+               mgmt="RR2", cost_mult=1.0, gross=False, be_r=0.0, min_lv=0):
     """Trade-level results (time, dir, R) for one configuration (used by poursamadi_check.py)."""
     df = resample(base, tf)
     df = df[df.time >= "2011-09-01"].reset_index(drop=True)
@@ -601,10 +625,11 @@ def trade_list(base, tf, strategy, ns=3, m=1.0, mc=2, lvl="prevday", strong=1, m
     for d in (1, -1):
         O, H, L, C = det_arrays(df, d)
         s, f = np.zeros(n, dtype=np.int64), np.zeros(n, dtype=np.int64)
-        r, r2 = np.zeros(n), np.zeros(n)
+        r, r2, xo = np.zeros(n), np.zeros(n), np.zeros(n, dtype=np.int64)
         none = np.full(1, -1, dtype=np.int64)
         if strategy == "SP2L":
-            k = sp2l(t, o, h, l, c, spr, d, O, H, L, C, atr, ns, m, 12, rr1, rr2, frac, HOLD_MIN, none, cm, s, f, r, r2)
+            k = sp2l(t, o, h, l, c, spr, d, O, H, L, C, atr, ns, m, 12, rr1, rr2, frac, HOLD_MIN, none, cm, s, f, r, r2,
+                     be_r, xo)
             rr = r2[:k] if entry == "main+50%" else r[:k]
         elif strategy == "MicroMAP":
             a = np.zeros(n, dtype=np.int64)
@@ -612,11 +637,12 @@ def trade_list(base, tf, strategy, ns=3, m=1.0, mc=2, lvl="prevday", strong=1, m
             rr = r[:k]
         else:
             k = btb(t, o, h, l, c, spr, d, O, H, L, C, np.zeros(1, dtype=np.int64), levels(df, d, lvl), mode, strong,
-                    100, rr1, rr2, frac, HOLD_MIN, cm, s, f, r)
+                    100, rr1, rr2, frac, HOLD_MIN, cm, s, f, r, be_r, xo, min_lv)
             rr = r[:k]
-        out.append(pd.DataFrame({"sig": s[:k], "fill": f[:k], "dir": d, "R": rr}))
+        out.append(pd.DataFrame({"sig": s[:k], "fill": f[:k], "exit": xo[:k], "dir": d, "R": rr}))
     tl = pd.concat(out, ignore_index=True)
     tl["time"] = df.time.values[tl.fill.values]
+    tl["exit_time"] = df.time.values[tl.exit.values] + np.timedelta64(TFS[tf], "m")
     tl["window"] = window[tl.fill.values]
     tl["trend_ok"] = tr[tl.sig.values] == tl.dir.values
     return tl[tl.time >= "2012-01-01"].sort_values("time").reset_index(drop=True)
